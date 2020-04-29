@@ -96,3 +96,11 @@ The complete message overhead for LXMF is only 163 bytes, which in return gives 
 ## Caveat Emptor
 
 As with Reticulum, LXMF is alpha software, and should be considered experimental. While it has been built with cryptography best-practices very foremost in mind, it _has not_ been externally security audited, and there could very well be privacy-breaking bugs. If you want to help out, or help sponsor an audit, please do get in touch.
+
+## Installation
+
+If you want to try out LXMF, you can install it with pip:
+
+```bash
+pip3 install lxmf
+```
