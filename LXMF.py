@@ -166,17 +166,17 @@ class LXMessage:
 		self.timestamp = time.time()
 		self.payload = [self.timestamp, self.title, self.content, self.fields]
 
-		hashed_part  = b""
-		hashed_part += self.__destination.hash
-		hashed_part += self.__source.hash
-		hashed_part += msgpack.packb(self.timestamp)
-		hashed_part += msgpack.packb(self.payload)
-		self.hash    = RNS.Identity.fullHash(hashed_part)
+		hashed_part      = b""
+		hashed_part     += self.__destination.hash
+		hashed_part     += self.__source.hash
+		hashed_part     += msgpack.packb(self.payload)
+		self.hash        = RNS.Identity.fullHash(hashed_part)
+		self.message_id  = self.hash
 		
-		signed_part  = b""
-		signed_part += hashed_part
-		signed_part += self.hash
-		self.signature =  self.__source.sign(signed_part)
+		signed_part      = b""
+		signed_part     += hashed_part
+		signed_part     += self.hash
+		self.signature   = self.__source.sign(signed_part)
 
 		self.packed      = b""
 		self.packed     += self.__destination.hash
