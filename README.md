@@ -80,7 +80,7 @@ LXMF uses encryption provided by [Reticulum](https://github.com/markqvist/reticu
 
 - If a message is delivered to the Reticulum GROUP destination type, the message will be transported using _AES-128_ encryption.
 
-- If a message is delivered over a Reticulum link (which is the default method), the message will be encrypted with _ephemeral ECDH_ on the _SECP256R1_ curve. This mode offers Perfect Forward Secrecy.
+- If a message is delivered over a Reticulum link (which is the default method), the message will be encrypted with _ephemeral_ keys derived with _ECDH_ on the _SECP256R1_ curve. This mode offers Perfect Forward Secrecy.
 
 ## Wire Format & Overhead
 
