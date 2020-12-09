@@ -29,8 +29,8 @@ LXMF messages are stored in a simple and efficient format, that's easy to parse 
     - The __Signature__ field is a RSA signature of the __Destination__, __Source__, __Payload__ and __message-id__
     - The __Payload__ part is a list containing four items:
         1. The __Timestamp__ is a double-precision floating point number representing the number of seconds since the UNIX epoch.
-        2. The __Content__ is an optional title for the message
-        3. The __Title__ is the optional content or body of the message
+        2. The __Content__ is the optional content or body of the message
+        3. The __Title__  is an optional title for the message
         4. The __Fields__ is an optional dictionary
 
 3. The __Content__, __Title__ and __Fields__ parts must be included in the message structure, but can be left empty.

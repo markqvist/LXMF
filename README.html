@@ -745,8 +745,8 @@ pre {
 <li>Payload
 <ul>
 <li>Timestamp</li>
-<li>Title</li>
 <li>Content</li>
+<li>Title</li>
 <li>Fields</li>
 </ul>
 </li>
@@ -766,16 +766,16 @@ pre {
 </li>
 <li>The <strong>Payload</strong> part is a list containing four items:
 <ol>
-<li>The <strong>Timestamp</strong> is double-precision floating point number representing the number of seconds since the UNIX epoch.</li>
-<li>The <strong>Title</strong> is an optional title for the message</li>
+<li>The <strong>Timestamp</strong> is a double-precision floating point number representing the number of seconds since the UNIX epoch.</li>
 <li>The <strong>Content</strong> is the optional content or body of the message</li>
+<li>The <strong>Title</strong>  is an optional title for the message</li>
 <li>The <strong>Fields</strong> is an optional dictionary</li>
 </ol>
 </li>
 </ul>
 </li>
 <li>
-<p>The <strong>Title</strong>, <strong>Content</strong> and <strong>Fields</strong> parts must be included in the message structure, but can be left empty.</p>
+<p>The <strong>Content</strong>, <strong>Title</strong> and <strong>Fields</strong> parts must be included in the message structure, but can be left empty.</p>
 </li>
 <li>
 <p>The <strong>Fields</strong> part can be left empty, or contain a dictionary of any structure or depth.</p>
@@ -805,14 +805,13 @@ pre {
 <a id="user-content-the-lxm-router" class="anchor" href="#the-lxm-router" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>The LXM Router</h2>
 <p>The LXM Router handles transporting messages over a Reticulum network, managing delivery receipts, outbound and inbound queues, and is the point of API interaction for client programs. The LXM Router also implements functionality for acting as an LXMF Propagation Node.</p>
 <p>Programatically, using the LXM Router to send a message is as simple as:</p>
-<div class="highlight highlight-source-python"><pre><span class="pl-k">import</span> <span class="pl-c1">LXMF</span>
+<div class="highlight highlight-source-python"><pre><span class="pl-k">import</span> <span class="pl-v">LXMF</span>
 
-lxm_router <span class="pl-k">=</span> <span class="pl-c1">LXMF</span>.LXMRouter()
+<span class="pl-s1">lxm_router</span> <span class="pl-c1">=</span> <span class="pl-v">LXMF</span>.<span class="pl-v">LXMRouter</span>()
 
-message <span class="pl-k">=</span> <span class="pl-c1">LXMF</span>.LXMessage(destination, source, <span class="pl-s"><span class="pl-pds">"</span>This is a short, simple message.<span class="pl-pds">"</span></span>)
+<span class="pl-s1">message</span> <span class="pl-c1">=</span> <span class="pl-v">LXMF</span>.<span class="pl-v">LXMessage</span>(<span class="pl-s1">destination</span>, <span class="pl-s1">source</span>, <span class="pl-s">"This is a short, simple message."</span>)
 
-lxm_router.handle_outbound(message)
-</pre></div>
+<span class="pl-s1">lxm_router</span>.<span class="pl-en">handle_outbound</span>(<span class="pl-s1">message</span>)</pre></div>
 <p>The LXM Router then handles the heavy lifting, such as message packing, encryption, delivery confirmation, path lookup, routing, retries and failure notifications.</p>
 <h2>
 <a id="user-content-transport-encryption" class="anchor" href="#transport-encryption" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Transport Encryption</h2>
