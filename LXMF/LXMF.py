@@ -281,23 +281,48 @@ class LXMessage:
 		self.progress = 0.0
 		return RNS.Resource(self.packed, self.__delivery_destination, callback = self.__resource_concluded, progress_callback = self.__update_transfer_progress)
 
+	def write_to_directory(self, directory_path):
+		file_name = RNS.hexrep(self.hash, delimit=False)
+		file_path = directory_path+"/"+file_name
+
+		try:
+			if not self.packed:
+				self.pack()
+
+			file = open(file_path, "wb")
+			file.write(self.packed)
+			file.close()
+
+		except Exception as e:
+			RNS.log("Error while writing LXMF message to file \""+str(file_path)+"\". The contained exception was: "+str(e), RNS.LOG_ERROR)
+
+
 	@staticmethod
 	def unpack_from_bytes(lxmf_bytes):
-		destination_hash = lxmf_bytes[:LXMessage.DESTINATION_LENGTH]
-		source_hash      = lxmf_bytes[LXMessage.DESTINATION_LENGTH:2*LXMessage.DESTINATION_LENGTH]
-		signature        = lxmf_bytes[2*LXMessage.DESTINATION_LENGTH:2*LXMessage.DESTINATION_LENGTH+LXMessage.SIGNATURE_LENGTH]
-		packed_payload   = lxmf_bytes[2*LXMessage.DESTINATION_LENGTH+LXMessage.SIGNATURE_LENGTH:]
-		hashed_part      = b"" + destination_hash + source_hash + packed_payload
-		message_hash     = RNS.Identity.fullHash(hashed_part)
-		signed_part      = b"" + hashed_part + message_hash
-		unpacked_payload = msgpack.unpackb(packed_payload)
-		destination      = RNS.Identity.recall(destination_hash)
-		source_identity  = RNS.Identity.recall(source_hash)
-		source           = RNS.Destination(source_identity, RNS.Destination.OUT, RNS.Destination.SINGLE, APP_NAME, "delivery")
-		timestamp        = unpacked_payload[0]
-		title_bytes      = unpacked_payload[1]
-		content_bytes    = unpacked_payload[2]
-		fields           = unpacked_payload[3]
+		destination_hash     = lxmf_bytes[:LXMessage.DESTINATION_LENGTH]
+		source_hash          = lxmf_bytes[LXMessage.DESTINATION_LENGTH:2*LXMessage.DESTINATION_LENGTH]
+		signature            = lxmf_bytes[2*LXMessage.DESTINATION_LENGTH:2*LXMessage.DESTINATION_LENGTH+LXMessage.SIGNATURE_LENGTH]
+		packed_payload       = lxmf_bytes[2*LXMessage.DESTINATION_LENGTH+LXMessage.SIGNATURE_LENGTH:]
+		hashed_part          = b"" + destination_hash + source_hash + packed_payload
+		message_hash         = RNS.Identity.fullHash(hashed_part)
+		signed_part          = b"" + hashed_part + message_hash
+		unpacked_payload     = msgpack.unpackb(packed_payload)
+		timestamp            = unpacked_payload[0]
+		title_bytes          = unpacked_payload[1]
+		content_bytes        = unpacked_payload[2]
+		fields               = unpacked_payload[3]
+
+		destination_identity = RNS.Identity.recall(destination_hash)
+		if destination_identity != None:
+			destination = RNS.Destination(destination_identity, RNS.Destination.OUT, RNS.Destination.SINGLE, APP_NAME, "delivery")
+		else:
+			destination = None
+		
+		source_identity = RNS.Identity.recall(source_hash)
+		if source_identity != None:
+			source = RNS.Destination(source_identity, RNS.Destination.OUT, RNS.Destination.SINGLE, APP_NAME, "delivery")
+		else:
+			source = None
 
 		message = LXMessage(
 			destination = destination,
@@ -308,11 +333,12 @@ class LXMessage:
 			destination_hash = destination_hash,
 			source_hash = source_hash)
 
-		message.hash      = message_hash
-		message.signature = signature
-		message.incoming  = True
-		message.timestamp = timestamp
-		message.packed    = lxmf_bytes
+		message.hash        = message_hash
+		message.signature   = signature
+		message.incoming    = True
+		message.timestamp   = timestamp
+		message.packed      = lxmf_bytes
+		message.packed_size = len(lxmf_bytes)
 		message.set_title_from_bytes(title_bytes)
 		message.set_content_from_bytes(content_bytes)
 
@@ -326,12 +352,20 @@ class LXMessage:
 			else:
 				signature_validated = False
 				message.unverified_reason = LXMessage.SOURCE_UNKNOWN
-				RNS.log("LXMF message signature could not be validated, since source identity is unknown")
+				RNS.log("Unpacked LXMF message signature could not be validated, since source identity is unknown", RNS.LOG_DEBUG)
 		except Exception as e:
 			message.signature_validated = False
 			RNS.log("Error while validating LXMF message signature. The contained exception was: "+str(e), RNS.LOG_ERROR)
 
 		return message
+		
+	@staticmethod
+	def unpack_from_file(lxmf_file_handle):
+		try:
+			return LXMessage.unpack_from_bytes(lxmf_file_handle.read())
+		except Exception as e:
+			RNS.log("Could not unpack LXMessage from file. The contained exception was: "+str(e), RNS.LOG_ERROR)
+			return None
 
 
 class LXMRouter:
