@@ -7,22 +7,26 @@ import RNS.vendor.umsgpack as msgpack
 APP_NAME = "lxmf"
 
 class LXMessage:
-	DRAFT           = 0x00
-	OUTBOUND        = 0x01
-	SENDING         = 0x02
-	SENT            = 0x04
-	DELIVERED       = 0x08
-	states          = [DRAFT, OUTBOUND, SENDING, SENT, DELIVERED]
+	DRAFT              = 0x00
+	OUTBOUND           = 0x01
+	SENDING            = 0x02
+	SENT               = 0x04
+	DELIVERED          = 0x08
+	states             = [DRAFT, OUTBOUND, SENDING, SENT, DELIVERED]
 
-	UNKNOWN         = 0x00
-	PACKET          = 0x01
-	RESOURCE        = 0x02
-	representations = [UNKNOWN, PACKET, RESOURCE]
+	UNKNOWN            = 0x00
+	PACKET             = 0x01
+	RESOURCE           = 0x02
+	representations    = [UNKNOWN, PACKET, RESOURCE]
 
-	OPPORTUNISTIC   = 0x01
-	DIRECT          = 0x02
-	PROPAGATED      = 0x03
-	valid_methods   = [OPPORTUNISTIC, DIRECT, PROPAGATED]
+	OPPORTUNISTIC      = 0x01
+	DIRECT             = 0x02
+	PROPAGATED         = 0x03
+	valid_methods      = [OPPORTUNISTIC, DIRECT, PROPAGATED]
+
+	SOURCE_UNKNOWN     = 0x01
+	SIGNATURE_INVALID  = 0x02
+	unverified_reasons = [SOURCE_UNKNOWN, SIGNATURE_INVALID]
 
 	DESTINATION_LENGTH = RNS.Identity.TRUNCATED_HASHLENGTH//8
 	SIGNATURE_LENGTH   = RNS.Identity.SIGLENGTH//8
@@ -100,6 +104,10 @@ class LXMessage:
 		self.state        = LXMessage.DRAFT
 		self.method       = LXMessage.UNKNOWN
 
+		self.incoming                = False
+		self.signature_validated     = False
+		self.unverified_reason       = None
+
 		self.representation          = LXMessage.UNKNOWN
 		self.desired_method          = desired_method
 		self.delivery_attempts       = 0
@@ -163,57 +171,62 @@ class LXMessage:
 		self.__delivery_destination = delivery_destination
 
 	def pack(self):
-		self.timestamp = time.time()
-		self.payload = [self.timestamp, self.title, self.content, self.fields]
+		if not self.packed:
+			self.timestamp = time.time()
+			self.payload = [self.timestamp, self.title, self.content, self.fields]
 
-		hashed_part      = b""
-		hashed_part     += self.__destination.hash
-		hashed_part     += self.__source.hash
-		hashed_part     += msgpack.packb(self.payload)
-		self.hash        = RNS.Identity.fullHash(hashed_part)
-		self.message_id  = self.hash
-		
-		signed_part      = b""
-		signed_part     += hashed_part
-		signed_part     += self.hash
-		self.signature   = self.__source.sign(signed_part)
+			hashed_part      = b""
+			hashed_part     += self.__destination.hash
+			hashed_part     += self.__source.hash
+			hashed_part     += msgpack.packb(self.payload)
+			self.hash        = RNS.Identity.fullHash(hashed_part)
+			self.message_id  = self.hash
+			
+			signed_part      = b""
+			signed_part     += hashed_part
+			signed_part     += self.hash
+			self.signature   = self.__source.sign(signed_part)
+			self.signature_validated = True
 
-		self.packed      = b""
-		self.packed     += self.__destination.hash
-		self.packed     += self.__source.hash
-		self.packed     += self.signature
-		packed_payload   = msgpack.packb(self.payload)
-		self.packed     += packed_payload
-		self.packed_size = len(self.packed)
-		content_size     = len(packed_payload)
+			self.packed      = b""
+			self.packed     += self.__destination.hash
+			self.packed     += self.__source.hash
+			self.packed     += self.signature
+			packed_payload   = msgpack.packb(self.payload)
+			self.packed     += packed_payload
+			self.packed_size = len(self.packed)
+			content_size     = len(packed_payload)
 
-		# If no desired delivery method has been defined,
-		# one will be chosen according to these rules:
-		if self.desired_method == None:
-			self.desired_method == LXMessage.DIRECT
-		# TODO: Expand rules to something more intelligent
+			# If no desired delivery method has been defined,
+			# one will be chosen according to these rules:
+			if self.desired_method == None:
+				self.desired_method == LXMessage.DIRECT
+			# TODO: Expand rules to something more intelligent
 
-		if self.desired_method == LXMessage.OPPORTUNISTIC:
-			if self.__destination.type == RNS.Destination.SINGLE:
-				single_packet_content_limit = LXMessage.RSA_PACKET_MAX_CONTENT
-			elif self.__destination.type == RNS.Destination.PLAIN:
-				single_packet_content_limit = LXMessage.PLAIN_PACKET_MAX_CONTENT
+			if self.desired_method == LXMessage.OPPORTUNISTIC:
+				if self.__destination.type == RNS.Destination.SINGLE:
+					single_packet_content_limit = LXMessage.RSA_PACKET_MAX_CONTENT
+				elif self.__destination.type == RNS.Destination.PLAIN:
+					single_packet_content_limit = LXMessage.PLAIN_PACKET_MAX_CONTENT
 
-			if content_size > single_packet_content_limit:
-				raise TypeError("LXMessage desired opportunistic delivery method, but content exceeds single-packet size.")
-			else:
-				self.method = LXMessage.OPPORTUNISTIC
-				self.representation = LXMessage.PACKET
-				self.__delivery_destination = self.__destination
+				if content_size > single_packet_content_limit:
+					raise TypeError("LXMessage desired opportunistic delivery method, but content exceeds single-packet size.")
+				else:
+					self.method = LXMessage.OPPORTUNISTIC
+					self.representation = LXMessage.PACKET
+					self.__delivery_destination = self.__destination
 
-		elif self.desired_method == LXMessage.DIRECT or self.desired_method == LXMessage.PROPAGATED:
-			single_packet_content_limit = LXMessage.LINK_PACKET_MAX_CONTENT
-			if content_size <= single_packet_content_limit:
-				self.method = self.desired_method
-				self.representation = LXMessage.PACKET
-			else:
-				self.method = self.desired_method
-				self.representation = LXMessage.RESOURCE
+			elif self.desired_method == LXMessage.DIRECT or self.desired_method == LXMessage.PROPAGATED:
+				single_packet_content_limit = LXMessage.LINK_PACKET_MAX_CONTENT
+				if content_size <= single_packet_content_limit:
+					self.method = self.desired_method
+					self.representation = LXMessage.PACKET
+				else:
+					self.method = self.desired_method
+					self.representation = LXMessage.RESOURCE
+		else:
+			raise ValueError("Attempt to re-pack LXMessage "+str(self)+" that was already packed")
+
 
 	def send(self):
 		if self.method == LXMessage.OPPORTUNISTIC:
@@ -274,9 +287,13 @@ class LXMessage:
 		source_hash      = lxmf_bytes[LXMessage.DESTINATION_LENGTH:2*LXMessage.DESTINATION_LENGTH]
 		signature        = lxmf_bytes[2*LXMessage.DESTINATION_LENGTH:2*LXMessage.DESTINATION_LENGTH+LXMessage.SIGNATURE_LENGTH]
 		packed_payload   = lxmf_bytes[2*LXMessage.DESTINATION_LENGTH+LXMessage.SIGNATURE_LENGTH:]
+		hashed_part      = b"" + destination_hash + source_hash + packed_payload
+		message_hash     = RNS.Identity.fullHash(hashed_part)
+		signed_part      = b"" + hashed_part + message_hash
 		unpacked_payload = msgpack.unpackb(packed_payload)
 		destination      = RNS.Identity.recall(destination_hash)
-		source           = RNS.Identity.recall(source_hash)
+		source_identity  = RNS.Identity.recall(source_hash)
+		source           = RNS.Destination(source_identity, RNS.Destination.OUT, RNS.Destination.SINGLE, APP_NAME, "delivery")
 		timestamp        = unpacked_payload[0]
 		title_bytes      = unpacked_payload[1]
 		content_bytes    = unpacked_payload[2]
@@ -291,15 +308,31 @@ class LXMessage:
 			destination_hash = destination_hash,
 			source_hash = source_hash)
 
+		message.hash      = message_hash
+		message.signature = signature
+		message.incoming  = True
+		message.timestamp = timestamp
+		message.packed    = lxmf_bytes
 		message.set_title_from_bytes(title_bytes)
 		message.set_content_from_bytes(content_bytes)
-		message.timestamp = timestamp
+
+		try:
+			if source:
+				if source.identity.validate(signature, signed_part):
+					message.signature_validated = True
+				else:
+					message.signature_validated = False
+					message.unverified_reason = LXMessage.SIGNATURE_INVALID
+			else:
+				signature_validated = False
+				message.unverified_reason = LXMessage.SOURCE_UNKNOWN
+				RNS.log("LXMF message signature could not be validated, since source identity is unknown")
+		except Exception as e:
+			message.signature_validated = False
+			RNS.log("Error while validating LXMF message signature. The contained exception was: "+str(e), RNS.LOG_ERROR)
 
 		return message
 
-	@staticmethod
-	def unpack_from_file(lxmf_file_handle):
-		pass
 
 class LXMRouter:
 	MAX_DELIVERY_ATTEMPTS = 3
@@ -352,26 +385,30 @@ class LXMRouter:
 	def lxmf_delivery(self, lxmf_data, destination_type = None):
 		try:
 			message = LXMessage.unpack_from_bytes(lxmf_data)
+
+			if RNS.Reticulum.should_allow_unencrypted():
+				message.transport_encryption = "Consider unencrypted (Disabling encryption was allowed in Reticulum configuration)"
+			else:
+				if destination_type == RNS.Destination.SINGLE:
+					message.transport_encryption = "RSA-"+str(RNS.Identity.KEYSIZE)
+				elif destination_type == RNS.Destination.GROUP:
+					message.transport_encryption = "AES-128"
+				elif destination_type == RNS.Destination.LINK:
+					message.transport_encryption = "EC-SECP256R1"
+				else:
+					message.transport_encryption = None
+
+			if self.__delivery_callback != None:
+				self.__delivery_callback(message)
+
+			return True
+
 		except Exception as e:
 			RNS.log("Could not assemble LXMF message from received data", RNS.LOG_NOTICE)
 			RNS.log("The contained exception was: "+str(e), RNS.LOG_DEBUG)
+			raise e
+			return False
 
-		if RNS.Reticulum.should_allow_unencrypted():
-			message.transport_encryption = "Consider unencrypted (Disabling encryption was allowed in Reticulum configuration)"
-		else:
-			if destination_type == RNS.Destination.SINGLE:
-				message.transport_encryption = "RSA-"+str(RNS.Identity.KEYSIZE)
-			elif destination_type == RNS.Destination.GROUP:
-				message.transport_encryption = "AES-128"
-			elif destination_type == RNS.Destination.LINK:
-				message.transport_encryption = "EC-SECP256R1"
-			else:
-				message.transport_encryption = None
-
-		if self.__delivery_callback != None:
-			self.__delivery_callback(message)
-
-		return True
 
 	def delivery_packet(self, data, packet):
 		try:
@@ -404,7 +441,7 @@ class LXMRouter:
 	def resource_transfer_concluded(self, resource):
 		RNS.log("Transfer concluded for resource "+str(resource), RNS.LOG_DEBUG)
 		if resource.status == RNS.Resource.COMPLETE:
-			self.lxmf_delivery(resource.data, resource.link.type)
+			self.lxmf_delivery(resource.data.read(), resource.link.type)
 
 	def jobloop(self):
 		while (True):
