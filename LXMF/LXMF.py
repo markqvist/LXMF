@@ -71,6 +71,12 @@ class LXMessage:
 	PLAIN_PACKET_MDU = RNS.Packet.PLAIN_MDU
 	PLAIN_PACKET_MAX_CONTENT = PLAIN_PACKET_MDU - LXMF_OVERHEAD + DESTINATION_LENGTH
 
+	def __str__(self):
+		if self.hash != None:
+			return "<LXMessage "+RNS.hexrep(self.hash, delimit=False)+">"
+		else:
+			return "<LXMessage>"
+
 	def __init__(self, destination, source, content = "", title = "", fields = None, desired_method = None, destination_hash = None, source_hash = None):
 		if isinstance(destination, RNS.Destination) or destination == None:
 			self.__destination    = destination
@@ -406,12 +412,13 @@ class LXMRouter:
 		self.__delivery_callback = callback
 
 	def handle_outbound(self, lxmessage):
-		RNS.log("LXM Router received outbound message: "+str(lxmessage))
-		while self.processing_outbound:
-			time.sleep(0.1)
-
 		if not lxmessage.packed:
 			lxmessage.pack()
+
+		RNS.log("LXM Router received outbound message: "+str(lxmessage))
+
+		while self.processing_outbound:
+			time.sleep(0.1)
 
 		self.pending_outbound.append(lxmessage)
 		self.process_outbound()
