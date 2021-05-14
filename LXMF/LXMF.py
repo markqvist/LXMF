@@ -263,7 +263,7 @@ class LXMessage:
 		if self.__delivery_callback != None:
 			self.__delivery_callback(self)
 
-	def __mark_failed(self, receipt = None):
+	def _LXMRouter__mark_failed(self, receipt = None):
 		RNS.log(str(self)+" failed to send", RNS.LOG_DEBUG)
 		self.state = LXMessage.FAILED
 
@@ -548,6 +548,11 @@ class LXMRouter:
 			self.direct_links.pop(link_hash)
 			RNS.log("Removed "+RNS.hexrep(link_hash, delimit=False)+" from direct link list, since it was closed")
 
+	def fail_message(self, lxmessage):
+		self.pending_outbound.remove(lxmessage)
+		self.failed_outbound.append(lxmessage)
+		lxmessage.__mark_failed()
+
 	def process_outbound(self, sender = None):
 		if self.processing_outbound:
 			return
@@ -560,21 +565,20 @@ class LXMRouter:
 				RNS.log("Starting outbound processing for "+str(lxmessage)+" to "+RNS.prettyhexrep(lxmessage.get_destination().hash), RNS.LOG_DEBUG)
 				# Outbound handling for opportunistic messages
 				if lxmessage.method == LXMessage.OPPORTUNISTIC:				
-					if lxmessage.delivery_attempts < LXMRouter.MAX_DELIVERY_ATTEMPTS:
+					if lxmessage.delivery_attempts <= LXMRouter.MAX_DELIVERY_ATTEMPTS:
 						if not hasattr(lxmessage, "next_delivery_attempt") or time.time() > lxmessage.next_delivery_attempt:
 							lxmessage.delivery_attempts += 1
 							lxmessage.next_delivery_attempt = time.time() + LXMRouter.DELIVERY_RETRY_WAIT
 							RNS.log("Opportunistic delivery attempt "+str(lxmessage.delivery_attempts)+" for "+str(lxmessage)+" to "+RNS.prettyhexrep(lxmessage.get_destination().hash), RNS.LOG_DEBUG)
 							lxmessage.send()
 					else:
-						RNS.log("Max delivery attempts reached for "+str(lxmessage)+" to "+RNS.prettyhexrep(lxmessage.get_destination().hash), RNS.LOG_DEBUG)
-						self.pending_outbound.remove(lxmessage)
-						self.failed_outbound.append(lxmessage)
+						RNS.log("Max delivery attempts reached for oppertunistic "+str(lxmessage)+" to "+RNS.prettyhexrep(lxmessage.get_destination().hash), RNS.LOG_DEBUG)
+						self.fail_message(lxmessage)
 
 				# Outbound handling for messages transferred
 				# over a direct link to the final recipient
 				elif lxmessage.method == LXMessage.DIRECT:
-					if lxmessage.delivery_attempts < LXMRouter.MAX_DELIVERY_ATTEMPTS:
+					if lxmessage.delivery_attempts <= LXMRouter.MAX_DELIVERY_ATTEMPTS:
 						delivery_destination_hash = lxmessage.get_destination().hash
 
 						if delivery_destination_hash in self.direct_links:
@@ -610,9 +614,8 @@ class LXMRouter:
 									delivery_link.link_established_callback(self.process_outbound)
 									self.direct_links[delivery_destination_hash] = delivery_link
 					else:
-						RNS.log("Max delivery attempts reached for "+str(lxmessage)+" to "+RNS.prettyhexrep(lxmessage.get_destination().hash), RNS.LOG_DEBUG)
-						self.pending_outbound.remove(lxmessage)
-						self.failed_outbound.append(lxmessage)
+						RNS.log("Max delivery attempts reached for direct "+str(lxmessage)+" to "+RNS.prettyhexrep(lxmessage.get_destination().hash), RNS.LOG_DEBUG)
+						self.fail_message(lxmessage)
 
 				# Outbound handling for messages transported via
 				# propagation to a LXMF router network.
