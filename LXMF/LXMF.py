@@ -72,6 +72,12 @@ class LXMessage:
 	PLAIN_PACKET_MDU = RNS.Packet.PLAIN_MDU
 	PLAIN_PACKET_MAX_CONTENT = PLAIN_PACKET_MDU - LXMF_OVERHEAD + DESTINATION_LENGTH
 
+	# Descriptive strings regarding transport encryption
+	ENCRYPTION_DESCRIPTION_RSA = "RSA-"+str(RNS.Identity.KEYSIZE)
+	ENCRYPTION_DESCRIPTION_AES = "AES-128"
+	ENCRYPTION_DESCRIPTION_EC  = "EC-SECP256R1"
+	ENCRYPTION_DESCRIPTION_UNENCRYPTED = "Unencrypted"
+
 	def __str__(self):
 		if self.hash != None:
 			return "<LXMessage "+RNS.hexrep(self.hash, delimit=False)+">"
@@ -118,6 +124,7 @@ class LXMessage:
 		self.representation          = LXMessage.UNKNOWN
 		self.desired_method          = desired_method
 		self.delivery_attempts       = 0
+		self.transport_encrypted     = False
 		self.transport_encryption    = None
 		self.packet_representation   = None
 		self.resource_representation = None
@@ -244,8 +251,9 @@ class LXMessage:
 		else:
 			raise ValueError("Attempt to re-pack LXMessage "+str(self)+" that was already packed")
 
-
 	def send(self):
+		self.determine_transport_encryption()
+
 		if self.method == LXMessage.OPPORTUNISTIC:
 			self.__as_packet().send().delivery_callback(self.__mark_delivered)
 			self.state = LXMessage.SENT
@@ -255,6 +263,38 @@ class LXMessage:
 		elif self.method == LXMessage.PROPAGATED:
 			# TODO: Implement propagation
 			pass
+
+	def determine_transport_encryption(self):
+		if RNS.Reticulum.should_allow_unencrypted():
+			self.transport_encrypted = False
+			self.transport_encryption = LXMessage.ENCRYPTION_DESCRIPTION_UNENCRYPTED
+		else:
+			if self.method == LXMessage.OPPORTUNISTIC:
+				if self.destination.type == RNS.Destination.SINGLE:
+					self.transport_encrypted = True
+					self.transport_encryption = LXMessage.ENCRYPTION_DESCRIPTION_RSA
+				elif destination_type == RNS.Destination.GROUP:
+					self.transport_encrypted = True
+					self.transport_encryption = LXMessage.ENCRYPTION_DESCRIPTION_AES
+				else:
+					self.transport_encrypted = False
+					self.transport_encryption = LXMessage.ENCRYPTION_DESCRIPTION_UNENCRYPTED
+			elif self.method == LXMessage.DIRECT:
+				self.transport_encrypted = True
+				self.transport_encryption = LXMessage.ENCRYPTION_DESCRIPTION_EC
+			elif self.method == LXMessage.PROPAGATED:
+				if self.destination.type == RNS.Destination.SINGLE:
+					self.transport_encrypted = True
+					self.transport_encryption = LXMessage.ENCRYPTION_DESCRIPTION_RSA
+				elif destination_type == RNS.Destination.GROUP:
+					self.transport_encrypted = True
+					self.transport_encryption = LXMessage.ENCRYPTION_DESCRIPTION_AES
+				else:
+					self.transport_encrypted = False
+					self.transport_encryption = LXMessage.ENCRYPTION_DESCRIPTION_UNENCRYPTED
+			else:
+				self.transport_encrypted = False
+				self.transport_encryption = LXMessage.ENCRYPTION_DESCRIPTION_UNENCRYPTED
 
 	def __mark_delivered(self, receipt = None):
 		RNS.log("Received delivery notification for "+str(self), RNS.LOG_DEBUG)
@@ -310,7 +350,13 @@ class LXMessage:
 			if not self.packed:
 				self.pack()
 
-			container = {"state": self.state, "lxmf_bytes": self.packed}
+			container = {
+				"state": self.state,
+				"lxmf_bytes": self.packed,
+				"transport_encrypted": self.transport_encrypted,
+				"transport_encryption": self.transport_encryption
+			}
+
 			packed_container = msgpack.packb(container)
 
 			file = open(file_path, "wb")
@@ -391,7 +437,14 @@ class LXMessage:
 		try:
 			container = msgpack.unpackb(lxmf_file_handle.read())
 			lxm = LXMessage.unpack_from_bytes(container["lxmf_bytes"])
-			lxm.state = container["state"]
+
+			if "state" in container:
+				lxm.state = container["state"]
+			if "transport_encrypted" in container:
+				lxm.transport_encrypted = container["transport_encrypted"]
+			if "transport_encryption" in container:
+				lxm.transport_encryption = container["transport_encryption"]
+
 			return lxm
 		except Exception as e:
 			RNS.log("Could not unpack LXMessage from file. The contained exception was: "+str(e), RNS.LOG_ERROR)
@@ -446,7 +499,7 @@ class LXMRouter:
 		if not lxmessage.packed:
 			lxmessage.pack()
 
-		RNS.log("LXM Router received outbound message: "+str(lxmessage))
+		lxmessage.determine_transport_encryption()
 
 		while self.processing_outbound:
 			time.sleep(0.1)
@@ -459,15 +512,20 @@ class LXMRouter:
 			message = LXMessage.unpack_from_bytes(lxmf_data)
 
 			if RNS.Reticulum.should_allow_unencrypted():
-				message.transport_encryption = "Consider unencrypted (Disabling encryption was allowed in Reticulum configuration)"
+				message.transport_encrypted = False
+				message.transport_encryption = LXMessage.ENCRYPTION_DESCRIPTION_UNENCRYPTED
 			else:
 				if destination_type == RNS.Destination.SINGLE:
-					message.transport_encryption = "RSA-"+str(RNS.Identity.KEYSIZE)
+					message.transport_encrypted = True
+					message.transport_encryption = LXMessage.ENCRYPTION_DESCRIPTION_RSA
 				elif destination_type == RNS.Destination.GROUP:
-					message.transport_encryption = "AES-128"
+					message.transport_encrypted = True
+					message.transport_encryption = LXMessage.ENCRYPTION_DESCRIPTION_AES
 				elif destination_type == RNS.Destination.LINK:
-					message.transport_encryption = "EC-SECP256R1"
+					message.transport_encrypted = True
+					message.transport_encryption = LXMessage.ENCRYPTION_DESCRIPTION_EC
 				else:
+					message.transport_encrypted = False
 					message.transport_encryption = None
 
 			if self.__delivery_callback != None:
@@ -478,7 +536,6 @@ class LXMRouter:
 		except Exception as e:
 			RNS.log("Could not assemble LXMF message from received data", RNS.LOG_NOTICE)
 			RNS.log("The contained exception was: "+str(e), RNS.LOG_DEBUG)
-			raise e
 			return False
 
 
@@ -535,11 +592,9 @@ class LXMRouter:
 			if inactive_time > LXMRouter.LINK_MAX_INACTIVITY:
 				link.teardown()
 				closed_links.append(link_hash)
-				RNS.log(str(link)+" was inactive for "+str(inactive_time)+" seconds and closed")
 
 		for link_hash in closed_links:
 			self.direct_links.pop(link_hash)
-			RNS.log("Removed "+RNS.hexrep(link_hash, delimit=False)+" from direct link list, since it was closed")
 
 	def fail_message(self, lxmessage):
 		RNS.log(str(lxmessage)+" failed to send", RNS.LOG_DEBUG)
