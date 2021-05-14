@@ -12,7 +12,8 @@ class LXMessage:
 	SENDING            = 0x02
 	SENT               = 0x04
 	DELIVERED          = 0x08
-	states             = [DRAFT, OUTBOUND, SENDING, SENT, DELIVERED]
+	FAILED             = 0xFF
+	states             = [DRAFT, OUTBOUND, SENDING, SENT, DELIVERED, FAILED]
 
 	UNKNOWN            = 0x00
 	PACKET             = 0x01
@@ -122,6 +123,7 @@ class LXMessage:
 		self.resource_representation = None
 		self.__delivery_destination  = None
 		self.__delivery_callback     = None
+		self.__failed_callback       = None
 
 	def set_title_from_string(self, title_string):
 		self.title = title_string.encode("utf-8")
@@ -179,6 +181,9 @@ class LXMessage:
 
 	def register_delivery_callback(self, callback):
 		self.__delivery_callback = callback
+
+	def register_failed_callback(self, callback):
+		self.__failed_callback = callback
 
 	def pack(self):
 		if not self.packed:
@@ -248,6 +253,7 @@ class LXMessage:
 			self.state = LXMessage.SENDING
 			self.resource_representation = self.__as_resource()
 		elif self.method == LXMessage.PROPAGATED:
+			# TODO: Implement propagation
 			pass
 
 	def __mark_delivered(self, receipt = None):
@@ -256,6 +262,13 @@ class LXMessage:
 
 		if self.__delivery_callback != None:
 			self.__delivery_callback(self)
+
+	def __mark_failed(self, receipt = None):
+		RNS.log(str(self)+" failed to send", RNS.LOG_DEBUG)
+		self.state = LXMessage.FAILED
+
+		if self.__failed_callback != None:
+			self.__failed_callback(self)
 
 	def __resource_concluded(self, resource):
 		if resource.status == RNS.Resource.COMPLETE:
