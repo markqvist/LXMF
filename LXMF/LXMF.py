@@ -123,7 +123,7 @@ class LXMessage:
 		self.resource_representation = None
 		self.__delivery_destination  = None
 		self.__delivery_callback     = None
-		self.__failed_callback       = None
+		self.failed_callback       = None
 
 	def set_title_from_string(self, title_string):
 		self.title = title_string.encode("utf-8")
@@ -183,7 +183,7 @@ class LXMessage:
 		self.__delivery_callback = callback
 
 	def register_failed_callback(self, callback):
-		self.__failed_callback = callback
+		self.failed_callback = callback
 
 	def pack(self):
 		if not self.packed:
@@ -262,13 +262,6 @@ class LXMessage:
 
 		if self.__delivery_callback != None:
 			self.__delivery_callback(self)
-
-	def _LXMRouter__mark_failed(self, receipt = None):
-		RNS.log(str(self)+" failed to send", RNS.LOG_DEBUG)
-		self.state = LXMessage.FAILED
-
-		if self.__failed_callback != None:
-			self.__failed_callback(self)
 
 	def __resource_concluded(self, resource):
 		if resource.status == RNS.Resource.COMPLETE:
@@ -449,6 +442,7 @@ class LXMRouter:
 			delivery_destination.announce(delivery_destination.display_name.encode("utf-8"))
 
 	def handle_outbound(self, lxmessage):
+		lxmessage.state = LXMessage.OUTBOUND
 		if not lxmessage.packed:
 			lxmessage.pack()
 
@@ -535,7 +529,6 @@ class LXMRouter:
 	def clean_links(self):
 		closed_links = []
 		for link_hash in self.direct_links:
-			#TODO: Fix
 			link = self.direct_links[link_hash]
 			inactive_time = link.inactive_for()
 
@@ -549,9 +542,14 @@ class LXMRouter:
 			RNS.log("Removed "+RNS.hexrep(link_hash, delimit=False)+" from direct link list, since it was closed")
 
 	def fail_message(self, lxmessage):
+		RNS.log(str(lxmessage)+" failed to send", RNS.LOG_DEBUG)
+
 		self.pending_outbound.remove(lxmessage)
 		self.failed_outbound.append(lxmessage)
-		lxmessage.__mark_failed()
+
+		lxmessage.state = LXMessage.FAILED
+		if lxmessage.failed_callback != None:
+			lxmessage.failed_callback(lxmessage)
 
 	def process_outbound(self, sender = None):
 		if self.processing_outbound:
