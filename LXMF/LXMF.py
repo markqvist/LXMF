@@ -483,6 +483,9 @@ class LXMRouter:
 		delivery_destination.link_established_callback(self.delivery_link_established)
 		delivery_destination.display_name = display_name
 
+		if display_name != None:
+			delivery_destination.set_default_app_data(display_name.encode("utf-8"))
+
 		self.delivery_destinations[delivery_destination.hash] = delivery_destination
 		return delivery_destination
 
