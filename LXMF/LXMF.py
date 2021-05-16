@@ -203,7 +203,7 @@ class LXMessage:
 			hashed_part     += self.__destination.hash
 			hashed_part     += self.__source.hash
 			hashed_part     += msgpack.packb(self.payload)
-			self.hash        = RNS.Identity.fullHash(hashed_part)
+			self.hash        = RNS.Identity.full_hash(hashed_part)
 			self.message_id  = self.hash
 			
 			signed_part      = b""
@@ -377,7 +377,7 @@ class LXMessage:
 		signature            = lxmf_bytes[2*LXMessage.DESTINATION_LENGTH:2*LXMessage.DESTINATION_LENGTH+LXMessage.SIGNATURE_LENGTH]
 		packed_payload       = lxmf_bytes[2*LXMessage.DESTINATION_LENGTH+LXMessage.SIGNATURE_LENGTH:]
 		hashed_part          = b"" + destination_hash + source_hash + packed_payload
-		message_hash         = RNS.Identity.fullHash(hashed_part)
+		message_hash         = RNS.Identity.full_hash(hashed_part)
 		signed_part          = b"" + hashed_part + message_hash
 		unpacked_payload     = msgpack.unpackb(packed_payload)
 		timestamp            = unpacked_payload[0]
