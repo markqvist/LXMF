@@ -75,7 +75,7 @@ class LXMessage:
 	# Descriptive strings regarding transport encryption
 	ENCRYPTION_DESCRIPTION_RSA = "RSA-"+str(RNS.Identity.KEYSIZE)
 	ENCRYPTION_DESCRIPTION_AES = "AES-128"
-	ENCRYPTION_DESCRIPTION_EC  = "EC-SECP256R1"
+	ENCRYPTION_DESCRIPTION_EC  = "Curve25519+Fernet"
 	ENCRYPTION_DESCRIPTION_UNENCRYPTED = "Unencrypted"
 
 	def __str__(self):
