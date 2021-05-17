@@ -455,7 +455,7 @@ class LXMRouter:
 	MAX_DELIVERY_ATTEMPTS = 3
 	PROCESSING_INTERVAL   = 5
 	DELIVERY_RETRY_WAIT   = 15
-	LINK_MAX_INACTIVITY   = 30
+	LINK_MAX_INACTIVITY   = 10*60
 
 	def __init__(self):
 		self.pending_inbound       = []
@@ -597,7 +597,8 @@ class LXMRouter:
 				closed_links.append(link_hash)
 
 		for link_hash in closed_links:
-			self.direct_links.pop(link_hash)
+			cleaned_link = self.direct_links.pop(link_hash)
+			RNS.log("Cleaned link "+str(cleaned_link), RNS.LOG_DEBUG)
 
 	def fail_message(self, lxmessage):
 		RNS.log(str(lxmessage)+" failed to send", RNS.LOG_DEBUG)
@@ -665,10 +666,14 @@ class LXMRouter:
 								lxmessage.delivery_attempts += 1
 								lxmessage.next_delivery_attempt = time.time() + LXMRouter.DELIVERY_RETRY_WAIT
 								if lxmessage.delivery_attempts < LXMRouter.MAX_DELIVERY_ATTEMPTS:
-									RNS.log("Establishing link to "+RNS.prettyhexrep(lxmessage.get_destination().hash)+" for delivery attempt "+str(lxmessage.delivery_attempts)+" to "+RNS.prettyhexrep(lxmessage.get_destination().hash), RNS.LOG_DEBUG)
-									delivery_link = RNS.Link(lxmessage.get_destination())
-									delivery_link.link_established_callback(self.process_outbound)
-									self.direct_links[delivery_destination_hash] = delivery_link
+									if RNS.Transport.has_path(lxmessage.get_destination().hash):
+										RNS.log("Establishing link to "+RNS.prettyhexrep(lxmessage.get_destination().hash)+" for delivery attempt "+str(lxmessage.delivery_attempts)+" to "+RNS.prettyhexrep(lxmessage.get_destination().hash), RNS.LOG_DEBUG)
+										delivery_link = RNS.Link(lxmessage.get_destination())
+										delivery_link.link_established_callback(self.process_outbound)
+										self.direct_links[delivery_destination_hash] = delivery_link
+									else:
+										RNS.log("No path known for delivery attempt "+str(lxmessage.delivery_attempts)+" to "+RNS.prettyhexrep(lxmessage.get_destination().hash)+". Requesting path...", RNS.LOG_DEBUG)
+										RNS.Transport.request_path(lxmessage.get_destination().hash)
 					else:
 						RNS.log("Max delivery attempts reached for direct "+str(lxmessage)+" to "+RNS.prettyhexrep(lxmessage.get_destination().hash), RNS.LOG_DEBUG)
 						self.fail_message(lxmessage)
