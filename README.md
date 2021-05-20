@@ -11,7 +11,7 @@ LXMF messages are stored in a simple and efficient format, that's easy to parse 
 
 - Destination
 - Source
-- RSA Signature
+- Ed25519 Signature
 - Payload
     - Timestamp
     - Content
@@ -26,7 +26,7 @@ LXMF messages are stored in a simple and efficient format, that's easy to parse 
 
 2. __Destination__, __Source__, __Signature__ and __Payload__ parts are mandatory, as is the __Timestamp__ part of the payload.
     - The __Destination__ and __Source__ fields are Reticulum destination hashes
-    - The __Signature__ field is a RSA signature of the __Destination__, __Source__, __Payload__ and __message-id__
+    - The __Signature__ field is a Ed25519 signature of the __Destination__, __Source__, __Payload__ and __message-id__
     - The __Payload__ part is a list containing four items:
         1. The __Timestamp__ is a double-precision floating point number representing the number of seconds since the UNIX epoch.
         2. The __Content__ is the optional content or body of the message
@@ -76,7 +76,7 @@ The LXM Router then handles the heavy lifting, such as message packing, encrypti
 
 LXMF uses encryption provided by [Reticulum](https://github.com/markqvist/reticulum), and thus uses end-to-end encryption by default. The delivery method of a message will influence which transport encryption scheme is used.
 
-- A message can be delivered opportunistically, embedded in a single Reticulum packet. In this cases the message will be opportunistically routed through the network, and use _RSA-1024_ asymmetric encryption.
+- A message can be delivered opportunistically, embedded in a single Reticulum packet. In this cases the message will be opportunistically routed through the network, and will be encrypted with _ephemeral_ keys derived with _ECDH_ on _Curve25519_. This mode offers Perfect Forward Secrecy.
 
 - If a message is delivered to the Reticulum GROUP destination type, the message will be transported using _AES-128_ encryption.
 
@@ -88,10 +88,10 @@ Assuming the default Reticulum configuration, the binary wire-format is as follo
 
 - 10 bytes destination hash
 - 10 bytes source hash
-- 128 bytes RSA signature
+- 64 bytes Ed25519 signature
 - Remaining bytes of [msgpack](https://msgpack.org) payload data, in accordance with the structure defined above
 
-The complete message overhead for LXMF is only 163 bytes, which in return gives you timestamped, digitally signed, infinitely extensible, end-to-end encrypted, zero-conf routed, minimal-infrastructure messaging that's easy to use and build applications with.
+The complete message overhead for LXMF is only 99 bytes, which in return gives you timestamped, digitally signed, infinitely extensible, end-to-end encrypted, zero-conf routed, minimal-infrastructure messaging that's easy to use and build applications with.
 
 ## Caveat Emptor
 
