@@ -32,37 +32,37 @@ class LXMessage:
 	DESTINATION_LENGTH = RNS.Identity.TRUNCATED_HASHLENGTH//8
 	SIGNATURE_LENGTH   = RNS.Identity.SIGLENGTH//8
 
-	# LXMF overhead is 163 bytes per message:
+	# LXMF overhead is 99 bytes per message:
 	#   10  bytes for destination hash
 	#   10  bytes for source hash
-	#   128 bytes for RSA signature
+	#   64  bytes for Ed25519 signature
 	#   8   bytes for timestamp
 	#   7   bytes for msgpack structure
 	LXMF_OVERHEAD  = 2*DESTINATION_LENGTH + SIGNATURE_LENGTH + 8 + 7
 
-	# With an MTU of 500, the maximum RSA-encrypted
-	# amount of data we can send in a single packet
-	# is given by the below calculation; 258 bytes.
-	RSA_PACKET_MDU = RNS.Packet.RSA_MDU
+	# With an MTU of 500, the maximum amount of data
+	# we can send in a single encrypted packet is
+	# 383 bytes.
+	ENCRYPTED_PACKET_MDU = RNS.Packet.ENCRYPTED_MDU
 	
 	# The max content length we can fit in LXMF message
-	# inside a single RNS packet is the RSA MDU, minus
+	# inside a single RNS packet is the encrypted MDU, minus
 	# the LXMF overhead. We can optimise a bit though, by
 	# inferring the destination hash from the destination
 	# field of the packet, therefore we also add the length
 	# of a destination hash to the calculation. With default
 	# RNS and LXMF parameters, the largest single-packet
-	# LXMF message we can send is 105 bytes. If a message
+	# LXMF message we can send is 294 bytes. If a message
 	# is larger than that, a Reticulum link will be used.
-	RSA_PACKET_MAX_CONTENT = RSA_PACKET_MDU - LXMF_OVERHEAD + DESTINATION_LENGTH
+	ENCRYPTED_PACKET_MAX_CONTENT = ENCRYPTED_PACKET_MDU - LXMF_OVERHEAD + DESTINATION_LENGTH
 	
-	# Links can carry a significantly larger MDU, due to
-	# more efficient elliptic curve cryptography. The link
-	# MDU with default Reticulum parameters is 415 bytes.
+	# Links can carry a larger MDU, due to less overhead per
+	# packet. The link MDU with default Reticulum parameters
+	# is 415 bytes.
 	LINK_PACKET_MDU = RNS.Link.MDU
 
 	# Which means that we can deliver single-packet LXMF
-	# messages with content of up to 252 bytes over a link.
+	# messages with content of up to 316 bytes over a link.
 	# If a message is larger than that, LXMF will sequence
 	# and transfer it as a RNS resource over the link instead.
 	LINK_PACKET_MAX_CONTENT = LINK_PACKET_MDU - LXMF_OVERHEAD
@@ -73,9 +73,8 @@ class LXMessage:
 	PLAIN_PACKET_MAX_CONTENT = PLAIN_PACKET_MDU - LXMF_OVERHEAD + DESTINATION_LENGTH
 
 	# Descriptive strings regarding transport encryption
-	ENCRYPTION_DESCRIPTION_RSA = "RSA-"+str(RNS.Identity.KEYSIZE)
 	ENCRYPTION_DESCRIPTION_AES = "AES-128"
-	ENCRYPTION_DESCRIPTION_EC  = "Curve25519+Fernet"
+	ENCRYPTION_DESCRIPTION_EC  = "Curve25519"
 	ENCRYPTION_DESCRIPTION_UNENCRYPTED = "Unencrypted"
 
 	def __str__(self):
@@ -255,7 +254,7 @@ class LXMessage:
 		self.determine_transport_encryption()
 
 		if self.method == LXMessage.OPPORTUNISTIC:
-			self.__as_packet().send().delivery_callback(self.__mark_delivered)
+			self.__as_packet().send().set_delivery_callback(self.__mark_delivered)
 			self.state = LXMessage.SENT
 		elif self.method == LXMessage.DIRECT:
 			self.state = LXMessage.SENDING
@@ -272,7 +271,7 @@ class LXMessage:
 			if self.method == LXMessage.OPPORTUNISTIC:
 				if self.destination.type == RNS.Destination.SINGLE:
 					self.transport_encrypted = True
-					self.transport_encryption = LXMessage.ENCRYPTION_DESCRIPTION_RSA
+					self.transport_encryption = LXMessage.ENCRYPTION_DESCRIPTION_EC
 				elif destination_type == RNS.Destination.GROUP:
 					self.transport_encrypted = True
 					self.transport_encryption = LXMessage.ENCRYPTION_DESCRIPTION_AES
@@ -285,7 +284,7 @@ class LXMessage:
 			elif self.method == LXMessage.PROPAGATED:
 				if self.destination.type == RNS.Destination.SINGLE:
 					self.transport_encrypted = True
-					self.transport_encryption = LXMessage.ENCRYPTION_DESCRIPTION_RSA
+					self.transport_encryption = LXMessage.ENCRYPTION_DESCRIPTION_EC
 				elif destination_type == RNS.Destination.GROUP:
 					self.transport_encrypted = True
 					self.transport_encryption = LXMessage.ENCRYPTION_DESCRIPTION_AES
@@ -479,8 +478,8 @@ class LXMRouter:
 
 	def register_delivery_identity(self, identity, display_name = None):
 		delivery_destination = RNS.Destination(identity, RNS.Destination.IN, RNS.Destination.SINGLE, "lxmf", "delivery")
-		delivery_destination.packet_callback(self.delivery_packet)
-		delivery_destination.link_established_callback(self.delivery_link_established)
+		delivery_destination.set_packet_callback(self.delivery_packet)
+		delivery_destination.set_link_established_callback(self.delivery_link_established)
 		delivery_destination.display_name = display_name
 
 		if display_name != None:
@@ -559,10 +558,10 @@ class LXMRouter:
 			RNS.log("The contained exception was: "+str(e), RNS.LOG_ERROR)
 
 	def delivery_link_established(self, link):
-		link.packet_callback(self.delivery_packet)
+		link.set_packet_callback(self.delivery_packet)
 		link.set_resource_strategy(RNS.Link.ACCEPT_ALL)
-		link.resource_started_callback(self.resource_transfer_began)
-		link.resource_concluded_callback(self.resource_transfer_concluded)
+		link.set_resource_started_callback(self.resource_transfer_began)
+		link.set_resource_concluded_callback(self.resource_transfer_concluded)
 
 	def delivery_link_closed(self, link):
 		pass
@@ -669,7 +668,7 @@ class LXMRouter:
 									if RNS.Transport.has_path(lxmessage.get_destination().hash):
 										RNS.log("Establishing link to "+RNS.prettyhexrep(lxmessage.get_destination().hash)+" for delivery attempt "+str(lxmessage.delivery_attempts)+" to "+RNS.prettyhexrep(lxmessage.get_destination().hash), RNS.LOG_DEBUG)
 										delivery_link = RNS.Link(lxmessage.get_destination())
-										delivery_link.link_established_callback(self.process_outbound)
+										delivery_link.set_link_established_callback(self.process_outbound)
 										self.direct_links[delivery_destination_hash] = delivery_link
 									else:
 										RNS.log("No path known for delivery attempt "+str(lxmessage.delivery_attempts)+" to "+RNS.prettyhexrep(lxmessage.get_destination().hash)+". Requesting path...", RNS.LOG_DEBUG)
