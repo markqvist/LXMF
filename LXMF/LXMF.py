@@ -324,7 +324,7 @@ class LXMessage:
 
 
     def __update_transfer_progress(self, resource):
-        self.progress = resource.progress()
+        self.progress = resource.get_progress()
 
     def __as_packet(self):
         if not self.packed:
