@@ -542,22 +542,18 @@ class LXMRouter:
         try:
             message = LXMessage.unpack_from_bytes(lxmf_data)
 
-            if RNS.Reticulum.should_allow_unencrypted():
-                message.transport_encrypted = False
-                message.transport_encryption = LXMessage.ENCRYPTION_DESCRIPTION_UNENCRYPTED
+            if destination_type == RNS.Destination.SINGLE:
+                message.transport_encrypted = True
+                message.transport_encryption = LXMessage.ENCRYPTION_DESCRIPTION_RSA
+            elif destination_type == RNS.Destination.GROUP:
+                message.transport_encrypted = True
+                message.transport_encryption = LXMessage.ENCRYPTION_DESCRIPTION_AES
+            elif destination_type == RNS.Destination.LINK:
+                message.transport_encrypted = True
+                message.transport_encryption = LXMessage.ENCRYPTION_DESCRIPTION_EC
             else:
-                if destination_type == RNS.Destination.SINGLE:
-                    message.transport_encrypted = True
-                    message.transport_encryption = LXMessage.ENCRYPTION_DESCRIPTION_RSA
-                elif destination_type == RNS.Destination.GROUP:
-                    message.transport_encrypted = True
-                    message.transport_encryption = LXMessage.ENCRYPTION_DESCRIPTION_AES
-                elif destination_type == RNS.Destination.LINK:
-                    message.transport_encrypted = True
-                    message.transport_encryption = LXMessage.ENCRYPTION_DESCRIPTION_EC
-                else:
-                    message.transport_encrypted = False
-                    message.transport_encryption = None
+                message.transport_encrypted = False
+                message.transport_encryption = None
 
             if self.__delivery_callback != None:
                 self.__delivery_callback(message)
