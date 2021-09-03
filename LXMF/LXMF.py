@@ -273,36 +273,32 @@ class LXMessage:
             pass
 
     def determine_transport_encryption(self):
-        if RNS.Reticulum.should_allow_unencrypted():
-            self.transport_encrypted = False
-            self.transport_encryption = LXMessage.ENCRYPTION_DESCRIPTION_UNENCRYPTED
-        else:
-            if self.method == LXMessage.OPPORTUNISTIC:
-                if self.destination.type == RNS.Destination.SINGLE:
-                    self.transport_encrypted = True
-                    self.transport_encryption = LXMessage.ENCRYPTION_DESCRIPTION_EC
-                elif destination_type == RNS.Destination.GROUP:
-                    self.transport_encrypted = True
-                    self.transport_encryption = LXMessage.ENCRYPTION_DESCRIPTION_AES
-                else:
-                    self.transport_encrypted = False
-                    self.transport_encryption = LXMessage.ENCRYPTION_DESCRIPTION_UNENCRYPTED
-            elif self.method == LXMessage.DIRECT:
+        if self.method == LXMessage.OPPORTUNISTIC:
+            if self.destination.type == RNS.Destination.SINGLE:
                 self.transport_encrypted = True
                 self.transport_encryption = LXMessage.ENCRYPTION_DESCRIPTION_EC
-            elif self.method == LXMessage.PROPAGATED:
-                if self.destination.type == RNS.Destination.SINGLE:
-                    self.transport_encrypted = True
-                    self.transport_encryption = LXMessage.ENCRYPTION_DESCRIPTION_EC
-                elif destination_type == RNS.Destination.GROUP:
-                    self.transport_encrypted = True
-                    self.transport_encryption = LXMessage.ENCRYPTION_DESCRIPTION_AES
-                else:
-                    self.transport_encrypted = False
-                    self.transport_encryption = LXMessage.ENCRYPTION_DESCRIPTION_UNENCRYPTED
+            elif destination_type == RNS.Destination.GROUP:
+                self.transport_encrypted = True
+                self.transport_encryption = LXMessage.ENCRYPTION_DESCRIPTION_AES
             else:
                 self.transport_encrypted = False
                 self.transport_encryption = LXMessage.ENCRYPTION_DESCRIPTION_UNENCRYPTED
+        elif self.method == LXMessage.DIRECT:
+            self.transport_encrypted = True
+            self.transport_encryption = LXMessage.ENCRYPTION_DESCRIPTION_EC
+        elif self.method == LXMessage.PROPAGATED:
+            if self.destination.type == RNS.Destination.SINGLE:
+                self.transport_encrypted = True
+                self.transport_encryption = LXMessage.ENCRYPTION_DESCRIPTION_EC
+            elif destination_type == RNS.Destination.GROUP:
+                self.transport_encrypted = True
+                self.transport_encryption = LXMessage.ENCRYPTION_DESCRIPTION_AES
+            else:
+                self.transport_encrypted = False
+                self.transport_encryption = LXMessage.ENCRYPTION_DESCRIPTION_UNENCRYPTED
+        else:
+            self.transport_encrypted = False
+            self.transport_encryption = LXMessage.ENCRYPTION_DESCRIPTION_UNENCRYPTED
 
     def __mark_delivered(self, receipt = None):
         RNS.log("Received delivery notification for "+str(self), RNS.LOG_DEBUG)
