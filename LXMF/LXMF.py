@@ -58,17 +58,17 @@ class LXMessage:
     
     # Links can carry a larger MDU, due to less overhead per
     # packet. The link MDU with default Reticulum parameters
-    # is 415 bytes.
+    # is 431 bytes.
     LINK_PACKET_MDU = RNS.Link.MDU
 
     # Which means that we can deliver single-packet LXMF
-    # messages with content of up to 316 bytes over a link.
+    # messages with content of up to 332 bytes over a link.
     # If a message is larger than that, LXMF will sequence
     # and transfer it as a RNS resource over the link instead.
     LINK_PACKET_MAX_CONTENT = LINK_PACKET_MDU - LXMF_OVERHEAD
 
     # For plain packets without encryption, we can
-    # fit up to 324 bytes of content.
+    # fit up to 388 bytes of content.
     PLAIN_PACKET_MDU = RNS.Packet.PLAIN_MDU
     PLAIN_PACKET_MAX_CONTENT = PLAIN_PACKET_MDU - LXMF_OVERHEAD + DESTINATION_LENGTH
 
