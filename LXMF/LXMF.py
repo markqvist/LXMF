@@ -499,7 +499,7 @@ class LXMFPropagationAnnounceHandler:
 
 
 class LXMPeer:
-    OFFER_REQUEST_PATH = "o"
+    OFFER_REQUEST_PATH = "/offer"
 
     IDLE              = 0x00
     LINK_ESTABLISHING = 0x01
@@ -861,7 +861,13 @@ class LXMRouter:
             # TODO: The peer this was received from should
             # have the transient id added to it's list of
             # already handled messages.
-            self.lxmf_propagation(resource.data.read())
+            try:
+                messages = msgpack.unpackb(resource.data.read())
+                for message in messages:
+                    self.lxmf_propagation(lxmessage)
+    
+            except Exception as e:
+                RNS.log("Error while unpacking received propagation messages", RNS.LOG_DEBUG)
 
 
     def lxmf_propagation(self, lxmf_data):
