@@ -8,6 +8,7 @@ __pycache__/
 *.so
 
 # Distribution / packaging
+RNS
 .Python
 build/
 develop-eggs/
