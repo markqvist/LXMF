@@ -547,6 +547,7 @@ class LXMPeer:
                     # TODO: Remove
                     RNS.log("Sending sync request to peer")
                     self.link.request(LXMPeer.OFFER_REQUEST_PATH, unhandled_ids, response_callback=self.offer_response, failed_callback=self.request_failed)
+                    self.state = LXMPeer.REQUEST_SENT
         else:
             # TODO: Remove
             RNS.log("No unsynced messages")
@@ -570,8 +571,10 @@ class LXMPeer:
 
             if response == LXMPeer.ERROR_NO_IDENTITY:
                 if self.link != None:
+                    RNS.log("Remote peer indicated that no identification was received, retrying...", RNS.LOG_DEBUG)
                     self.link.indentify()
                     self.state = LXMPeer.LINK_READY
+                    self.sync()
 
             elif response == False:
                 # Peer already has all advertised messages
@@ -631,6 +634,7 @@ class LXMPeer:
     def link_established(self, link):
         self.link.identify(self.router.identity)
         self.state = LXMPeer.LINK_READY
+        self.sync()
 
     def link_closed(self, link):
         self.link = None
