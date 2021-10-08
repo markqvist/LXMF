@@ -1,7 +1,7 @@
 Lightweight Extensible Message Format
 ==========
 
-LXMF is a simple and flexible messaging format and delivery protocol that allows a wide variety of implementations, while using as little bandwidth as possible. It is built on top of [Reticulum](https://github.com/markqvist/reticulum) and offers zero-conf message routing, end-to-end encryption and Perfect Forward Secrecy by default.
+LXMF is a simple and flexible messaging format and delivery protocol that allows a wide variety of implementations, while using as little bandwidth as possible. It is built on top of [Reticulum](https://github.com/markqvist/reticulum) and offers zero-conf message routing, end-to-end encryption and Forward Secrecy by default.
 
 ## Structure
 
@@ -53,6 +53,8 @@ LXMF offers flexibility to implement many different messaging schemes, ranging f
 
 LXM Propagation Nodes offer a way to store and forward messages to users or endpoints that are not directly reachable at the time of message emission. Propagation Nodes can also provide infrastructure for distributed bulletin, news or discussion boards.
 
+When Propagation Nodes exist on a Reticulum network, they will by default peer with each other and synchronise messages, automatically creating an encrypted, distributed message store. Users and other endpoints can retrieve messages destined for them from any available Propagation Nodes on the network.
+
 ## The LXM Router
 
 The LXM Router handles transporting messages over a Reticulum network, managing delivery receipts, outbound and inbound queues, and is the point of API interaction for client programs. The LXM Router also implements functionality for acting as an LXMF Propagation Node.
@@ -95,7 +97,7 @@ The complete message overhead for LXMF is only 99 bytes, which in return gives y
 
 ## Caveat Emptor
 
-LXMF is alpha software, and should be considered experimental. While it has been built with cryptography best-practices very foremost in mind, it _has not_ been externally security audited, and there could very well be privacy-breaking bugs. If you want to help out, or help sponsor an audit, please do get in touch.
+LXMF is beta software, and should be considered experimental. While it has been built with cryptography best-practices very foremost in mind, it _has not_ been externally security audited, and there could very well be privacy-breaking bugs. If you want to help out, or help sponsor an audit, please do get in touch.
 
 ## Installation
 
