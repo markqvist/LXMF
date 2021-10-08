@@ -645,7 +645,7 @@ class LXMPeer:
                                 purged_ids.append(transient_id)
 
                         for transient_id in purged_ids:
-                            RNS.log("Dropping unhandled message "+RNS.prettyhexrep(transient_id)+" for peer "+RNS.prettyhexrep(self.destination_hash)+" since it no longer exists in the message store.", RNS.LOG_WARNING)
+                            RNS.log("Dropping unhandled message "+RNS.prettyhexrep(transient_id)+" for peer "+RNS.prettyhexrep(self.destination_hash)+" since it no longer exists in the message store.", RNS.LOG_DEBUG)
                             self.unhandled_messages.pop(transient_id)
 
                         RNS.log("Sending sync request to peer "+str(self.destination), RNS.LOG_DEBUG)
@@ -1513,10 +1513,10 @@ class LXMRouter:
                 waiting_peers.append(peer)
 
         if len(waiting_peers) > 0:
-            RNS.log("Randomly selecting peer to sync from "+str(len(waiting_peers))+" waiting peers.", RNS.LOG_EXTREME)
+            RNS.log("Randomly selecting peer to sync from "+str(len(waiting_peers))+" waiting peers.", RNS.LOG_DEBUG)
             selected_index = random.randint(0,len(waiting_peers)-1)
             selected_peer = waiting_peers[selected_index]
-            RNS.log("Selected waiting peer "+str(selected_index)+": "+RNS.prettyhexrep(selected_peer.destination.hash), RNS.LOG_EXTREME)
+            RNS.log("Selected waiting peer "+str(selected_index)+": "+RNS.prettyhexrep(selected_peer.destination.hash), RNS.LOG_DEBUG)
             selected_peer.sync()
 
 
