@@ -646,8 +646,6 @@ class LXMPeer:
                         self.link = RNS.Link(self.destination, established_callback = self.link_established, closed_callback = self.link_closed)
                         self.state = LXMPeer.LINK_ESTABLISHING
 
-                        # TODO: Remove
-                        RNS.log("Establishment timeout is "+str(self.link.establishment_timeout))
                     else:
                         if self.state == LXMPeer.LINK_READY:
                             RNS.log("Sync link to peer "+RNS.prettyhexrep(self.destination_hash)+" established, preparing request...", RNS.LOG_DEBUG)
@@ -773,9 +771,6 @@ class LXMPeer:
         self.sync()
 
     def link_closed(self, link):
-        # TODO: Remove
-        RNS.log("The sync link to peer "+RNS.prettyhexrep(self.destination_hash)+" was closed: "+str(link.teardown_reason), RNS.LOG_DEBUG)
-
         self.link = None
         self.state = LXMPeer.IDLE
 
@@ -784,10 +779,6 @@ class LXMPeer:
             # TODO: Remove at some point
             RNS.log("The message "+RNS.prettyhexrep(transient_id)+" was added to distribution queue for "+RNS.prettyhexrep(self.destination_hash), RNS.LOG_EXTREME)
             self.unhandled_messages[transient_id] = self.router.propagation_entries[transient_id]
-        else:
-            # TODO: Remove at some point
-            RNS.log("The message "+RNS.prettyhexrep(transient_id)+" was NOT added to distribution queue for "+RNS.prettyhexrep(self.destination_hash), RNS.LOG_EXTREME)
-
 
 class LXMRouter:
     MAX_DELIVERY_ATTEMPTS = 3
