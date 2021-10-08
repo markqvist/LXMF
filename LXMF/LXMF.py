@@ -666,8 +666,6 @@ class LXMPeer:
             self.state = LXMPeer.RESPONSE_RECEIVED
             response = request_receipt.response
 
-            RNS.log(str(response))
-
             wanted_messages = []
             wanted_message_ids = []
 
@@ -1463,9 +1461,6 @@ class LXMRouter:
             RNS.log("Cleaned outbound propagation link", RNS.LOG_DEBUG)
 
     def clean_transient_id_cache(self):
-        # TODO: Remove
-        RNS.log("Cleaning transient id cache")
-
         now = time.time()
         removed_entries = []
         for transient_id in self.locally_delivered_transient_ids:
