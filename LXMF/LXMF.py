@@ -707,7 +707,8 @@ class LXMPeer:
 
             else:
                 # Peer wants some advertised messages
-                for transient_id in self.unhandled_messages:
+                peer_had_messages = []
+                for transient_id in self.unhandled_messages.copy():
                     # If the peer did not want the message, it has
                     # already received it from another peer.
                     if not transient_id in response:
@@ -741,6 +742,12 @@ class LXMPeer:
         except Exception as e:
             RNS.log("Error while handling offer response from peer "+str(self.destination), RNS.LOG_ERROR)
             RNS.log("The contained exception was: "+str(e), RNS.LOG_ERROR)
+
+            if self.link != None:
+                self.link.teardown()
+
+            self.link = None
+            self.state = LXMPeer.IDLE
 
 
     def resource_concluded(self, resource):
