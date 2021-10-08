@@ -771,7 +771,7 @@ class LXMRouter:
 
     PR_ALL_MESSAGES      = 0x00
 
-    def __init__(self, identity = None, autopeer = AUTOPEER, autopeer_maxdepth = AUTOPEER_MAXDEPTH):
+    def __init__(self, identity = None, storagepath = None, autopeer = AUTOPEER, autopeer_maxdepth = AUTOPEER_MAXDEPTH):
         random.seed(os.urandom(10))
 
         self.pending_inbound       = []
@@ -785,6 +785,11 @@ class LXMRouter:
         self.processing_count = 0
 
         self.propagation_node = False
+
+        if storagepath == None:
+            raise ValueError("LXMF cannot be initialised without a storage path")
+        else:
+            self.storagepath = storagepath+"/lxmf"
 
         self.outbound_propagation_node = None
         self.outbound_propagation_link = None
@@ -815,6 +820,16 @@ class LXMRouter:
 
         self.__delivery_callback = None
 
+        try:
+            if os.path.isfile(self.storagepath+"/local_deliveries"):
+                locally_delivered_file = open(self.storagepath+"/local_deliveries", "rb")
+                data = locally_delivered_file.read()
+                self.locally_delivered_transient_ids = msgpack.unpackb(data)
+                locally_delivered_file.close()
+
+        except Exception as e:
+            RNS.log("Could not load locally delivered message ID cache from storage. The contained exception was: "+str(e), RNS.LOG_ERROR)
+
         atexit.register(self.exit_handler)
 
         job_thread = threading.Thread(target=self.jobloop)
@@ -837,6 +852,17 @@ class LXMRouter:
 
             except Exception as e:
                 RNS.log("Could not save propagation node peers to storage. The contained exception was: "+str(e), RNS.LOG_ERROR)
+
+        try:
+            if not os.path.isdir(self.storagepath):
+                    os.makedirs(self.storagepath)
+
+            locally_delivered_file = open(self.storagepath+"/local_deliveries", "wb")
+            locally_delivered_file.write(msgpack.packb(self.locally_delivered_transient_ids))
+            locally_delivered_file.close()
+
+        except Exception as e:
+            RNS.log("Could not save locally delivered message ID cache to storage. The contained exception was: "+str(e), RNS.LOG_ERROR)
 
 
     def register_delivery_identity(self, identity, display_name = None):
@@ -1080,9 +1106,8 @@ class LXMRouter:
             self.lxmf_delivery(resource.data.read(), resource.link.type)
 
     
-    def enable_propagation(self, storagepath):
+    def enable_propagation(self):
         try:
-            self.storagepath = storagepath+"/lxmf"
             self.messagepath = self.storagepath+"/messagestore"
 
             if not os.path.isdir(self.storagepath):
