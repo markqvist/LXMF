@@ -908,39 +908,42 @@ class LXMRouter:
         self.wants_download_on_path_available_to = None
 
     def request_messages_from_propagation_node(self, identity, max_messages = PR_ALL_MESSAGES):
-        self.propagation_transfer_progress = 0.0
-        if self.outbound_propagation_link != None and self.outbound_propagation_link.status == RNS.Link.ACTIVE:
-            self.propagation_transfer_state = LXMRouter.PR_LINK_ESTABLISHED
-            self.outbound_propagation_link.identify(identity)
-            self.outbound_propagation_link.request(
-                LXMPeer.MESSAGE_GET_PATH,
-                [None, None],
-                response_callback=self.message_list_response,
-                failed_callback=self.message_get_failed
-            )
-        else:
-            if self.outbound_propagation_link == None:
-                if RNS.Transport.has_path(self.outbound_propagation_node):
-                    self.wants_download_on_path_available_from = None
-                    self.propagation_transfer_state = LXMRouter.PR_LINK_ESTABLISHING
-                    RNS.log("Establishing link to "+RNS.prettyhexrep(self.outbound_propagation_node)+" for message download", RNS.LOG_DEBUG)
-                    propagation_node_identity = RNS.Identity.recall(self.outbound_propagation_node)
-                    propagation_node_destination = RNS.Destination(propagation_node_identity, RNS.Destination.OUT, RNS.Destination.SINGLE, APP_NAME, "propagation")
-                    def msg_request_established_callback(link):
-                        self.request_messages_from_propagation_node(identity)
-
-                    self.outbound_propagation_link = RNS.Link(propagation_node_destination, established_callback=msg_request_established_callback)
-                else:
-                    RNS.log("No path known for message download from propagation node "+RNS.prettyhexrep(self.outbound_propagation_node)+". Requesting path...", RNS.LOG_DEBUG)
-                    RNS.Transport.request_path(self.outbound_propagation_node)
-                    self.wants_download_on_path_available_from = self.outbound_propagation_node
-                    self.wants_download_on_path_available_to = identity
-                    self.wants_download_on_path_available_timeout = time.time() + LXMRouter.PR_PATH_TIMEOUT
-                    self.propagation_transfer_state = LXMRouter.PR_PATH_REQUESTED
-                    self.request_messages_path_job()
+        if self.outbound_propagation_node != None:
+            self.propagation_transfer_progress = 0.0
+            if self.outbound_propagation_link != None and self.outbound_propagation_link.status == RNS.Link.ACTIVE:
+                self.propagation_transfer_state = LXMRouter.PR_LINK_ESTABLISHED
+                self.outbound_propagation_link.identify(identity)
+                self.outbound_propagation_link.request(
+                    LXMPeer.MESSAGE_GET_PATH,
+                    [None, None],
+                    response_callback=self.message_list_response,
+                    failed_callback=self.message_get_failed
+                )
             else:
-                # TODO: Remove at some point
-                RNS.log("Waiting for propagation node link to become active", RNS.LOG_EXTREME)
+                if self.outbound_propagation_link == None:
+                    if RNS.Transport.has_path(self.outbound_propagation_node):
+                        self.wants_download_on_path_available_from = None
+                        self.propagation_transfer_state = LXMRouter.PR_LINK_ESTABLISHING
+                        RNS.log("Establishing link to "+RNS.prettyhexrep(self.outbound_propagation_node)+" for message download", RNS.LOG_DEBUG)
+                        propagation_node_identity = RNS.Identity.recall(self.outbound_propagation_node)
+                        propagation_node_destination = RNS.Destination(propagation_node_identity, RNS.Destination.OUT, RNS.Destination.SINGLE, APP_NAME, "propagation")
+                        def msg_request_established_callback(link):
+                            self.request_messages_from_propagation_node(identity)
+
+                        self.outbound_propagation_link = RNS.Link(propagation_node_destination, established_callback=msg_request_established_callback)
+                    else:
+                        RNS.log("No path known for message download from propagation node "+RNS.prettyhexrep(self.outbound_propagation_node)+". Requesting path...", RNS.LOG_DEBUG)
+                        RNS.Transport.request_path(self.outbound_propagation_node)
+                        self.wants_download_on_path_available_from = self.outbound_propagation_node
+                        self.wants_download_on_path_available_to = identity
+                        self.wants_download_on_path_available_timeout = time.time() + LXMRouter.PR_PATH_TIMEOUT
+                        self.propagation_transfer_state = LXMRouter.PR_PATH_REQUESTED
+                        self.request_messages_path_job()
+                else:
+                    # TODO: Remove at some point
+                    RNS.log("Waiting for propagation node link to become active", RNS.LOG_EXTREME)
+        else:
+            RNS.log("Cannot request LXMF propagation node sync, no default propagation node configured", RNS.LOG_WARNING)
 
 
     def request_messages_path_job(self):
