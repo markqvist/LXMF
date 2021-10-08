@@ -949,7 +949,7 @@ class LXMRouter:
                         propagation_node_identity = RNS.Identity.recall(self.outbound_propagation_node)
                         propagation_node_destination = RNS.Destination(propagation_node_identity, RNS.Destination.OUT, RNS.Destination.SINGLE, APP_NAME, "propagation")
                         def msg_request_established_callback(link):
-                            self.request_messages_from_propagation_node(identity)
+                            self.request_messages_from_propagation_node(identity, self.propagation_transfer_max_messages)
 
                         self.outbound_propagation_link = RNS.Link(propagation_node_destination, established_callback=msg_request_established_callback)
                     else:
@@ -977,7 +977,7 @@ class LXMRouter:
             time.sleep(0.1)
 
         if RNS.Transport.has_path(self.wants_download_on_path_available_from):
-            self.request_messages_from_propagation_node(self.wants_download_on_path_available_to)
+            self.request_messages_from_propagation_node(self.wants_download_on_path_available_to, self.propagation_transfer_max_messages)
         else:
             RNS.log("Propagation node path request timed out", RNS.LOG_DEBUG)
             self.acknowledge_sync_completion()
