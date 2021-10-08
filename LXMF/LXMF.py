@@ -625,17 +625,27 @@ class LXMPeer:
         self.destination = RNS.Destination(self.identity, RNS.Destination.OUT, RNS.Destination.SINGLE, APP_NAME, "propagation")
 
     def sync(self, initiator=True):
+        RNS.log("Attempting sync to peer "+RNS.prettyhexrep(self.destination_hash), RNS.LOG_DEBUG)
+
+        if RNS.Transport.has_path(self.destination_hash):
+            RNS.log("Path to peer "+RNS.prettyhexrep(self.destination_hash)+" exist over "+str(RNS.Transport.hops_to(self.destination_hash))+" via "+str(RNS.Transport.next_hop_interface(self.destination_hash)), RNS.LOG_DEBUG)
+        else:
+            RNS.log("Attempting sync to peer "+RNS.prettyhexrep(self.destination_hash), RNS.LOG_DEBUG)
+
         if self.identity == None:
+            RNS.log("Attempting to recall identity for peer "+RNS.prettyhexrep(self.destination_hash), RNS.LOG_DEBUG)
             self.identity = RNS.Identity.recall(destination_hash)
             self.destination = RNS.Destination(self.identity, RNS.Destination.OUT, RNS.Destination.SINGLE, APP_NAME, "propagation")
 
         if self.identity != None:
             if len(self.unhandled_messages) > 0:
                 if self.state == LXMPeer.IDLE:
+                    RNS.log("Establishing link for sync to peer "+RNS.prettyhexrep(self.destination_hash)+"...", RNS.LOG_DEBUG)
                     self.link = RNS.Link(self.destination, established_callback = self.link_established, closed_callback = self.link_closed)
                     self.state = LXMPeer.LINK_ESTABLISHING
                 else:
                     if self.state == LXMPeer.LINK_READY:
+                        RNS.log("Sync link to peer "+RNS.prettyhexrep(self.destination_hash)+" established, preparing request...", RNS.LOG_DEBUG)
                         unhandled_ids = []
                         purged_ids = []
                         for transient_id in self.unhandled_messages:
