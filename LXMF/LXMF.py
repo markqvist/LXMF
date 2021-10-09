@@ -569,6 +569,10 @@ class LXMPeer:
 
     ERROR_NO_IDENTITY = 0xf0
 
+    # Maximum amount of time a peer can
+    # be unreachable before it is removed
+    MAX_UNREACHABLE   = 4*24*60*60
+
     @staticmethod
     def from_bytes(peer_bytes, router):
         dictionary = msgpack.unpackb(peer_bytes)
@@ -610,7 +614,7 @@ class LXMPeer:
 
     def __init__(self, router, destination_hash):
         self.alive = False
-        self.last_heard = None
+        self.last_heard = 0
         self.peering_timebase = 0
 
         self.link = None
@@ -648,6 +652,9 @@ class LXMPeer:
 
                     else:
                         if self.state == LXMPeer.LINK_READY:
+                            self.alive = True
+                            self.last_heard = time.time()
+
                             RNS.log("Sync link to peer "+RNS.prettyhexrep(self.destination_hash)+" established, preparing request...", RNS.LOG_DEBUG)
                             unhandled_ids = []
                             purged_ids = []
@@ -756,6 +763,8 @@ class LXMPeer:
             self.state = LXMPeer.IDLE
             self.link.teardown()
             RNS.log("Sync to peer "+RNS.prettyhexrep(self.destination_hash)+" completed", RNS.LOG_DEBUG)
+            self.alive = True
+            self.last_heard = time.time()
         else:
             RNS.log("Resource transfer for LXMF peer sync failed to "+str(self.destination), RNS.LOG_DEBUG)
             if self.link != None:
@@ -779,6 +788,12 @@ class LXMPeer:
             # TODO: Remove at some point
             RNS.log("The message "+RNS.prettyhexrep(transient_id)+" was added to distribution queue for "+RNS.prettyhexrep(self.destination_hash), RNS.LOG_EXTREME)
             self.unhandled_messages[transient_id] = self.router.propagation_entries[transient_id]
+
+    def __str__(self):
+        if self.destination_hash:
+            return RNS.prettyhexrep(self.destination_hash)
+        else:
+            return "<Unknown>"
 
 class LXMRouter:
     MAX_DELIVERY_ATTEMPTS = 3
@@ -1528,11 +1543,15 @@ class LXMRouter:
 
 
     def sync_peers(self):
+        culled_peers  = []
         waiting_peers = []
         for peer_id in self.peers:
             peer = self.peers[peer_id]
-            if peer.state == LXMPeer.IDLE and len(peer.unhandled_messages) > 0:
-                waiting_peers.append(peer)
+            if time.time() > peer.last_heard + LXMPeer.MAX_UNREACHABLE:
+                culled_peers.append(peer_id)
+            else:
+                if peer.state == LXMPeer.IDLE and len(peer.unhandled_messages) > 0:
+                    waiting_peers.append(peer)
 
         if len(waiting_peers) > 0:
             RNS.log("Randomly selecting peer to sync from "+str(len(waiting_peers))+" waiting peers.", RNS.LOG_DEBUG)
@@ -1540,6 +1559,10 @@ class LXMRouter:
             selected_peer = waiting_peers[selected_index]
             RNS.log("Selected waiting peer "+str(selected_index)+": "+RNS.prettyhexrep(selected_peer.destination.hash), RNS.LOG_DEBUG)
             selected_peer.sync()
+
+        for peer in culled_peers:
+            RNS.log("Removing peer "+RNS.prettyhexrep(peer)+" due to excessive unreachability", RNS.LOG_WARNING)
+            self.peers.pop(peer_id)
 
 
     def fail_message(self, lxmessage):
