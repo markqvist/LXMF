@@ -1444,7 +1444,7 @@ class LXMRouter:
 
             if timestamp >= peer.peering_timebase:
                 self.peers.pop(destination_hash)
-                RNS.log(str(self.propagation_destination)+" broke peering with "+str(peer.destination))
+                RNS.log("Broke peering with "+str(peer.destination))
 
 
     def jobloop(self):
