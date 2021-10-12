@@ -814,8 +814,9 @@ class LXMRouter:
     PR_LINK_ESTABLISHING = 0x02
     PR_LINK_ESTABLISHED  = 0x03
     PR_REQUEST_SENT      = 0x04
-    PR_RESPONSE_RECEIVED = 0x05
-    PR_COMPLETE          = 0x06
+    PR_RECEIVING         = 0x05
+    PR_RESPONSE_RECEIVED = 0x06
+    PR_COMPLETE          = 0x07
 
     PR_ALL_MESSAGES      = 0x00
 
@@ -973,6 +974,7 @@ class LXMRouter:
                     response_callback=self.message_list_response,
                     failed_callback=self.message_get_failed
                 )
+                self.propagation_transfer_state = LXMRouter.PR_REQUEST_SENT
             else:
                 if self.outbound_propagation_link == None:
                     if RNS.Transport.has_path(self.outbound_propagation_node):
@@ -1057,6 +1059,7 @@ class LXMRouter:
                     self.propagation_transfer_last_result = 0
 
     def message_get_progress(self, request_receipt):
+        self.propagation_transfer_state = LXMRouter.PR_RECEIVING
         self.propagation_transfer_progress = request_receipt.get_progress()
 
     def message_get_response(self, request_receipt):
