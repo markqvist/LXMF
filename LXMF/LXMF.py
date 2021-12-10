@@ -1566,8 +1566,9 @@ class LXMRouter:
         for peer in culled_peers:
             RNS.log("Removing peer "+RNS.prettyhexrep(peer)+" due to excessive unreachability", RNS.LOG_WARNING)
             try:
-                # TODO: Check this and add "if in" clause
-                self.peers.pop(peer_id)
+                # TODO: Check this
+                if peer_id in self.peers:
+                    self.peers.pop(peer_id)
             except Exception as e:
                 RNS.log("Error while removing peer "+RNS.prettyhexrep(peer_id)+". The contained exception was: "+str(e), RNS.LOG_ERROR)    
 
