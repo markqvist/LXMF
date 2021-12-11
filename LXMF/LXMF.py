@@ -796,13 +796,15 @@ class LXMPeer:
             return "<Unknown>"
 
 class LXMRouter:
-    MAX_DELIVERY_ATTEMPTS = 3
+    MAX_DELIVERY_ATTEMPTS = 4
     PROCESSING_INTERVAL   = 5
-    DELIVERY_RETRY_WAIT   = 15
+    DELIVERY_RETRY_WAIT   = 12
     PATH_REQUEST_WAIT     = 5
     LINK_MAX_INACTIVITY   = 10*60
 
     MESSAGE_EXPIRY        = 30*24*60*60
+
+    NODE_ANNOUNCE_DELAY   = 20
 
     AUTOPEER              = True
     AUTOPEER_MAXDEPTH     = 4
@@ -1228,8 +1230,14 @@ class LXMRouter:
         self.announce_propagation_node()
 
     def announce_propagation_node(self):
-        data = msgpack.packb([self.propagation_node, int(time.time())])
-        self.propagation_destination.announce(app_data=data)
+        def delayed_announce():
+            time.sleep(LXMRouter.NODE_ANNOUNCE_DELAY)
+            data = msgpack.packb([self.propagation_node, int(time.time())])
+            self.propagation_destination.announce(app_data=data)
+
+        da_thread = threading.Thread(target=delayed_announce)
+        da_thread.setDaemon(True)
+        da_thread.start()
 
     def offer_request(self, path, data, request_id, remote_identity, requested_at):
         if remote_identity == None:
@@ -1629,7 +1637,18 @@ class LXMRouter:
                                     else:
                                         RNS.log("Waiting for proof for "+str(lxmessage)+" sent as link packet", RNS.LOG_DEBUG)
                             elif direct_link.status == RNS.Link.CLOSED:
-                                RNS.log("The link to "+RNS.prettyhexrep(lxmessage.get_destination().hash)+" was closed", RNS.LOG_DEBUG)
+                                if direct_link.activated_at != None:
+                                    RNS.log("The link to "+RNS.prettyhexrep(lxmessage.get_destination().hash)+" was closed", RNS.LOG_DEBUG)
+                                else:
+                                    if not hasattr(lxmessage, "path_request_retried"):
+                                        RNS.log("The link to "+RNS.prettyhexrep(lxmessage.get_destination().hash)+" was never activated, retrying path request...", RNS.LOG_DEBUG)
+                                        RNS.Transport.request_path(lxmessage.get_destination().hash)
+                                        lxmessage.path_request_retried = True
+                                    else:
+                                        RNS.log("The link to "+RNS.prettyhexrep(lxmessage.get_destination().hash)+" was never activated", RNS.LOG_DEBUG)
+
+                                    lxmessage.next_delivery_attempt = time.time() + LXMRouter.PATH_REQUEST_WAIT
+
                                 lxmessage.set_delivery_destination(None)
                                 self.direct_links.pop(delivery_destination_hash)
                                 lxmessage.next_delivery_attempt = time.time() + LXMRouter.DELIVERY_RETRY_WAIT
