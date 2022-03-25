@@ -405,26 +405,28 @@ class LXMessage:
         else:
             return None
 
+    def packed_container(self):
+        if not self.packed:
+            self.pack()
+
+        container = {
+            "state": self.state,
+            "lxmf_bytes": self.packed,
+            "transport_encrypted": self.transport_encrypted,
+            "transport_encryption": self.transport_encryption,
+            "method": self.method
+        }
+
+        return msgpack.packb(container)
+
+
     def write_to_directory(self, directory_path):
         file_name = RNS.hexrep(self.hash, delimit=False)
         file_path = directory_path+"/"+file_name
 
         try:
-            if not self.packed:
-                self.pack()
-
-            container = {
-                "state": self.state,
-                "lxmf_bytes": self.packed,
-                "transport_encrypted": self.transport_encrypted,
-                "transport_encryption": self.transport_encryption,
-                "method": self.method
-            }
-
-            packed_container = msgpack.packb(container)
-
             file = open(file_path, "wb")
-            file.write(packed_container)
+            file.write(self.packed_container())
             file.close()
 
             return file_path
