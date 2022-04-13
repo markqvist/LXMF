@@ -1573,10 +1573,9 @@ class LXMRouter:
             RNS.log("Selected waiting peer "+str(selected_index)+": "+RNS.prettyhexrep(selected_peer.destination.hash), RNS.LOG_DEBUG)
             selected_peer.sync()
 
-        for peer in culled_peers:
-            RNS.log("Removing peer "+RNS.prettyhexrep(peer)+" due to excessive unreachability", RNS.LOG_WARNING)
+        for peer_id in culled_peers:
+            RNS.log("Removing peer "+RNS.prettyhexrep(peer_id)+" due to excessive unreachability", RNS.LOG_WARNING)
             try:
-                # TODO: Check this
                 if peer_id in self.peers:
                     self.peers.pop(peer_id)
             except Exception as e:
