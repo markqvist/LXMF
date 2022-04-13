@@ -228,7 +228,7 @@ class LXMessage:
             # If no desired delivery method has been defined,
             # one will be chosen according to these rules:
             if self.desired_method == None:
-                self.desired_method == LXMessage.DIRECT
+                self.desired_method = LXMessage.DIRECT
             # TODO: Expand rules to something more intelligent
 
             if self.desired_method == LXMessage.OPPORTUNISTIC:
