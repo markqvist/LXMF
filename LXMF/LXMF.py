@@ -308,7 +308,7 @@ class LXMessage:
             if self.__destination.type == RNS.Destination.SINGLE:
                 self.transport_encrypted = True
                 self.transport_encryption = LXMessage.ENCRYPTION_DESCRIPTION_EC
-            elif destination_type == RNS.Destination.GROUP:
+            elif self.__destination.type == RNS.Destination.GROUP:
                 self.transport_encrypted = True
                 self.transport_encryption = LXMessage.ENCRYPTION_DESCRIPTION_AES
             else:
