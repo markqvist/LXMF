@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="lxmf",
-    version="0.1.4",
+    version="0.1.5",
     author="Mark Qvist",
     author_email="mark@unsigned.io",
     description="Lightweight Extensible Message Format for Reticulum",
