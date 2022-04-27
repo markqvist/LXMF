@@ -282,8 +282,12 @@ class LXMessage:
 
             if self.representation == LXMessage.PACKET:
                 receipt = self.__as_packet().send()
-                receipt.set_delivery_callback(self.__mark_delivered)
-                receipt.set_timeout_callback(self.__link_packet_timed_out)
+                if receipt:
+                    receipt.set_delivery_callback(self.__mark_delivered)
+                    receipt.set_timeout_callback(self.__link_packet_timed_out)
+                else:
+                    if self.__delivery_destination:
+                        self.__delivery_destination.teardown()
 
             elif self.representation == LXMessage.RESOURCE:
                 self.resource_representation = self.__as_resource()
