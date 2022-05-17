@@ -339,15 +339,21 @@ class LXMessage:
         RNS.log("Received delivery notification for "+str(self), RNS.LOG_DEBUG)
         self.state = LXMessage.DELIVERED
 
-        if self.__delivery_callback != None:
-            self.__delivery_callback(self)
+        if self.__delivery_callback != None and callable(self.__delivery_callback):
+            try:
+                self.__delivery_callback(self)
+            except Exception as e:
+                    RNS.log("An error occurred in the external delivery callback for "+str(message), RNS.LOG_ERROR)
 
     def __mark_propagated(self, receipt = None):
         RNS.log("Received propagation success notification for "+str(self), RNS.LOG_DEBUG)
         self.state = LXMessage.SENT
 
-        if self.__delivery_callback != None:
-            self.__delivery_callback(self)
+        if self.__delivery_callback != None and callable(self.__delivery_callback):
+            try:
+                self.__delivery_callback(self)
+            except Exception as e:
+                    RNS.log("An error occurred in the external delivery callback for "+str(message), RNS.LOG_ERROR)
 
     def __resource_concluded(self, resource):
         if resource.status == RNS.Resource.COMPLETE:
@@ -1130,8 +1136,11 @@ class LXMRouter:
                 message.transport_encrypted = False
                 message.transport_encryption = None
 
-            if self.__delivery_callback != None:
-                self.__delivery_callback(message)
+            if self.__delivery_callback != None and callable(self.__delivery_callback):
+                try:
+                    self.__delivery_callback(message)
+                except Exception as e:
+                    RNS.log("An error occurred in the external delivery callback for "+str(message), RNS.LOG_ERROR)
 
             return True
 
@@ -1593,7 +1602,7 @@ class LXMRouter:
         self.failed_outbound.append(lxmessage)
 
         lxmessage.state = LXMessage.FAILED
-        if lxmessage.failed_callback != None:
+        if lxmessage.failed_callback != None and callable(lxmessage.failed_callback):
             lxmessage.failed_callback(lxmessage)
 
     def process_outbound(self, sender = None):
