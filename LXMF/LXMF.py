@@ -843,6 +843,8 @@ class LXMRouter:
         self.direct_links          = {}
         self.delivery_destinations = {}
 
+        self.ignored_list          = []
+
         self.processing_outbound = False
         self.processing_inbound  = False
         self.processing_count = 0
@@ -1135,6 +1137,10 @@ class LXMRouter:
             else:
                 message.transport_encrypted = False
                 message.transport_encryption = None
+
+            if message.source_hash in self.ignored_list:
+                RNS.log(str(self)+" ignored message from "+RNS.prettyhexrep(message.source_hash), RNS.LOG_DEBUG)
+                return False
 
             if self.__delivery_callback != None and callable(self.__delivery_callback):
                 try:
@@ -1595,6 +1601,14 @@ class LXMRouter:
                 RNS.log("Error while removing peer "+RNS.prettyhexrep(peer_id)+". The contained exception was: "+str(e), RNS.LOG_ERROR)    
 
 
+    def ignore_destination(self, destination_hash):
+        if not destination_hash in self.ignored_list:
+            self.ignored_list.append(destination_hash)
+
+    def unignore_destination(self, destination_hash):
+        if destination_hash in self.ignored_list:
+            self.ignored_list.remove(destination_hash)
+
     def fail_message(self, lxmessage):
         RNS.log(str(lxmessage)+" failed to send", RNS.LOG_DEBUG)
 
@@ -1604,6 +1618,9 @@ class LXMRouter:
         lxmessage.state = LXMessage.FAILED
         if lxmessage.failed_callback != None and callable(lxmessage.failed_callback):
             lxmessage.failed_callback(lxmessage)
+
+    def __str__(self):
+        return "<LXMRouter "+RNS.hexrep(self.identity.hash, delimit=False)+">"
 
     def process_outbound(self, sender = None):
         if self.processing_outbound:
