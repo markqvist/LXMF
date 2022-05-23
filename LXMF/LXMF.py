@@ -640,18 +640,17 @@ class LXMPeer:
         self.identity = RNS.Identity.recall(destination_hash)
         self.destination = RNS.Destination(self.identity, RNS.Destination.OUT, RNS.Destination.SINGLE, APP_NAME, "propagation")
 
-    def sync(self, initiator=True):
-        RNS.log("Attempting sync to peer "+RNS.prettyhexrep(self.destination_hash), RNS.LOG_DEBUG)
+    def sync(self):
+        RNS.log("Initiating LXMF Propagation Node sync with peer "+RNS.prettyhexrep(self.destination_hash), RNS.LOG_DEBUG)
 
         if not RNS.Transport.has_path(self.destination_hash):
             RNS.log("No path to peer "+RNS.prettyhexrep(self.destination_hash)+" exists, requesting...", RNS.LOG_DEBUG)
             RNS.Transport.request_path(self.destination_hash)
             RNS.log("Path requested, retrying sync later", RNS.LOG_DEBUG)
         else:
-            RNS.log("Path to peer "+RNS.prettyhexrep(self.destination_hash)+" exist over "+str(RNS.Transport.hops_to(self.destination_hash))+" hops via "+str(RNS.Transport.next_hop_interface(self.destination_hash)), RNS.LOG_DEBUG)
+            # RNS.log("Path to peer "+RNS.prettyhexrep(self.destination_hash)+" exists over "+str(RNS.Transport.hops_to(self.destination_hash))+" hops via "+str(RNS.Transport.next_hop_interface(self.destination_hash)), RNS.LOG_DEBUG)
 
             if self.identity == None:
-                RNS.log("Attempting to recall identity for peer "+RNS.prettyhexrep(self.destination_hash), RNS.LOG_DEBUG)
                 self.identity = RNS.Identity.recall(destination_hash)
                 self.destination = RNS.Destination(self.identity, RNS.Destination.OUT, RNS.Destination.SINGLE, APP_NAME, "propagation")
 
@@ -667,7 +666,7 @@ class LXMPeer:
                             self.alive = True
                             self.last_heard = time.time()
 
-                            RNS.log("Sync link to peer "+RNS.prettyhexrep(self.destination_hash)+" established, preparing request...", RNS.LOG_DEBUG)
+                            RNS.log("Synchronisation link to peer "+RNS.prettyhexrep(self.destination_hash)+" established, preparing request...", RNS.LOG_DEBUG)
                             unhandled_ids = []
                             purged_ids = []
                             for transient_id in self.unhandled_messages:
