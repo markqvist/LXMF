@@ -38,6 +38,8 @@ class LXMRouter:
     PR_RECEIVING         = 0x05
     PR_RESPONSE_RECEIVED = 0x06
     PR_COMPLETE          = 0x07
+    PR_NO_IDENTITY_RCVD  = 0xf0
+    PR_NO_ACCESS         = 0xf1
 
     PR_ALL_MESSAGES      = 0x00
 
@@ -55,6 +57,8 @@ class LXMRouter:
         self.delivery_destinations = {}
 
         self.ignored_list          = []
+        self.allowed_list          = []
+        self.auth_required         = False
 
         self.processing_outbound = False
         self.processing_inbound  = False
@@ -160,6 +164,26 @@ class LXMRouter:
     def get_outbound_propagation_node(self):
         return self.outbound_propagation_node
 
+    def set_authentication(self, required=None):
+        if required != None:
+            self.auth_required = required
+
+    def requires_authentication(self):
+        return self.auth_required
+
+    def allow(self, identity_hash=None):
+        if isinstance(identity_hash, bytes) and len(identity_hash) == RNS.Identity.TRUNCATED_HASHLENGTH//8:
+            self.allowed_list.append(identity_hash)
+        else:
+            raise ValueError("Allowed identity hash must be "+str(RNS.Identity.TRUNCATED_HASHLENGTH//8)+" bytes")
+
+    def disallow(self, identity_hash=None):
+        if isinstance(identity_hash, bytes) and len(identity_hash) == RNS.Identity.TRUNCATED_HASHLENGTH//8:
+            if identity_hash in self.allowed_list:
+                self.allowed_list.pop(identity_hash)
+        else:
+            raise ValueError("Disallowed identity hash must be "+str(RNS.Identity.TRUNCATED_HASHLENGTH//8)+" bytes")
+
     def request_messages_from_propagation_node(self, identity, max_messages = PR_ALL_MESSAGES):
         if max_messages == None:
             max_messages = LXMRouter.PR_ALL_MESSAGES
@@ -208,7 +232,7 @@ class LXMRouter:
             self.outbound_propagation_link.teardown()
             self.outbound_propagation_link = None
 
-        self.acknowledge_sync_completion()
+        self.acknowledge_sync_completion(reset_state=True)
 
     def enable_propagation(self):
         try:
@@ -552,9 +576,23 @@ class LXMRouter:
             RNS.log("Propagation node path request timed out", RNS.LOG_DEBUG)
             self.acknowledge_sync_completion()
     
+    def identity_allowed(self, identity):
+        if self.auth_required:
+            if identity.hash in self.allowed_list:
+                return True
+            else:
+                return False
+        
+        else:
+            return True
+
     def message_get_request(self, path, data, request_id, remote_identity, requested_at):
         if remote_identity == None:
             return LXMPeer.ERROR_NO_IDENTITY
+        
+        elif not self.identity_allowed(remote_identity):
+            return LXMPeer.ERROR_NO_ACCESS
+
         else:
             try:
                 remote_destination = RNS.Destination(remote_identity, RNS.Destination.OUT, RNS.Destination.SINGLE, APP_NAME, "delivery")
@@ -622,8 +660,16 @@ class LXMRouter:
             RNS.log("Propagation node indicated missing identification on list request, tearing down link.", RNS.LOG_DEBUG)
             if self.outbound_propagation_link != None:
                 self.outbound_propagation_link.teardown()
+            self.propagation_transfer_state = LXMRouter.PR_NO_IDENTITY_RCVD
+
+        elif request_receipt.response == LXMPeer.ERROR_NO_ACCESS:
+            RNS.log("Propagation node did not allow list request, tearing down link.", RNS.LOG_DEBUG)
+            if self.outbound_propagation_link != None:
+                self.outbound_propagation_link.teardown()
+            self.propagation_transfer_state = LXMRouter.PR_NO_ACCESS
+
         else:
-            if request_receipt.response != None:
+            if request_receipt.response != None and isinstance(request_receipt.response, list):
                 haves = []
                 wants = []
                 if len(request_receipt.response) > 0:
@@ -682,8 +728,10 @@ class LXMRouter:
         if self.outbound_propagation_link != None:
             self.outbound_propagation_link.teardown()
 
-    def acknowledge_sync_completion(self):
-        self.propagation_transfer_state = LXMRouter.PR_IDLE
+    def acknowledge_sync_completion(self, reset_state=False):
+        if reset_state or self.propagation_transfer_state <= LXMRouter.PR_COMPLETE:
+            self.propagation_transfer_state = LXMRouter.PR_IDLE
+
         self.propagation_transfer_progress = 0.0
         self.propagation_transfer_last_result = None
         self.wants_download_on_path_available_from = None

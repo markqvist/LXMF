@@ -18,6 +18,7 @@ class LXMPeer:
     RESOURCE_TRANSFERRING = 0x05
 
     ERROR_NO_IDENTITY = 0xf0
+    ERROR_NO_ACCESS   = 0xf1
 
     # Maximum amount of time a peer can
     # be unreachable before it is removed
