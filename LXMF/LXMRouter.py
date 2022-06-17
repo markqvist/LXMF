@@ -56,6 +56,7 @@ class LXMRouter:
         self.direct_links          = {}
         self.delivery_destinations = {}
 
+        self.prioritised_list      = []
         self.ignored_list          = []
         self.allowed_list          = []
         self.auth_required         = False
@@ -173,7 +174,8 @@ class LXMRouter:
 
     def allow(self, identity_hash=None):
         if isinstance(identity_hash, bytes) and len(identity_hash) == RNS.Identity.TRUNCATED_HASHLENGTH//8:
-            self.allowed_list.append(identity_hash)
+            if not identity_hash in self.allowed_list:
+                self.allowed_list.append(identity_hash)
         else:
             raise ValueError("Allowed identity hash must be "+str(RNS.Identity.TRUNCATED_HASHLENGTH//8)+" bytes")
 
@@ -183,6 +185,20 @@ class LXMRouter:
                 self.allowed_list.pop(identity_hash)
         else:
             raise ValueError("Disallowed identity hash must be "+str(RNS.Identity.TRUNCATED_HASHLENGTH//8)+" bytes")
+
+    def prioritise(self, destination_hash=None):
+        if isinstance(destination_hash, bytes) and len(destination_hash) == RNS.Reticulum.TRUNCATED_HASHLENGTH//8:
+            if not destination_hash in self.prioritised_list:
+                self.prioritised_list.append(destination_hash)
+        else:
+            raise ValueError("Prioritised destination hash must be "+str(RNS.Reticulum.TRUNCATED_HASHLENGTH//8)+" bytes")
+
+    def unprioritise(self, identity_hash=None):
+        if isinstance(destination_hash, bytes) and len(destination_hash) == RNS.Reticulum.TRUNCATED_HASHLENGTH//8:
+            if destination_hash in self.prioritised_list:
+                self.prioritised_list.pop(destination_hash)
+        else:
+            raise ValueError("Prioritised destination hash must be "+str(RNS.Reticulum.TRUNCATED_HASHLENGTH//8)+" bytes")
 
     def request_messages_from_propagation_node(self, identity, max_messages = PR_ALL_MESSAGES):
         if max_messages == None:
@@ -318,10 +334,10 @@ class LXMRouter:
         limit_bytes = 0
 
         if kilobytes != None:
-            limit_bytes += gigabytes*1000
+            limit_bytes += kilobytes*1000
 
         if megabytes != None:
-            limit_bytes += gigabytes*1000*1000
+            limit_bytes += megabytes*1000*1000
 
         if gigabytes != None:
             limit_bytes += gigabytes*1000*1000*1000
@@ -351,10 +367,10 @@ class LXMRouter:
         limit_bytes = 0
 
         if kilobytes != None:
-            limit_bytes += gigabytes*1000
+            limit_bytes += kilobytes*1000
 
         if megabytes != None:
-            limit_bytes += gigabytes*1000*1000
+            limit_bytes += megabytes*1000*1000
 
         if gigabytes != None:
             limit_bytes += gigabytes*1000*1000*1000
@@ -488,11 +504,16 @@ class LXMRouter:
                     for transient_id in self.propagation_entries:
                         entry = self.propagation_entries[transient_id]
 
+                        dst_hash = entry[0]
                         lxm_rcvd = entry[2]
                         lxm_size = entry[3]
                         age_weight = max(1, (now - lxm_rcvd)/60/60/24/4)
+                        if dst_hash in self.prioritised_list:
+                            priority_weight = 0.1
+                        else:
+                            priority_weight = 1.0
                         
-                        weight = age_weight * lxm_size
+                        weight = priority_weight * age_weight * lxm_size
                         weighted_entries.append([entry, weight, transient_id])
 
                     weighted_entries.sort(key=lambda we: we[1], reverse=True)
