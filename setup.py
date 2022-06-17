@@ -18,6 +18,6 @@ setuptools.setup(
         "License :: OSI Approved :: MIT License",
         "Operating System :: OS Independent",
     ],
-    install_requires=['rns>=0.3.6'],
+    install_requires=['rns>=0.3.8'],
     python_requires='>=3.6',
 )
