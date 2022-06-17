@@ -647,9 +647,8 @@ class LXMPeer:
             RNS.log("No path to peer "+RNS.prettyhexrep(self.destination_hash)+" exists, requesting...", RNS.LOG_DEBUG)
             RNS.Transport.request_path(self.destination_hash)
             RNS.log("Path requested, retrying sync later", RNS.LOG_DEBUG)
+        
         else:
-            # RNS.log("Path to peer "+RNS.prettyhexrep(self.destination_hash)+" exists over "+str(RNS.Transport.hops_to(self.destination_hash))+" hops via "+str(RNS.Transport.next_hop_interface(self.destination_hash)), RNS.LOG_DEBUG)
-
             if self.identity == None:
                 self.identity = RNS.Identity.recall(destination_hash)
                 self.destination = RNS.Destination(self.identity, RNS.Destination.OUT, RNS.Destination.SINGLE, APP_NAME, "propagation")
@@ -1089,7 +1088,9 @@ class LXMRouter:
                     self.lxmf_propagation(lxmf_data)
                     haves.append(RNS.Identity.full_hash(lxmf_data))
 
-                # Return a list of successfully received messages to the node
+                # Return a list of successfully received messages to the node.
+                # This deletes the messages on the propagation node.
+                # TODO: Add option to keep messages on node.
                 request_receipt.link.request(
                     LXMPeer.MESSAGE_GET_PATH,
                     [None, haves],
