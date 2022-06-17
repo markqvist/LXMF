@@ -309,7 +309,12 @@ class LXMRouter:
             self.propagation_destination.register_request_handler(LXMPeer.OFFER_REQUEST_PATH, self.offer_request, allow = RNS.Destination.ALLOW_ALL)
             self.propagation_destination.register_request_handler(LXMPeer.MESSAGE_GET_PATH, self.message_get_request, allow = RNS.Destination.ALLOW_ALL)
 
-            RNS.log("LXMF Propagation Node message store size is "+RNS.prettysize(self.message_storage_size()), RNS.LOG_DEBUG)
+            if self.message_storage_limit != None:
+                limit_str = ", limit is "+RNS.prettysize(self.message_storage_limit)
+            else:
+                limit_str = ""
+
+            RNS.log("LXMF Propagation Node message store size is "+RNS.prettysize(self.message_storage_size())+limit_str, RNS.LOG_DEBUG)
 
             self.announce_propagation_node()
 
