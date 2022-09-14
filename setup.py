@@ -3,9 +3,11 @@ import setuptools
 with open("README.md", "r") as fh:
     long_description = fh.read()
 
+exec(open("LXMF/_version.py", "r").read())
+
 setuptools.setup(
     name="lxmf",
-    version="0.1.7",
+    version=__version__,
     author="Mark Qvist",
     author_email="mark@unsigned.io",
     description="Lightweight Extensible Message Format for Reticulum",
