@@ -463,7 +463,7 @@ class LXMRouter:
         removed_entries = []
         for transient_id in self.locally_delivered_transient_ids:
             timestamp = self.locally_delivered_transient_ids[transient_id]
-            if now > timestamp+LXMRouter.MESSAGE_EXPIRY*1.1:
+            if now > timestamp+LXMRouter.MESSAGE_EXPIRY*1.25:
                 removed_entries.append(transient_id)
 
         for transient_id in removed_entries:
@@ -559,6 +559,18 @@ class LXMRouter:
         except Exception as e:
             RNS.log("Could not clean the LXMF message store. The contained exception was: "+str(e), RNS.LOG_ERROR)
 
+    def save_locally_delivered_transient_ids(self):
+        try:
+            if not os.path.isdir(self.storagepath):
+                    os.makedirs(self.storagepath)
+
+            locally_delivered_file = open(self.storagepath+"/local_deliveries", "wb")
+            locally_delivered_file.write(msgpack.packb(self.locally_delivered_transient_ids))
+            locally_delivered_file.close()
+
+        except Exception as e:
+            RNS.log("Could not save locally delivered message ID cache to storage. The contained exception was: "+str(e), RNS.LOG_ERROR)
+
     def exit_handler(self):
         if self.propagation_node:
             try:
@@ -576,16 +588,7 @@ class LXMRouter:
             except Exception as e:
                 RNS.log("Could not save propagation node peers to storage. The contained exception was: "+str(e), RNS.LOG_ERROR)
 
-        try:
-            if not os.path.isdir(self.storagepath):
-                    os.makedirs(self.storagepath)
-
-            locally_delivered_file = open(self.storagepath+"/local_deliveries", "wb")
-            locally_delivered_file.write(msgpack.packb(self.locally_delivered_transient_ids))
-            locally_delivered_file.close()
-
-        except Exception as e:
-            RNS.log("Could not save locally delivered message ID cache to storage. The contained exception was: "+str(e), RNS.LOG_ERROR)
+        self.save_locally_delivered_transient_ids()
 
     def __str__(self):
         return "<LXMRouter "+RNS.hexrep(self.identity.hash, delimit=False)+">"
@@ -730,6 +733,14 @@ class LXMRouter:
             RNS.log("Propagation node indicated missing identification on get request, tearing down link.", RNS.LOG_DEBUG)
             if self.outbound_propagation_link != None:
                 self.outbound_propagation_link.teardown()
+            self.propagation_transfer_state = LXMRouter.PR_NO_IDENTITY_RCVD
+
+        elif request_receipt.response == LXMPeer.ERROR_NO_ACCESS:
+            RNS.log("Propagation node did not allow get request, tearing down link.", RNS.LOG_DEBUG)
+            if self.outbound_propagation_link != None:
+                self.outbound_propagation_link.teardown()
+            self.propagation_transfer_state = LXMRouter.PR_NO_ACCESS
+
         else:
             if request_receipt.response != None and len(request_receipt.response) > 0:
                 haves = []
@@ -751,6 +762,7 @@ class LXMRouter:
             self.propagation_transfer_state = LXMRouter.PR_COMPLETE
             self.propagation_transfer_progress = 1.0
             self.propagation_transfer_last_result = len(request_receipt.response)
+            self.save_locally_delivered_transient_ids()
 
     def message_get_progress(self, request_receipt):
         self.propagation_transfer_state = LXMRouter.PR_RECEIVING
