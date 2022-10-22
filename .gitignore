@@ -8,6 +8,7 @@ __pycache__/
 *.so
 
 # Distribution / packaging
+LXMF/Utilities/LXMF
 RNS
 .Python
 build/

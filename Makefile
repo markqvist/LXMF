@@ -8,10 +8,12 @@ clean:
 remove_symlinks:
 	@echo Removing symlinks for build...
 	-rm ./RNS
+	-rm ./LXMF/Utilities/LXMF
 
 create_symlinks:
 	@echo Creating symlinks...
 	-ln -s ../Reticulum/RNS ./
+	-ln -s ../../LXMF ./LXMF/Utilities/LXMF
 
 build_wheel:
 	python3 setup.py sdist bdist_wheel
