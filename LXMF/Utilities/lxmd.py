@@ -94,6 +94,16 @@ def apply_config():
         else:
             active_configuration["node_announce_at_start"] = False
 
+        if "propagation" in lxmd_config and "autopeer" in lxmd_config["propagation"]:
+            active_configuration["autopeer"] = lxmd_config["propagation"].as_bool("autopeer")
+        else:
+            active_configuration["autopeer"] = True
+
+        if "propagation" in lxmd_config and "autopeer_maxdepth" in lxmd_config["propagation"]:
+            active_configuration["autopeer_maxdepth"] = lxmd_config["propagation"].as_int("autopeer_maxdepth")
+        else:
+            active_configuration["autopeer_maxdepth"] = None
+
         if "propagation" in lxmd_config and "announce_interval" in lxmd_config["propagation"]:
             active_configuration["node_announce_interval"] = lxmd_config["propagation"].as_int("announce_interval")*60
         else:
@@ -241,7 +251,12 @@ def program_setup(configdir = None, rnsconfigdir = None, run_pn = False, on_inbo
             exit(2)
 
     # Start LXMF
-    message_router = LXMF.LXMRouter(identity = identity, storagepath = storagedir, autopeer = True)
+    message_router = LXMF.LXMRouter(
+        identity = identity,
+        storagepath = storagedir,
+        autopeer = active_configuration["autopeer"],
+        autopeer_maxdepth = active_configuration["autopeer_maxdepth"],
+    )
     message_router.register_delivery_callback(lxmf_delivery)
 
     for destination_hash in active_configuration["ignored_lxmf_destinations"]:
@@ -370,6 +385,10 @@ announce_at_start = yes
 # Wheter to automatically peer with other
 # propagation nodes on the network.
 autopeer = yes
+
+# The maximum peering depth (in hops) for
+# automatically peered nodes.
+autopeer_maxdepth = 4
 
 # The maximum amount of storage to use for
 # the LXMF Propagation Node message store,

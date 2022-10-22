@@ -976,7 +976,8 @@ class LXMRouter:
                         remote_hash = remote_destination.hash
 
                         if not remote_hash in self.peers:
-                            self.peer(remote_hash, remote_timebase)
+                            if self.autopeer and RNS.Transport.hops_to(remote_hash) <= self.autopeer_maxdepth:
+                                self.peer(remote_hash, remote_timebase)
 
                     messages = data[1]
                     for lxmf_data in messages:
