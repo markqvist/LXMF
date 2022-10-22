@@ -29,6 +29,8 @@ import RNS
 import LXMF
 import argparse
 import threading
+import subprocess
+import shlex
 import time
 import os
 
@@ -40,6 +42,7 @@ configpath     = None
 ignoredpath    = None
 identitypath   = None
 storagedir     = None
+lxmdir         = None
 targetloglevel = None
 
 identity = None
@@ -140,16 +143,27 @@ def apply_config():
         exit(3)
 
 def lxmf_delivery(lxm):
-    global active_configuration
-    RNS.log("Received "+str(lxm), RNS.LOG_DEBUG)
-    if active_configuration["on_inbound"]:
-        RNS.log("Calling external program to handle message", RNS.LOG_DEBUG)
-    else:
-        RNS.log("No action defined for inbound messages, ignoring", RNS.LOG_EXTREME)
+    global active_configuration, lxmdir
+
+    try:
+        written_path = lxm.write_to_directory(lxmdir)
+        RNS.log("Received "+str(lxm)+" written to "+str(written_path), RNS.LOG_DEBUG)
+
+        if active_configuration["on_inbound"]:
+            RNS.log("Calling external program to handle message", RNS.LOG_DEBUG)
+            command = active_configuration["on_inbound"]
+            processing_command = command+" \""+written_path+"\""
+            return_code = subprocess.call(shlex.split(processing_command), stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+        else:
+            RNS.log("No action defined for inbound messages, ignoring", RNS.LOG_DEBUG)
+
+    except Exception as e:
+        RNS.log("Error occurred while processing received message "+str(lxm)+". The contained exception was: "+str(e), RNS.LOG_ERROR)
 
 
 def program_setup(configdir = None, rnsconfigdir = None, run_pn = False, on_inbound = None, verbosity = 0, quietness = 0, service = False):
-    global configpath, ignoredpath, identitypath, storagedir
+    global configpath, ignoredpath, identitypath, storagedir, lxmdir
     global lxmd_config, active_configuration, targetloglevel
     global message_router, lxmf_destination
 
@@ -174,9 +188,13 @@ def program_setup(configdir = None, rnsconfigdir = None, run_pn = False, on_inbo
     ignoredpath   = configdir+"/ignored"
     identitypath = configdir+"/identity"
     storagedir   = configdir+"/storage"
+    lxmdir       = storagedir+"/messages"
 
     if not os.path.isdir(storagedir):
         os.makedirs(storagedir)
+
+    if not os.path.isdir(lxmdir):
+        os.makedirs(lxmdir)
 
     if os.path.isfile(configpath):
         try:
