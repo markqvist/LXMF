@@ -14,12 +14,17 @@ setuptools.setup(
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/markqvist/lxmf",
-    packages=setuptools.find_packages(),
+    packages=["LXMF", "LXMF.Utilities"],
     classifiers=[
         "Programming Language :: Python :: 3",
         "License :: OSI Approved :: MIT License",
         "Operating System :: OS Independent",
     ],
+    entry_points= {
+        'console_scripts': [
+            'lxmd=LXMF.Utilities.lxmd:main',
+        ]
+    },
     install_requires=['rns>=0.3.17'],
     python_requires='>=3.6',
 )
