@@ -47,7 +47,7 @@ class LXMRouter:
     ### Developer-facing API ##############################
     #######################################################
 
-    def __init__(self, identity = None, storagepath = None, autopeer = AUTOPEER, autopeer_maxdepth = AUTOPEER_MAXDEPTH):
+    def __init__(self, identity = None, storagepath = None, autopeer = AUTOPEER, autopeer_maxdepth = None):
         random.seed(os.urandom(10))
 
         self.pending_inbound       = []
@@ -93,8 +93,15 @@ class LXMRouter:
         self.lxmf_query_destination  = RNS.Destination(None, RNS.Destination.IN, RNS.Destination.PLAIN, APP_NAME, "query")
         self.propagation_destination = RNS.Destination(self.identity, RNS.Destination.IN, RNS.Destination.SINGLE, APP_NAME, "propagation")
 
-        self.autopeer          = autopeer
-        self.autopeer_maxdepth = autopeer_maxdepth
+        if autopeer != None:
+            self.autopeer = autopeer
+        else:
+            self.autopeer = LXMRouter.AUTOPEER
+
+        if autopeer_maxdepth != None:
+            self.autopeer_maxdepth = autopeer_maxdepth
+        else:
+            self.autopeer_maxdepth = LXMRouter.AUTOPEER_MAXDEPTH
 
         self.peers = {}
         self.propagation_entries = {}

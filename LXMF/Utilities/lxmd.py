@@ -89,6 +89,11 @@ def apply_config():
         else:
             active_configuration["enable_propagation_node"] = False
 
+        if "propagation" in lxmd_config and "auth_required" in lxmd_config["propagation"]:
+            active_configuration["auth_required"] = lxmd_config["propagation"].as_bool("auth_required")
+        else:
+            active_configuration["auth_required"] = False
+
         if "propagation" in lxmd_config and "announce_at_start" in lxmd_config["propagation"]:
             active_configuration["node_announce_at_start"] = lxmd_config["propagation"].as_bool("announce_at_start")
         else:
@@ -141,11 +146,33 @@ def apply_config():
                             active_configuration["ignored_lxmf_destinations"].append(ignored_hash)
 
                         except Exception as e:
-                            RNS.log("Could not decode RNS Identity hash from: "+str(hash_str), RNS.LOG_DEBUG)
+                            RNS.log("Could not decode hash from: "+str(hash_str), RNS.LOG_DEBUG)
                             RNS.log("The contained exception was: "+str(e), RNS.LOG_DEBUG)
 
             except Exception as e:
                 RNS.log("Error while loading list of ignored destinations: "+str(e), RNS.LOG_ERROR)
+
+        active_configuration["allowed_identities"] = []
+        if os.path.isfile(allowedpath):
+            try:
+                fh = open(allowedpath, "rb")
+                allowed_input = fh.read()
+                fh.close()
+
+                allowed_hash_strs = allowed_input.splitlines()
+
+                for hash_str in allowed_hash_strs:
+                    if len(hash_str) == RNS.Identity.TRUNCATED_HASHLENGTH//8*2:
+                        try:
+                            allowed_hash = bytes.fromhex(hash_str.decode("utf-8"))
+                            active_configuration["allowed_identities"].append(allowed_hash)
+
+                        except Exception as e:
+                            RNS.log("Could not decode hash from: "+str(hash_str), RNS.LOG_DEBUG)
+                            RNS.log("The contained exception was: "+str(e), RNS.LOG_DEBUG)
+
+            except Exception as e:
+                RNS.log("Error while loading list of allowed identities: "+str(e), RNS.LOG_ERROR)
 
     except Exception as e:
         RNS.log("Could not apply LXM Daemon configuration. The contained exception was: "+str(e), RNS.LOG_ERROR)
@@ -173,7 +200,7 @@ def lxmf_delivery(lxm):
 
 
 def program_setup(configdir = None, rnsconfigdir = None, run_pn = False, on_inbound = None, verbosity = 0, quietness = 0, service = False):
-    global configpath, ignoredpath, identitypath, storagedir, lxmdir
+    global configpath, ignoredpath, identitypath, allowedpath, storagedir, lxmdir
     global lxmd_config, active_configuration, targetloglevel
     global message_router, lxmf_destination
 
@@ -195,7 +222,8 @@ def program_setup(configdir = None, rnsconfigdir = None, run_pn = False, on_inbo
             configdir = RNS.Reticulum.userdir+"/.lxmd"
 
     configpath   = configdir+"/config"
-    ignoredpath   = configdir+"/ignored"
+    ignoredpath  = configdir+"/ignored"
+    allowedpath  = configdir+"/allowed"
     identitypath = configdir+"/identity"
     storagedir   = configdir+"/storage"
     lxmdir       = storagedir+"/messages"
@@ -249,7 +277,7 @@ def program_setup(configdir = None, rnsconfigdir = None, run_pn = False, on_inbo
             RNS.log("Could not create and save a new Primary Identity", RNS.LOG_ERROR)
             RNS.log("The contained exception was: %s" % (str(e)), RNS.LOG_ERROR)
             exit(2)
-
+        
     # Start LXMF
     message_router = LXMF.LXMRouter(
         identity = identity,
@@ -271,6 +299,12 @@ def program_setup(configdir = None, rnsconfigdir = None, run_pn = False, on_inbo
         app_data=None
     )
 
+    # Set up authentication
+    if active_configuration["auth_required"]:
+        message_router.set_authentication(required=True)
+        for identity_hash in active_configuration["allowed_identities"]:
+            message_router.allow(identity_hash)
+
     RNS.log("LXMF Router ready to receive on "+RNS.prettyhexrep(lxmf_destination.hash))
 
     if run_pn or active_configuration["enable_propagation_node"]:
@@ -287,6 +321,9 @@ def program_setup(configdir = None, rnsconfigdir = None, run_pn = False, on_inbo
         message_router.enable_propagation()
 
         RNS.log("LXMF Propagation Node started on "+RNS.prettyhexrep(message_router.propagation_destination.hash))
+
+    if len(active_configuration["allowed_identities"]) == 0:
+        RNS.log("Clint authentication was enabled, but no identity hashes could be loaded from "+str(allowedpath)+". Nobody will be able to sync messages from this propagation node.", RNS.LOG_WARNING)
 
     RNS.log("Started lxmd version {version}".format(version=__version__), RNS.LOG_NOTICE)
 
@@ -410,6 +447,14 @@ autopeer_maxdepth = 4
 # and generally you do not need to use it.
 # prioritise_destinations = 41d20c727598a3fbbdf9106133a3a0ed, d924b81822ca24e68e2effea99bcb8cf
 
+# By default, any destination is allowed to
+# connect and download messages, but you can
+# optionally restrict this. If you enable
+# authentication, you must provide a list of
+# allowed identity hashes in the a file named
+# "allowed" in the lxmd config directory.
+auth_required = no
+
 
 [lxmf]
 
@@ -433,7 +478,7 @@ announce_at_start = no
 # message saved as a file. The example below will
 # simply result in the message getting deleted as
 # soon as it has been received.
-# on_inbound = rm 
+# on_inbound = rm
 
 
 [logging]
