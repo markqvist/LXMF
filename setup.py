@@ -25,6 +25,6 @@ setuptools.setup(
             'lxmd=LXMF.Utilities.lxmd:main',
         ]
     },
-    install_requires=['rns>=0.3.17'],
+    install_requires=['rns>=0.4.0'],
     python_requires='>=3.6',
 )
