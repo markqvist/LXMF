@@ -3,6 +3,12 @@ Lightweight Extensible Message Format
 
 LXMF is a simple and flexible messaging format and delivery protocol that allows a wide variety of implementations, while using as little bandwidth as possible. It is built on top of [Reticulum](https://github.com/markqvist/reticulum) and offers zero-conf message routing, end-to-end encryption and Forward Secrecy by default.
 
+User-facing clients that use LXMF include:
+
+- [Sideband](https://github.com/markqvist/sideband)
+- [Nomad Network](https://github.com/markqvist/nomadnet)
+- [Nexus Messenger](https://github.com/HarlekinSimplex/nexus_messenger)
+
 ## Structure
 
 LXMF messages are stored in a simple and efficient format, that's easy to parse and write.
