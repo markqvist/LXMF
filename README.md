@@ -1,11 +1,11 @@
 # Lightweight Extensible Message Format
 
-LXMF is a simple and flexible messaging format and delivery protocol that allows a wide variety of implementations, while using as little bandwidth as possible. It is built on top of [Reticulum](https://github.com/markqvist/reticulum) and offers zero-conf message routing, end-to-end encryption and Forward Secrecy by default.
+LXMF is a simple and flexible messaging format and delivery protocol that allows a wide variety of implementations, while using as little bandwidth as possible. It is built on top of [Reticulum](https://reticulum.network) and offers zero-conf message routing, end-to-end encryption and Forward Secrecy by default.
 
 User-facing clients built on LXMF include:
 
-- [Sideband](https://github.com/markqvist/sideband)
-- [Nomad Network](https://github.com/markqvist/nomadnet)
+- [Sideband](https://unsigned.io/sideband)
+- [Nomad Network](https://unsigned.io/nomadnet)
 - [Nexus Messenger](https://github.com/HarlekinSimplex/nexus_messenger)
 
 ## Structure
@@ -81,7 +81,7 @@ The LXM Router then handles the heavy lifting, such as message packing, encrypti
 
 ## Transport Encryption
 
-LXMF uses encryption provided by [Reticulum](https://github.com/markqvist/reticulum), and thus uses end-to-end encryption by default. The delivery method of a message will influence which transport encryption scheme is used.
+LXMF uses encryption provided by [Reticulum](https://reticulum.network), and thus uses end-to-end encryption by default. The delivery method of a message will influence which transport encryption scheme is used.
 
 - A message can be delivered opportunistically, embedded in a single Reticulum packet. In this cases the message will be opportunistically routed through the network, and will be encrypted with _ephemeral_ keys derived with _ECDH_ on _Curve25519_. This mode offers Perfect Forward Secrecy.
 
@@ -93,8 +93,8 @@ LXMF uses encryption provided by [Reticulum](https://github.com/markqvist/reticu
 
 Assuming the default Reticulum configuration, the binary wire-format is as follows:
 
-- 10 bytes destination hash
-- 10 bytes source hash
+- 16 bytes destination hash
+- 16 bytes source hash
 - 64 bytes Ed25519 signature
 - Remaining bytes of [msgpack](https://msgpack.org) payload data, in accordance with the structure defined above
 
