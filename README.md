@@ -122,5 +122,5 @@ LXMF is actively being developed, and the following improvements and features ar
 - Sneakernet and physical transport functionality
 - LXMF paper- and QR-encoded messages
 - Documenting and possibly expanding LXMF limits and priorities
-- Sync affinity based on link speeds and distances, for more intelligently choosing what peers to sync next
+- Sync affinity based on link speeds and distances, for more intelligently choosing peer sync order
 - Markets on LXMF
