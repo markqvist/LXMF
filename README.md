@@ -1,5 +1,4 @@
-Lightweight Extensible Message Format
-==========
+# Lightweight Extensible Message Format
 
 LXMF is a simple and flexible messaging format and delivery protocol that allows a wide variety of implementations, while using as little bandwidth as possible. It is built on top of [Reticulum](https://github.com/markqvist/reticulum) and offers zero-conf message routing, end-to-end encryption and Forward Secrecy by default.
 
@@ -13,7 +12,7 @@ User-facing clients built on LXMF include:
 
 LXMF messages are stored in a simple and efficient format, that's easy to parse and write.
 
-##### The format follows this general structure:
+### The format follows this general structure:
 
 - Destination
 - Source
@@ -24,7 +23,7 @@ LXMF messages are stored in a simple and efficient format, that's easy to parse 
     - Title
     - Fields
 
-##### And these rules:
+### And these rules:
 
 1. A LXMF message is identified by its __message-id__, which is a SHA-256 hash of the __Destination__, __Source__ and __Payload__. The message-id is never included directly in the message, since it can always be inferred from the message itself.
 
@@ -112,3 +111,16 @@ If you want to try out LXMF, you can install it with pip:
 ```bash
 pip3 install lxmf
 ```
+
+## Development Roadmap
+
+LXMF is actively being developed, and the following improvements and features are currently planned for implementation:
+
+- Write and release full API and protocol documentation
+- Update examples in readme to actually work
+- Content Destinations, and easy to use API for group messaging and discussion threads 
+- Sneakernet and physical transport functionality
+- LXMF paper- and QR-encoded messages
+- Documenting and possibly expanding LXMF limits and priorities
+- Sync affinity based on link speeds and distances, for more intelligently choosing what peers to sync next
+- Markets on LXMF
