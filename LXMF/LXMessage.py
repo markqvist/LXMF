@@ -276,7 +276,7 @@ class LXMessage:
                 paper_content_limit = LXMessage.PAPER_MDU
 
                 encrypted_data = self.__destination.encrypt(self.packed[LXMessage.DESTINATION_LENGTH:])
-                self.paper_packed = msgpack.packb(self.packed[:LXMessage.DESTINATION_LENGTH]+encrypted_data)
+                self.paper_packed = self.packed[:LXMessage.DESTINATION_LENGTH]+encrypted_data
 
                 content_size = len(self.paper_packed)
                 if content_size <= paper_content_limit:
