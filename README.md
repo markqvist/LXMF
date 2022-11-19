@@ -1,19 +1,18 @@
-Lightweight Extensible Message Format
-==========
+# Lightweight Extensible Message Format
 
-LXMF is a simple and flexible messaging format and delivery protocol that allows a wide variety of implementations, while using as little bandwidth as possible. It is built on top of [Reticulum](https://github.com/markqvist/reticulum) and offers zero-conf message routing, end-to-end encryption and Forward Secrecy by default.
+LXMF is a simple and flexible messaging format and delivery protocol that allows a wide variety of implementations, while using as little bandwidth as possible. It is built on top of [Reticulum](https://reticulum.network) and offers zero-conf message routing, end-to-end encryption and Forward Secrecy by default.
 
 User-facing clients built on LXMF include:
 
-- [Sideband](https://github.com/markqvist/sideband)
-- [Nomad Network](https://github.com/markqvist/nomadnet)
+- [Sideband](https://unsigned.io/sideband)
+- [Nomad Network](https://unsigned.io/nomadnet)
 - [Nexus Messenger](https://github.com/HarlekinSimplex/nexus_messenger)
 
 ## Structure
 
 LXMF messages are stored in a simple and efficient format, that's easy to parse and write.
 
-##### The format follows this general structure:
+### The format follows this general structure:
 
 - Destination
 - Source
@@ -24,7 +23,7 @@ LXMF messages are stored in a simple and efficient format, that's easy to parse 
     - Title
     - Fields
 
-##### And these rules:
+### And these rules:
 
 1. A LXMF message is identified by its __message-id__, which is a SHA-256 hash of the __Destination__, __Source__ and __Payload__. The message-id is never included directly in the message, since it can always be inferred from the message itself.
 
@@ -82,7 +81,7 @@ The LXM Router then handles the heavy lifting, such as message packing, encrypti
 
 ## Transport Encryption
 
-LXMF uses encryption provided by [Reticulum](https://github.com/markqvist/reticulum), and thus uses end-to-end encryption by default. The delivery method of a message will influence which transport encryption scheme is used.
+LXMF uses encryption provided by [Reticulum](https://reticulum.network), and thus uses end-to-end encryption by default. The delivery method of a message will influence which transport encryption scheme is used.
 
 - A message can be delivered opportunistically, embedded in a single Reticulum packet. In this cases the message will be opportunistically routed through the network, and will be encrypted with _ephemeral_ keys derived with _ECDH_ on _Curve25519_. This mode offers Perfect Forward Secrecy.
 
@@ -94,8 +93,8 @@ LXMF uses encryption provided by [Reticulum](https://github.com/markqvist/reticu
 
 Assuming the default Reticulum configuration, the binary wire-format is as follows:
 
-- 10 bytes destination hash
-- 10 bytes source hash
+- 16 bytes destination hash
+- 16 bytes source hash
 - 64 bytes Ed25519 signature
 - Remaining bytes of [msgpack](https://msgpack.org) payload data, in accordance with the structure defined above
 
@@ -112,3 +111,16 @@ If you want to try out LXMF, you can install it with pip:
 ```bash
 pip3 install lxmf
 ```
+
+## Development Roadmap
+
+LXMF is actively being developed, and the following improvements and features are currently planned for implementation:
+
+- Write and release full API and protocol documentation
+- Update examples in readme to actually work
+- Content Destinations, and easy to use API for group messaging and discussion threads 
+- Sneakernet and physical transport functionality
+- LXMF paper- and QR-encoded messages
+- Documenting and possibly expanding LXMF limits and priorities
+- Sync affinity based on link speeds and distances, for more intelligently choosing peer sync order
+- Markets on LXMF
