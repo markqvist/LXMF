@@ -1100,14 +1100,14 @@ class LXMRouter:
             RNS.log("The contained exception was: "+str(e), RNS.LOG_DEBUG)
             return False
 
-    def ingest_lxm_url(self, url, signal_local_delivery=None, signal_duplicate=None):
+    def ingest_lxm_uri(self, uri, signal_local_delivery=None, signal_duplicate=None):
         try:
-            if not url.lower().startswith("lxm://"):
-                RNS.log("Cannot ingest LXM, invalid URL provided.", RNS.LOG_ERROR)
+            if not uri.lower().startswith(LXMessage.URI_SCHEMA+"://"):
+                RNS.log("Cannot ingest LXM, invalid URI provided.", RNS.LOG_ERROR)
                 return False
 
             else:
-                lxmf_data = base64.urlsafe_b64decode(url.replace(LXMessage.URL_PROTO_SPECIFIER+"://", "").replace("/", "")+"==")
+                lxmf_data = base64.urlsafe_b64decode(uri.replace(LXMessage.URI_SCHEMA+"://", "").replace("/", "")+"==")
                 transient_id = RNS.Identity.full_hash(lxmf_data)
                 
                 router_propagation_result = self.lxmf_propagation(lxmf_data, signal_local_delivery=signal_local_delivery, signal_duplicate=signal_duplicate)
@@ -1115,11 +1115,11 @@ class LXMRouter:
                     RNS.log("LXM with transient ID "+RNS.prettyhexrep(transient_id)+" was ingested.", RNS.LOG_DEBUG)
                     return router_propagation_result
                 else:
-                    RNS.log("No valid LXM could be ingested from the provided URL", RNS.LOG_DEBUG)
+                    RNS.log("No valid LXM could be ingested from the provided URI", RNS.LOG_DEBUG)
                     return False
 
         except Exception as e:
-            RNS.log("Error while decoding URL-encoded LXMF message. The contained exception was: "+str(e), RNS.LOG_ERROR)
+            RNS.log("Error while decoding URI-encoded LXMF message. The contained exception was: "+str(e), RNS.LOG_ERROR)
             return False
 
     def fail_message(self, lxmessage):

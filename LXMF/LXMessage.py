@@ -78,11 +78,11 @@ class LXMessage:
     ENCRYPTION_DESCRIPTION_EC  = "Curve25519"
     ENCRYPTION_DESCRIPTION_UNENCRYPTED = "Unencrypted"
 
-    # Constants for QR/URL encoding LXMs
-    URL_PROTO_SPECIFIER = "lxm"
+    # Constants for QR/URI encoding LXMs
+    URI_SCHEMA = "lxm"
     QR_ERROR_CORRECTION = "ERROR_CORRECT_L"
     QR_MAX_STORAGE = 2953
-    PAPER_MDU = ((QR_MAX_STORAGE-(len(URL_PROTO_SPECIFIER)+len("://")))*6)//8
+    PAPER_MDU = ((QR_MAX_STORAGE-(len(URI_SCHEMA)+len("://")))*6)//8
 
     def __str__(self):
         if self.hash != None:
@@ -122,6 +122,9 @@ class LXMessage:
         self.progress     = None
         self.state        = LXMessage.DRAFT
         self.method       = LXMessage.UNKNOWN
+
+        self.propagation_packed      = None
+        self.paper_packed            = None
 
         self.incoming                = False
         self.signature_validated     = False
@@ -483,7 +486,7 @@ class LXMessage:
             RNS.log("Error while writing LXMF message to file \""+str(file_path)+"\". The contained exception was: "+str(e), RNS.LOG_ERROR)
             return None
 
-    def as_url(self, finalise=True):
+    def as_uri(self, finalise=True):
         self.determine_transport_encryption()
         if not self.packed:
             self.pack()
@@ -493,18 +496,15 @@ class LXMessage:
             encoded_bytes = base64.urlsafe_b64encode(self.paper_packed)
 
             # Add protocol specifier and return
-            lxm_url = LXMessage.URL_PROTO_SPECIFIER+"://"+encoded_bytes.decode("utf-8").replace("=","")
-
-            # TODO: Remove
-            # RNS.log(str(len(lxm_url))+" byte LXM URL: "+str(lxm_url), RNS.LOG_EXTREME)
+            lxm_uri = LXMessage.URI_SCHEMA+"://"+encoded_bytes.decode("utf-8").replace("=","")
 
             if finalise:
                 self.__mark_paper_generated()
             
-            return lxm_url
+            return lxm_uri
 
         else:
-            raise TypeError("Attempt to represent LXM with non-paper delivery method as URL")
+            raise TypeError("Attempt to represent LXM with non-paper delivery method as URI")
 
     def as_qr(self):
         self.determine_transport_encryption()
@@ -519,7 +519,7 @@ class LXMessage:
                 qr = qrcode.make(
                     error_correction = qrcode.constants.__dict__[LXMessage.QR_ERROR_CORRECTION],
                     border = 1,
-                    data = self.as_url(finalise=False),
+                    data = self.as_uri(finalise=False),
                 )
 
                 self.__mark_paper_generated()
@@ -535,7 +535,7 @@ class LXMessage:
             raise TypeError("Attempt to represent LXM with non-paper delivery method as QR-code")
 
     @staticmethod
-    def unpack_from_bytes(lxmf_bytes):
+    def unpack_from_bytes(lxmf_bytes, original_method = None):
         destination_hash     = lxmf_bytes[:LXMessage.DESTINATION_LENGTH]
         source_hash          = lxmf_bytes[LXMessage.DESTINATION_LENGTH:2*LXMessage.DESTINATION_LENGTH]
         signature            = lxmf_bytes[2*LXMessage.DESTINATION_LENGTH:2*LXMessage.DESTINATION_LENGTH+LXMessage.SIGNATURE_LENGTH]
@@ -568,7 +568,8 @@ class LXMessage:
             title = "",
             fields = fields,
             destination_hash = destination_hash,
-            source_hash = source_hash)
+            source_hash = source_hash,
+            desired_method = original_method)
 
         message.hash        = message_hash
         message.signature   = signature
