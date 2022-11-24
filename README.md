@@ -138,7 +138,6 @@ LXMF is actively being developed, and the following improvements and features ar
 - Update examples in readme to actually work
 - Content Destinations, and easy to use API for group messaging and discussion threads 
 - Sneakernet and physical transport functionality
-- LXMF paper- and QR-encoded messages
 - Documenting and possibly expanding LXMF limits and priorities
 - Sync affinity based on link speeds and distances, for more intelligently choosing peer sync order
 - Markets on LXMF
