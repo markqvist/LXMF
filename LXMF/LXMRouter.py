@@ -910,7 +910,11 @@ class LXMRouter:
     def peer(self, destination_hash, timestamp):
         if destination_hash in self.peers:
             peer = self.peers[destination_hash]
-            peer.alive = True
+            if timestamp > peer.peering_timebase:
+                peer.alive = True
+                peer.sync_backoff = 0
+                peer.next_sync_attempt = 0
+
             peer.peering_timebase = timestamp
             peer.last_heard = time.time()
         else:
@@ -934,18 +938,33 @@ class LXMRouter:
     def sync_peers(self):
         culled_peers  = []
         waiting_peers = []
+        unresponsive_peers = []
         for peer_id in self.peers:
             peer = self.peers[peer_id]
             if time.time() > peer.last_heard + LXMPeer.MAX_UNREACHABLE:
                 culled_peers.append(peer_id)
             else:
                 if peer.state == LXMPeer.IDLE and len(peer.unhandled_messages) > 0:
-                    waiting_peers.append(peer)
+                    if peer.alive:
+                        waiting_peers.append(peer)
+                    else:
+                        if hasattr(peer, "next_sync_attempt") and time.time() > peer.next_sync_attempt:
+                            unresponsive_peers.append(peer)
+                        else:
+                            pass
+                            # RNS.log("Not adding peer "+str(peer)+" since it is in sync backoff", RNS.LOG_DEBUG)
 
+        peer_pool = []
         if len(waiting_peers) > 0:
             RNS.log("Randomly selecting peer to sync from "+str(len(waiting_peers))+" waiting peers.", RNS.LOG_DEBUG)
-            selected_index = random.randint(0,len(waiting_peers)-1)
-            selected_peer = waiting_peers[selected_index]
+            peer_pool = waiting_peers
+        elif len(unresponsive_peers) > 0:
+            RNS.log("No active peers available, randomly selecting peer to sync from "+str(len(unresponsive_peers))+" unresponsive peers.", RNS.LOG_DEBUG)
+            peer_pool = unresponsive_peers
+        
+        if len(peer_pool) > 0:
+            selected_index = random.randint(0,len(peer_pool)-1)
+            selected_peer = peer_pool[selected_index]
             RNS.log("Selected waiting peer "+str(selected_index)+": "+RNS.prettyhexrep(selected_peer.destination.hash), RNS.LOG_DEBUG)
             selected_peer.sync()
 
