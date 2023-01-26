@@ -32,7 +32,7 @@ LXMF messages are stored in a simple and efficient format, that's easy to parse 
    In some cases the actual message-id cannot be inferred, for example when a Propagation Node is storing an encrypted message for an offline user. In theses cases a _transient-id_ is used to identify the message while in storage or transit.
 
 2. __Destination__, __Source__, __Signature__ and __Payload__ parts are mandatory, as is the __Timestamp__ part of the payload.
-    - The __Destination__ and __Source__ fields are 10-byte Reticulum destination hashes
+    - The __Destination__ and __Source__ fields are 16-byte Reticulum destination hashes
     - The __Signature__ field is a 64-byte Ed25519 signature of the __Destination__, __Source__, __Payload__ and __message-id__
     - The __Payload__ part is a [msgpacked](https://msgpack.org) list containing four items:
         1. The __Timestamp__ is a double-precision floating point number representing the number of seconds since the UNIX epoch.
@@ -100,7 +100,7 @@ Assuming the default Reticulum configuration, the binary wire-format is as follo
 - 64 bytes Ed25519 signature
 - Remaining bytes of [msgpack](https://msgpack.org) payload data, in accordance with the structure defined above
 
-The complete message overhead for LXMF is only 99 bytes, which in return gives you timestamped, digitally signed, infinitely extensible, end-to-end encrypted, zero-conf routed, minimal-infrastructure messaging that's easy to use and build applications with.
+The complete message overhead for LXMF is only 111 bytes, which in return gives you timestamped, digitally signed, infinitely extensible, end-to-end encrypted, zero-conf routed, minimal-infrastructure messaging that's easy to use and build applications with.
 
 ## Example Paper Message
 
