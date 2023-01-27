@@ -33,9 +33,9 @@ class LXMessage:
     DESTINATION_LENGTH = RNS.Identity.TRUNCATED_HASHLENGTH//8
     SIGNATURE_LENGTH   = RNS.Identity.SIGLENGTH//8
 
-    # LXMF overhead is 99 bytes per message:
-    #   10  bytes for destination hash
-    #   10  bytes for source hash
+    # LXMF overhead is 111 bytes per message:
+    #   16  bytes for destination hash
+    #   16  bytes for source hash
     #   64  bytes for Ed25519 signature
     #   8   bytes for timestamp
     #   7   bytes for msgpack structure
@@ -53,7 +53,7 @@ class LXMessage:
     # field of the packet, therefore we also add the length
     # of a destination hash to the calculation. With default
     # RNS and LXMF parameters, the largest single-packet
-    # LXMF message we can send is 294 bytes. If a message
+    # LXMF message we can send is 288 bytes. If a message
     # is larger than that, a Reticulum link will be used.
     ENCRYPTED_PACKET_MAX_CONTENT = ENCRYPTED_PACKET_MDU - LXMF_OVERHEAD + DESTINATION_LENGTH
     
@@ -63,13 +63,13 @@ class LXMessage:
     LINK_PACKET_MDU = RNS.Link.MDU
 
     # Which means that we can deliver single-packet LXMF
-    # messages with content of up to 332 bytes over a link.
+    # messages with content of up to 320 bytes over a link.
     # If a message is larger than that, LXMF will sequence
     # and transfer it as a RNS resource over the link instead.
     LINK_PACKET_MAX_CONTENT = LINK_PACKET_MDU - LXMF_OVERHEAD
 
     # For plain packets without encryption, we can
-    # fit up to 388 bytes of content.
+    # fit up to 369 bytes of content.
     PLAIN_PACKET_MDU = RNS.Packet.PLAIN_MDU
     PLAIN_PACKET_MAX_CONTENT = PLAIN_PACKET_MDU - LXMF_OVERHEAD + DESTINATION_LENGTH
 
