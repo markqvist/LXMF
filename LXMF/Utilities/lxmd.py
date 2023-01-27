@@ -302,6 +302,10 @@ def program_setup(configdir = None, rnsconfigdir = None, run_pn = False, on_inbo
     # Set up authentication
     if active_configuration["auth_required"]:
         message_router.set_authentication(required=True)
+
+        if len(active_configuration["allowed_identities"]) == 0:
+            RNS.log("Clint authentication was enabled, but no identity hashes could be loaded from "+str(allowedpath)+". Nobody will be able to sync messages from this propagation node.", RNS.LOG_WARNING)
+            
         for identity_hash in active_configuration["allowed_identities"]:
             message_router.allow(identity_hash)
 
@@ -322,9 +326,6 @@ def program_setup(configdir = None, rnsconfigdir = None, run_pn = False, on_inbo
 
         RNS.log("LXMF Propagation Node started on "+RNS.prettyhexrep(message_router.propagation_destination.hash))
 
-    if len(active_configuration["allowed_identities"]) == 0:
-        RNS.log("Clint authentication was enabled, but no identity hashes could be loaded from "+str(allowedpath)+". Nobody will be able to sync messages from this propagation node.", RNS.LOG_WARNING)
-
     RNS.log("Started lxmd version {version}".format(version=__version__), RNS.LOG_NOTICE)
 
     threading.Thread(target=deferred_start_jobs, daemon=True).start()
@@ -338,15 +339,17 @@ def jobs():
     
     while True:
         try:
-            if time.time() > last_peer_announce + active_configuration["peer_announce_interval"]:
-                RNS.log("Sending announce for LXMF delivery destination", RNS.LOG_EXTREME)
-                message_router.announce(lxmf_destination.hash)
-                last_peer_announce = time.time()
+            if "peer_announce_interval" in active_configuration and active_configuration["peer_announce_interval"] != None:
+                if time.time() > last_peer_announce + active_configuration["peer_announce_interval"]:
+                    RNS.log("Sending announce for LXMF delivery destination", RNS.LOG_EXTREME)
+                    message_router.announce(lxmf_destination.hash)
+                    last_peer_announce = time.time()
 
-            if time.time() > last_node_announce + active_configuration["node_announce_interval"]:
-                RNS.log("Sending announce for LXMF Propagation Node", RNS.LOG_EXTREME)
-                message_router.announce_propagation_node()
-                last_node_announce = time.time()
+            if "node_announce_interval" in active_configuration and active_configuration["node_announce_interval"] != None:
+                if time.time() > last_node_announce + active_configuration["node_announce_interval"]:
+                    RNS.log("Sending announce for LXMF Propagation Node", RNS.LOG_EXTREME)
+                    message_router.announce_propagation_node()
+                    last_node_announce = time.time()
 
         except Exception as e:
             RNS.log("An error occurred while running periodic jobs. The contained exception was: "+str(e), RNS.LOG_ERROR)
