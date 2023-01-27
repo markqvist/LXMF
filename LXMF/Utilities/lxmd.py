@@ -204,8 +204,6 @@ def program_setup(configdir = None, rnsconfigdir = None, run_pn = False, on_inbo
     global lxmd_config, active_configuration, targetloglevel
     global message_router, lxmf_destination
 
-    targetloglevel = 3+verbosity-quietness
-
     if service:
         targetlogdest  = RNS.LOG_FILE
         targetloglevel = None
@@ -234,6 +232,12 @@ def program_setup(configdir = None, rnsconfigdir = None, run_pn = False, on_inbo
     if not os.path.isdir(lxmdir):
         os.makedirs(lxmdir)
 
+    if not os.path.isfile(configpath):
+        RNS.log("Could not load config file, creating default configuration file...")
+        create_default_config(configpath)
+        RNS.log("Default config file created. Make any necessary changes in "+configpath+" and restart lxmd if needed.")
+        time.sleep(1.5)
+
     if os.path.isfile(configpath):
         try:
             lxmd_config = ConfigObj(configpath)
@@ -241,15 +245,16 @@ def program_setup(configdir = None, rnsconfigdir = None, run_pn = False, on_inbo
             RNS.log("Could not parse the configuration at "+configpath, RNS.LOG_ERROR)
             RNS.log("Check your configuration file for errors!", RNS.LOG_ERROR)
             RNS.panic()
-    else:
-        RNS.log("Could not load config file, creating default configuration file...")
-        create_default_config(configpath)
-        RNS.log("Default config file created. Make any necessary changes in "+configpath+" and restart Reticulum if needed.")
-        time.sleep(1.5)
-
+    
     apply_config()
     RNS.log("Configuration loaded from "+configpath, RNS.LOG_VERBOSE)
 
+    if targetloglevel == None:
+        targetloglevel = 3
+
+    if verbosity != 0 or quietness != 0:
+        targetloglevel = targetloglevel+verbosity-quietness
+    
     # Start Reticulum
     RNS.log("Substantiating Reticulum...")
     reticulum = RNS.Reticulum(configdir=rnsconfigdir, loglevel=targetloglevel, logdest=targetlogdest)
