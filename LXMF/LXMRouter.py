@@ -153,7 +153,7 @@ class LXMRouter:
         da_thread.start()
 
     def register_delivery_identity(self, identity, display_name = None):
-        delivery_destination = RNS.Destination(identity, RNS.Destination.IN, RNS.Destination.SINGLE, "lxmf", "delivery")
+        delivery_destination = RNS.Destination(identity, RNS.Destination.IN, RNS.Destination.SINGLE, APP_NAME, "delivery")
         delivery_destination.set_packet_callback(self.delivery_packet)
         delivery_destination.set_link_established_callback(self.delivery_link_established)
         delivery_destination.display_name = display_name
