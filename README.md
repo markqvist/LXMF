@@ -29,7 +29,7 @@ LXMF messages are stored in a simple and efficient format, that's easy to parse 
 
 1. A LXMF message is identified by its __message-id__, which is a SHA-256 hash of the __Destination__, __Source__ and __Payload__. The message-id is never included directly in the message, since it can always be inferred from the message itself.
 
-   In some cases the actual message-id cannot be inferred, for example when a Propagation Node is storing an encrypted message for an offline user. In theses cases a _transient-id_ is used to identify the message while in storage or transit.
+   In some cases the actual message-id cannot be inferred, for example when a Propagation Node is storing an encrypted message for an offline user. In these cases a _transient-id_ is used to identify the message while in storage or transit.
 
 2. __Destination__, __Source__, __Signature__ and __Payload__ parts are mandatory, as is the __Timestamp__ part of the payload.
     - The __Destination__ and __Source__ fields are 16-byte Reticulum destination hashes
@@ -46,7 +46,7 @@ LXMF messages are stored in a simple and efficient format, that's easy to parse 
 
 ## Usage Examples
 
-LXMF offers flexibility to implement many different messaging schemes, ranging from human communication to machine control and sensor monitoring. Here's a few examples:
+LXMF offers flexibility to implement many different messaging schemes, ranging from human communication to machine control and sensor monitoring. Here are a few examples:
 
 - A messaging system for passing short, simple messages between human users, akin to SMS can be implemented using only the __Content__ field, and leaving all other optional fields empty.
 
@@ -104,11 +104,11 @@ The complete message overhead for LXMF is only 111 bytes, which in return gives 
 
 ## Example Paper Message
 
-You can try out the paper messaging functionality by using the following QR-code. It is a paper message sent to the LXMF address `6b3362bd2c1dbf87b66a85f79a8d8c75`. To be able to decrypt and read the message, you will need to import the following Reticulum Identity to an LXMF messaging app:
+You can try out the paper messaging functionality by using the following QR code. It is a paper message sent to the LXMF address `6b3362bd2c1dbf87b66a85f79a8d8c75`. To be able to decrypt and read the message, you will need to import the following Reticulum Identity to an LXMF messaging app:
 
 `3BPTDTQCRZPKJT3TXAJCMQFMOYWIM3OCLKPWMG4HCF2T4CH3YZHVNHNRDU6QAZWV2KBHMWBNT2C62TQEVC5GLFM4MN25VLZFSK3ADRQ=`
 
-The [Sideband](https://unsigned.io/sideband) application allows you to do this easily. After the you have imported the identity into an app of your choice, you can scan the following QR-code and open it in the app, where it will be decrypted and added as a message.
+The [Sideband](https://unsigned.io/sideband) application allows you to do this easily. After you have imported the identity into an app of your choice, you can scan the following QR code and open it in the app, where it will be decrypted and added as a message.
 
 <p align="center"><img width="50%" src="./docs/paper_msg_test.png"/></p>
 
@@ -120,7 +120,7 @@ On operating systems that allow for registering custom URI-handlers, you can cli
 
 ## Caveat Emptor
 
-LXMF is beta software, and should be considered experimental. While it has been built with cryptography best-practices very foremost in mind, it _has not_ been externally security audited, and there could very well be privacy-breaking bugs. If you want to help out, or help sponsor an audit, please do get in touch.
+LXMF is beta software, and should be considered experimental. While it has been built with cryptography best practices very foremost in mind, it _has not_ been externally security audited, and there could very well be privacy-breaking bugs. If you want to help out, or help sponsor an audit, please do get in touch.
 
 ## Installation
 
