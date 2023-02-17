@@ -28,6 +28,7 @@ class LXMRouter:
 
     AUTOPEER              = True
     AUTOPEER_MAXDEPTH     = 4
+    FASTEST_N_RANDOM_POOL = 2
 
     PR_PATH_TIMEOUT      = 10
 
@@ -917,6 +918,7 @@ class LXMRouter:
 
             peer.peering_timebase = timestamp
             peer.last_heard = time.time()
+            
         else:
             peer = LXMPeer(self, destination_hash)
             peer.alive = True
@@ -956,8 +958,29 @@ class LXMRouter:
 
         peer_pool = []
         if len(waiting_peers) > 0:
-            RNS.log("Randomly selecting peer to sync from "+str(len(waiting_peers))+" waiting peers.", RNS.LOG_DEBUG)
-            peer_pool = waiting_peers
+            fastest_peers = sorted(
+                waiting_peers,
+                key=lambda p: p.link_establishment_rate,
+                reverse=True
+            )[0:min(FASTEST_N_RANDOM_POOL, len(waiting_peers))]
+            peer_pool.extend(fastest_peers)
+            
+            unknown_speed_peers = [p for p in waiting_peers if p.link_establishment_rate == 0]
+            if len(unknown_speed_peers) > 0:
+                peer_pool.extend(
+                    unknown_speed_peers[
+                        0:min(
+                            len(unknown_speed_peers),
+                            len(fastest_peers)
+                        )]
+                )
+
+            # TODO: Remove
+            for p in peer_pool:
+                RNS.log("Peer: "+RNS.prettyhexrep(p.destination.hash)+" "+RNS.prettysize(p.link_establishment_rate/8, "b")+"ps", RNS.LOG_DEBUG)
+            
+            RNS.log("Selecting peer to sync from "+str(len(waiting_peers))+" waiting peers.", RNS.LOG_DEBUG)
+            
         elif len(unresponsive_peers) > 0:
             RNS.log("No active peers available, randomly selecting peer to sync from "+str(len(unresponsive_peers))+" unresponsive peers.", RNS.LOG_DEBUG)
             peer_pool = unresponsive_peers
