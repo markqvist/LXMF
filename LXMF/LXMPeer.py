@@ -43,6 +43,10 @@ class LXMPeer:
         peer.peering_timebase = dictionary["peering_timebase"]
         peer.alive = dictionary["alive"]
         peer.last_heard = dictionary["last_heard"]
+        if "link_establishment_rate" in dictionary:
+            peer.link_establishment_rate = dictionary["link_establishment_rate"]
+        else:
+            peer.link_establishment_rate = 0
 
         for transient_id in dictionary["handled_ids"]:
             if transient_id in router.propagation_entries:
@@ -60,6 +64,7 @@ class LXMPeer:
         dictionary["alive"] = self.alive
         dictionary["last_heard"] = self.last_heard
         dictionary["destination_hash"] = self.destination_hash
+        dictionary["link_establishment_rate"] = self.link_establishment_rate
 
         handled_ids = []
         for transient_id in self.handled_messages:
@@ -81,6 +86,7 @@ class LXMPeer:
         self.last_sync_attempt = 0
         self.sync_backoff = 0
         self.peering_timebase = 0
+        self.link_establishment_rate = 0
 
         self.link = None
         self.state = LXMPeer.IDLE
@@ -94,7 +100,6 @@ class LXMPeer:
         self.destination = RNS.Destination(self.identity, RNS.Destination.OUT, RNS.Destination.SINGLE, APP_NAME, "propagation")
 
     def sync(self):
-
         RNS.log("Initiating LXMF Propagation Node sync with peer "+RNS.prettyhexrep(self.destination_hash), RNS.LOG_DEBUG)
         self.last_sync_attempt = time.time()
 
@@ -253,6 +258,10 @@ class LXMPeer:
 
     def link_established(self, link):
         self.link.identify(self.router.identity)
+        link_establishment_rate = link.get_establishment_rate()
+        if link_establishment_rate != None:
+            self.link_establishment_rate = link_establishment_rate
+
         self.state = LXMPeer.LINK_READY
         self.next_sync_attempt = 0
         self.sync()
