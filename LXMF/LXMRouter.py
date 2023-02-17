@@ -445,7 +445,12 @@ class LXMRouter:
         while (True):
             # TODO: Improve this to scheduling, so manual
             # triggers can delay next run
-            self.jobs()
+
+            try:
+                self.jobs()
+            except Exception as e:
+                RNS.log("An error ocurred while running LXMF Router jobs.", RNS.LOG_ERROR)
+                RNS.log("The contained exception was: "+str(e), RNS.LOG_ERROR)
             time.sleep(LXMRouter.PROCESSING_INTERVAL)
 
     def clean_links(self):
@@ -962,7 +967,7 @@ class LXMRouter:
                 waiting_peers,
                 key=lambda p: p.link_establishment_rate,
                 reverse=True
-            )[0:min(FASTEST_N_RANDOM_POOL, len(waiting_peers))]
+            )[0:min(LXMRouter.FASTEST_N_RANDOM_POOL, len(waiting_peers))]
             peer_pool.extend(fastest_peers)
             
             unknown_speed_peers = [p for p in waiting_peers if p.link_establishment_rate == 0]
@@ -975,10 +980,6 @@ class LXMRouter:
                         )]
                 )
 
-            # TODO: Remove
-            for p in peer_pool:
-                RNS.log("Peer: "+RNS.prettyhexrep(p.destination.hash)+" "+RNS.prettysize(p.link_establishment_rate/8, "b")+"ps", RNS.LOG_DEBUG)
-            
             RNS.log("Selecting peer to sync from "+str(len(waiting_peers))+" waiting peers.", RNS.LOG_DEBUG)
             
         elif len(unresponsive_peers) > 0:
