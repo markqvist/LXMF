@@ -127,7 +127,22 @@ LXMF is beta software, and should be considered experimental. While it has been 
 If you want to try out LXMF, you can install it with pip:
 
 ```bash
-pip3 install lxmf
+pip install lxmf
+```
+
+If you are using an operating system that blocks normal user package installation via `pip`,
+you can return `pip` to normal behaviour by adding editing the `~/.config/pip/pip.conf` file,
+and adding the following directive in the `[global]` section:
+
+```text
+[global]
+break-system-packages = true
+```
+
+Alternatively, you can use the `pipx` tool to install Reticulum in an isolated environment:
+
+```bash
+pipx install lxmf
 ```
 
 ## Development Roadmap
