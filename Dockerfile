@@ -13,7 +13,7 @@ RUN pip install --upgrade pip
 
 ENV PATH="/home/myuser/.local/bin:${PATH}"
 
-################### BEGIN Sideband ###########################################
+################### BEGIN LXMF ###########################################
 
 COPY --chown=myuser:myuser requirements.txt requirements.txt
 
@@ -28,4 +28,4 @@ RUN source /home/myuser/LXMF/venv/bin/activate
 
 RUN make all
 
-################### END Sideband ###########################################
+################### END LXMF ###########################################
