@@ -1,0 +1,6 @@
+# Run docker command one by one(all four), it will build LXMF artifact and copy to dist directory.
+# No need to build locally and install dependencies
+docker build -t lxmfdockerimage .
+docker run -d -it --name lxmfdockercontainer lxmfdockerimage /bin/sh
+docker cp lxmfdockercontainer:/home/myuser/dist .
+docker rm -f lxmfdockercontainer
