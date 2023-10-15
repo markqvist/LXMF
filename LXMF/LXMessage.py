@@ -487,7 +487,6 @@ class LXMessage:
             return None
 
     def as_uri(self, finalise=True):
-        self.determine_transport_encryption()
         if not self.packed:
             self.pack()
 
@@ -499,6 +498,7 @@ class LXMessage:
             lxm_uri = LXMessage.URI_SCHEMA+"://"+encoded_bytes.decode("utf-8").replace("=","")
 
             if finalise:
+                self.determine_transport_encryption()
                 self.__mark_paper_generated()
             
             return lxm_uri
@@ -507,7 +507,6 @@ class LXMessage:
             raise TypeError("Attempt to represent LXM with non-paper delivery method as URI")
 
     def as_qr(self):
-        self.determine_transport_encryption()
         if not self.packed:
             self.pack()
 
@@ -522,6 +521,7 @@ class LXMessage:
                     data = self.as_uri(finalise=False),
                 )
 
+                self.determine_transport_encryption()
                 self.__mark_paper_generated()
 
                 return qr
