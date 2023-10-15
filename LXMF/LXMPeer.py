@@ -22,7 +22,7 @@ class LXMPeer:
 
     # Maximum amount of time a peer can
     # be unreachable before it is removed
-    MAX_UNREACHABLE   = 4*24*60*60
+    MAX_UNREACHABLE   = 14*24*60*60
 
     # Everytime consecutive time a sync
     # link fails to establish, add this
