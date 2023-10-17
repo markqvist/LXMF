@@ -85,11 +85,11 @@ The LXM Router then handles the heavy lifting, such as message packing, encrypti
 
 LXMF uses encryption provided by [Reticulum](https://reticulum.network), and thus uses end-to-end encryption by default. The delivery method of a message will influence which transport encryption scheme is used.
 
-- A message can be delivered opportunistically, embedded in a single Reticulum packet. In this cases the message will be opportunistically routed through the network, and will be encrypted with _ephemeral_ keys derived with _ECDH_ on _Curve25519_. This mode offers Perfect Forward Secrecy.
+- If a message is delivered over a Reticulum link (which is the default method), the message will be encrypted with ephemeral AES-128 keys derived with ECDH on Curve25519. This mode offers forward secrecy.
 
-- If a message is delivered to the Reticulum GROUP destination type, the message will be transported using _AES-128_ encryption.
+- A message can be delivered opportunistically, embedded in a single Reticulum packet. In this cases the message will be opportunistically routed through the network, and will be encrypted with per-packet AES-128 keys derived with ECDH on Curve25519.
 
-- If a message is delivered over a Reticulum link (which is the default method), the message will be encrypted with _ephemeral_ keys derived with _ECDH_ on _Curve25519_. This mode offers Perfect Forward Secrecy.
+- If a message is delivered to the Reticulum GROUP destination type, the message will be encrypted using the symmetric AES-128 key of the GROUP destination.
 
 ## Wire Format & Overhead
 
