@@ -842,9 +842,14 @@ class LXMRouter:
         self.pending_outbound.append(lxmessage)
         self.process_outbound()
 
-    def lxmf_delivery(self, lxmf_data, destination_type = None):
+    def lxmf_delivery(self, lxmf_data, destination_type = None, phy_stats = None):
         try:
             message = LXMessage.unpack_from_bytes(lxmf_data)
+
+            if phy_stats != None:
+                if "rssi" in phy_stats: message.rssi = phy_stats["rssi"]
+                if "snr" in phy_stats: message.snr = phy_stats["snr"]
+                if "q" in phy_stats: message.q = phy_stats["q"]
 
             if destination_type == RNS.Destination.SINGLE:
                 message.transport_encrypted = True
@@ -885,7 +890,8 @@ class LXMRouter:
             else:
                 lxmf_data = data
 
-            if self.lxmf_delivery(lxmf_data, packet.destination_type):
+            phy_stats = {"rssi": packet.rssi, "snr": packet.snr, "q": packet.q}
+            if self.lxmf_delivery(lxmf_data, packet.destination_type, phy_stats=phy_stats):
                 packet.prove()
 
         except Exception as e:
@@ -907,7 +913,8 @@ class LXMRouter:
     def delivery_resource_concluded(self, resource):
         RNS.log("Transfer concluded for LXMF delivery resource "+str(resource), RNS.LOG_DEBUG)
         if resource.status == RNS.Resource.COMPLETE:
-            self.lxmf_delivery(resource.data.read(), resource.link.type)
+            phy_stats = {"rssi": resource.link.rssi, "snr": resource.link.snr, "q": resource.link.q}
+            self.lxmf_delivery(resource.data.read(), resource.link.type, phy_stats=phy_stats)
 
 
     ### Peer Sync & Propagation ###########################

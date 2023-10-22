@@ -2,6 +2,7 @@ import os
 import glob
 from .LXMessage import LXMessage
 from .LXMRouter import LXMRouter
+from .LXMF import *
 
 from ._version import __version__
 

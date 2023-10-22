@@ -122,6 +122,9 @@ class LXMessage:
         self.progress     = None
         self.state        = LXMessage.DRAFT
         self.method       = LXMessage.UNKNOWN
+        self.rssi         = None
+        self.snr          = None
+        self.q            = None
 
         self.propagation_packed      = None
         self.paper_packed            = None
