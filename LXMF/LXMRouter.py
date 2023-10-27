@@ -40,8 +40,12 @@ class LXMRouter:
     PR_RECEIVING         = 0x05
     PR_RESPONSE_RECEIVED = 0x06
     PR_COMPLETE          = 0x07
-    PR_NO_IDENTITY_RCVD  = 0xf0
-    PR_NO_ACCESS         = 0xf1
+    PR_NO_PATH           = 0xf0
+    PR_LINK_FAILED       = 0xf1
+    PR_TRANSFER_FAILED   = 0xf2
+    PR_NO_IDENTITY_RCVD  = 0xf3
+    PR_NO_ACCESS         = 0xf4
+    PR_FAILED            = 0xfe
 
     PR_ALL_MESSAGES      = 0x00
 
@@ -220,9 +224,9 @@ class LXMRouter:
         if max_messages == None:
             max_messages = LXMRouter.PR_ALL_MESSAGES
 
+        self.propagation_transfer_progress = 0.0
         self.propagation_transfer_max_messages = max_messages
         if self.outbound_propagation_node != None:
-            self.propagation_transfer_progress = 0.0
             if self.outbound_propagation_link != None and self.outbound_propagation_link.status == RNS.Link.ACTIVE:
                 self.propagation_transfer_state = LXMRouter.PR_LINK_ESTABLISHED
                 self.outbound_propagation_link.identify(identity)
@@ -469,7 +473,16 @@ class LXMRouter:
 
         if self.outbound_propagation_link != None and self.outbound_propagation_link.status == RNS.Link.CLOSED:
             self.outbound_propagation_link = None
-            self.acknowledge_sync_completion()
+            if self.propagation_transfer_state == LXMRouter.PR_COMPLETE:
+                self.acknowledge_sync_completion()
+            elif self.propagation_transfer_state < LXMRouter.PR_LINK_ESTABLISHED:
+                self.acknowledge_sync_completion(failure_state=LXMRouter.PR_LINK_FAILED)
+            elif self.propagation_transfer_state >= LXMRouter.PR_LINK_ESTABLISHED and self.propagation_transfer_state < LXMRouter.PR_COMPLETE:
+                self.acknowledge_sync_completion(failure_state=LXMRouter.PR_TRANSFER_FAILED)
+            else:
+                RNS.log(f"Unknown propagation transfer state on link cleaning: {self.propagation_transfer_state}", RNS.LOG_DEBUG)
+                self.acknowledge_sync_completion()
+
             RNS.log("Cleaned outbound propagation link", RNS.LOG_DEBUG)
 
     def clean_transient_id_caches(self):
@@ -647,7 +660,7 @@ class LXMRouter:
             self.request_messages_from_propagation_node(self.wants_download_on_path_available_to, self.propagation_transfer_max_messages)
         else:
             RNS.log("Propagation node path request timed out", RNS.LOG_DEBUG)
-            self.acknowledge_sync_completion()
+            self.acknowledge_sync_completion(failure_state=LXMRouter.PR_NO_PATH)
     
     def identity_allowed(self, identity):
         if self.auth_required:
@@ -810,12 +823,15 @@ class LXMRouter:
         if self.outbound_propagation_link != None:
             self.outbound_propagation_link.teardown()
 
-    def acknowledge_sync_completion(self, reset_state=False):
+    def acknowledge_sync_completion(self, reset_state=False, failure_state=None):
+        self.propagation_transfer_last_result = None
         if reset_state or self.propagation_transfer_state <= LXMRouter.PR_COMPLETE:
-            self.propagation_transfer_state = LXMRouter.PR_IDLE
+            if failure_state == None:
+                self.propagation_transfer_state = LXMRouter.PR_IDLE
+            else:
+                self.propagation_transfer_state = failure_state
 
         self.propagation_transfer_progress = 0.0
-        self.propagation_transfer_last_result = None
         self.wants_download_on_path_available_from = None
         self.wants_download_on_path_available_to = None
 
@@ -890,6 +906,14 @@ class LXMRouter:
             else:
                 lxmf_data = data
 
+            try:
+                reticulum = RNS.Reticulum.get_instance()
+                if packet.rssi == None: packet.rssi = reticulum.get_packet_rssi(packet.packet_hash)
+                if packet.snr  == None: packet.snr  = reticulum.get_packet_snr(packet.packet_hash)
+                if packet.q    == None: packet.q    = reticulum.get_packet_q(packet.packet_hash)
+            except Exception as e:
+                RNS.log("Error while retrieving physical link stats for LXMF delivery packet: "+str(e), RNS.LOG_ERROR)
+
             phy_stats = {"rssi": packet.rssi, "snr": packet.snr, "q": packet.q}
             if self.lxmf_delivery(lxmf_data, packet.destination_type, phy_stats=phy_stats):
                 packet.prove()
@@ -899,6 +923,7 @@ class LXMRouter:
             RNS.log("The contained exception was: "+str(e), RNS.LOG_ERROR)
 
     def delivery_link_established(self, link):
+        link.track_phy_stats(True)
         link.set_packet_callback(self.delivery_packet)
         link.set_resource_strategy(RNS.Link.ACCEPT_ALL)
         link.set_resource_started_callback(self.resource_transfer_began)
