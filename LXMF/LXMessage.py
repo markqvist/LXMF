@@ -111,7 +111,6 @@ class LXMessage:
 
         self.set_title_from_string(title)
         self.set_content_from_string(content)
-
         self.set_fields(fields)
 
         self.payload      = None
@@ -164,7 +163,7 @@ class LXMessage:
 
     def set_fields(self, fields):
         if isinstance(fields, dict) or fields == None:
-            self.fields = fields
+            self.fields = fields or {}
         else:
             raise ValueError("LXMessage property \"fields\" can only be dict or None")
 
