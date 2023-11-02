@@ -1221,7 +1221,7 @@ class LXMRouter:
             else:
                 RNS.log("Starting outbound processing for "+str(lxmessage)+" to "+RNS.prettyhexrep(lxmessage.get_destination().hash), RNS.LOG_DEBUG)
                 # Outbound handling for opportunistic messages
-                if lxmessage.method == LXMessage.OPPORTUNISTIC:                
+                if lxmessage.method == LXMessage.OPPORTUNISTIC:
                     if lxmessage.delivery_attempts <= LXMRouter.MAX_DELIVERY_ATTEMPTS:
                         if not hasattr(lxmessage, "next_delivery_attempt") or time.time() > lxmessage.next_delivery_attempt:
                             lxmessage.delivery_attempts += 1
