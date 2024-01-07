@@ -168,7 +168,7 @@ class LXMessage:
             raise ValueError("LXMessage property \"fields\" can only be dict or None")
 
     def get_fields(self):
-        return self.__fields
+        return self.fields
 
     def set_destination(self, destination):
         if self.destination == None:
