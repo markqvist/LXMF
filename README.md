@@ -8,7 +8,14 @@ User-facing clients built on LXMF include:
 
 - [Sideband](https://unsigned.io/sideband)
 - [Nomad Network](https://unsigned.io/nomadnet)
-- [Nexus Messenger](https://github.com/HarlekinSimplex/nexus_messenger)
+
+Community-provided tools and utilities for LXMF include:
+
+- [LXMF-Bot](https://github.com/randogoth/lxmf-bot)
+- [LXMF Messageboard](https://github.com/chengtripp/lxmf_messageboard)
+- [LXMEvent](https://github.com/faragher/LXMEvent)
+- [RangeMap](https://github.com/faragher/RangeMap)
+- [LXMF Tools](https://github.com/SebastianObi/LXMF-Tools)
 
 ## Structure
 
