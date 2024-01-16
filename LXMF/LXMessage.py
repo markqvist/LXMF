@@ -170,6 +170,17 @@ class LXMessage:
     def get_fields(self):
         return self.fields
 
+    @property
+    def destination(self):
+        return self.__destination
+
+    @destination.setter
+    def destination(self, destination):
+        self.set_destination(destination)
+
+    def get_destination(self):
+        return self.destination
+
     def set_destination(self, destination):
         if self.destination == None:
             if isinstance(destination, RNS.Destination):
@@ -179,8 +190,16 @@ class LXMessage:
         else:
             raise ValueError("Cannot reassign destination on LXMessage")
 
-    def get_destination(self):
-        return self.__destination
+    @property
+    def source(self):
+        return self.__source
+
+    @source.setter
+    def source(self, source):
+        self.set_source(source)
+
+    def get_source(self):
+        return self.source
 
     def set_source(self, source):
         if self.source == None:
@@ -190,9 +209,6 @@ class LXMessage:
                 raise ValueError("Invalid source set on LXMessage")
         else:
             raise ValueError("Cannot reassign source on LXMessage")
-
-    def get_source(self):
-        return self.__source
 
     def set_delivery_destination(self, delivery_destination):
         self.__delivery_destination = delivery_destination
