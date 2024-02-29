@@ -224,6 +224,10 @@ class LXMPeer:
                 self.state = LXMPeer.RESOURCE_TRANSFERRING
             else:
                 RNS.log("Peer "+RNS.prettyhexrep(self.destination_hash)+" did not request any of the available messages, sync completed", RNS.LOG_DEBUG)
+                if self.link != None:
+                    self.link.teardown()
+
+                self.link = None
                 self.state = LXMPeer.IDLE
 
         except Exception as e:
@@ -236,25 +240,28 @@ class LXMPeer:
             self.link = None
             self.state = LXMPeer.IDLE
 
-
     def resource_concluded(self, resource):
         if resource.status == RNS.Resource.COMPLETE:
             for transient_id in resource.transferred_messages:
                 message = self.unhandled_messages.pop(transient_id)
                 self.handled_messages[transient_id] = message
+            
+            if self.link != None:
+                self.link.teardown()
+
+            self.link = None
             self.state = LXMPeer.IDLE
-            self.link.teardown()
+
             RNS.log("Sync to peer "+RNS.prettyhexrep(self.destination_hash)+" completed", RNS.LOG_DEBUG)
             self.alive = True
             self.last_heard = time.time()
+        
         else:
             RNS.log("Resource transfer for LXMF peer sync failed to "+str(self.destination), RNS.LOG_DEBUG)
             if self.link != None:
                 self.link.teardown()
-            else:
-                self.state = LXMPeer.IDLE
 
-
+            self.state = LXMPeer.IDLE
 
     def link_established(self, link):
         self.link.identify(self.router.identity)
@@ -272,8 +279,6 @@ class LXMPeer:
 
     def handle_message(self, transient_id):
         if not transient_id in self.handled_messages and not transient_id in self.unhandled_messages:
-            # TODO: Remove at some point
-            RNS.log("The message "+RNS.prettyhexrep(transient_id)+" was added to distribution queue for "+RNS.prettyhexrep(self.destination_hash), RNS.LOG_EXTREME)
             self.unhandled_messages[transient_id] = self.router.propagation_entries[transient_id]
 
     def __str__(self):

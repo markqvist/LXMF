@@ -653,7 +653,8 @@ class LXMRouter:
         job_thread.start()
 
     def __request_messages_path_job(self):
-        while not RNS.Transport.has_path(self.wants_download_on_path_available_from) and time.time() < self.wants_download_on_path_available_timeout:
+        path_timeout = self.wants_download_on_path_available_timeout
+        while not RNS.Transport.has_path(self.wants_download_on_path_available_from) and time.time() < path_timeout:
             time.sleep(0.1)
 
         if RNS.Transport.has_path(self.wants_download_on_path_available_from):
