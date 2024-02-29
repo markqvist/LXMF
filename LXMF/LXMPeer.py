@@ -148,8 +148,10 @@ class LXMPeer:
                                 RNS.log("Sending sync request to peer "+str(self.destination), RNS.LOG_DEBUG)
                                 self.link.request(LXMPeer.OFFER_REQUEST_PATH, unhandled_ids, response_callback=self.offer_response, failed_callback=self.request_failed)
                                 self.state = LXMPeer.REQUEST_SENT
+
                 else:
                     RNS.log("Could not request sync to peer "+RNS.prettyhexrep(self.destination_hash)+" since its identity could not be recalled.", RNS.LOG_ERROR)
+
         else:
             RNS.log("Postponing sync with peer "+RNS.prettyhexrep(self.destination_hash)+" for "+RNS.prettytime(self.next_sync_attempt-time.time())+" due to previous failures", RNS.LOG_DEBUG)
             if self.last_sync_attempt > self.last_heard:
@@ -159,8 +161,8 @@ class LXMPeer:
         RNS.log("Sync request to peer "+str(self.destination)+" failed", RNS.LOG_DEBUG)
         if self.link != None:
             self.link.teardown()
-        else:
-            self.state = LXMPeer.IDLE
+        
+        self.state = LXMPeer.IDLE
 
     def offer_response(self, request_receipt):
         try:
@@ -222,6 +224,7 @@ class LXMPeer:
                 resource = RNS.Resource(data, self.link, callback = self.resource_concluded)
                 resource.transferred_messages = wanted_message_ids
                 self.state = LXMPeer.RESOURCE_TRANSFERRING
+
             else:
                 RNS.log("Peer "+RNS.prettyhexrep(self.destination_hash)+" did not request any of the available messages, sync completed", RNS.LOG_DEBUG)
                 if self.link != None:
@@ -261,6 +264,7 @@ class LXMPeer:
             if self.link != None:
                 self.link.teardown()
 
+            self.link = None
             self.state = LXMPeer.IDLE
 
     def link_established(self, link):
