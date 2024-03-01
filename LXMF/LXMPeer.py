@@ -163,7 +163,8 @@ class LXMPeer:
                                     self.unhandled_messages.pop(transient_id)
 
                                 unhandled_entries.sort(key=lambda e: e[1], reverse=False)
-                                cumulative_size = 0
+                                per_message_overhead = 16 # Really only 2 bytes, but set a bit higher for now
+                                cumulative_size = 24 # Initialised to highest reasonable binary structure overhead
                                 for unhandled_entry in unhandled_entries:
                                     transient_id = unhandled_entry[0]
                                     weight = unhandled_entry[1]
@@ -171,7 +172,7 @@ class LXMPeer:
                                     if self.propagation_transfer_limit != None and cumulative_size + lxm_size > (self.propagation_transfer_limit*1000):
                                         pass
                                     else:
-                                        cumulative_size += lxm_size
+                                        cumulative_size += (lxm_size+per_message_overhead)
                                         unhandled_ids.append(transient_id)
 
                                 RNS.log("Sending sync request to peer "+str(self.destination), RNS.LOG_DEBUG)
