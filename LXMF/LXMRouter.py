@@ -32,7 +32,7 @@ class LXMRouter:
     FASTEST_N_RANDOM_POOL = 2
 
     PROPAGATION_LIMIT     = 256
-    DELIVERY_LIMIT        = 1024
+    DELIVERY_LIMIT        = 1000
 
     PR_PATH_TIMEOUT       = 10
 
@@ -970,7 +970,8 @@ class LXMRouter:
     def delivery_link_established(self, link):
         link.track_phy_stats(True)
         link.set_packet_callback(self.delivery_packet)
-        link.set_resource_strategy(RNS.Link.ACCEPT_ALL)
+        link.set_resource_strategy(RNS.Link.ACCEPT_APP)
+        link.set_resource_callback(self.delivery_resource_advertised)
         link.set_resource_started_callback(self.resource_transfer_began)
         link.set_resource_concluded_callback(self.delivery_resource_concluded)
 
@@ -979,6 +980,15 @@ class LXMRouter:
 
     def resource_transfer_began(self, resource):
         RNS.log("Transfer began for LXMF delivery resource "+str(resource), RNS.LOG_DEBUG)
+
+    def delivery_resource_advertised(self, resource):
+        size = resource.get_data_size()
+        limit = self.delivery_per_transfer_limit*1000
+        if limit != None and size > limit:
+            RNS.log("Rejecting "+RNS.prettysize(size)+" incoming LXMF delivery resource, since it exceeds the limit of "+RNS.prettysize(limit), RNS.LOG_DEBUG)
+            return False
+        else:
+            return True
 
     def delivery_resource_concluded(self, resource):
         RNS.log("Transfer concluded for LXMF delivery resource "+str(resource), RNS.LOG_DEBUG)
@@ -1080,10 +1090,20 @@ class LXMRouter:
 
     def propagation_link_established(self, link):
         link.set_packet_callback(self.propagation_packet)
-        link.set_resource_strategy(RNS.Link.ACCEPT_ALL)
+        link.set_resource_strategy(RNS.Link.ACCEPT_APP)
+        link.set_resource_callback(self.propagation_resource_advertised)
         link.set_resource_started_callback(self.resource_transfer_began)
         link.set_resource_concluded_callback(self.propagation_resource_concluded)
         self.active_propagation_links.append(link)
+
+    def propagation_resource_advertised(self, resource):
+        size = resource.get_data_size()
+        limit = self.propagation_per_transfer_limit*1000
+        if limit != None and size > limit:
+            RNS.log("Rejecting "+RNS.prettysize(size)+" incoming LXMF propagation resource, since it exceeds the limit of "+RNS.prettysize(limit), RNS.LOG_DEBUG)
+            return False
+        else:
+            return True
 
     def propagation_packet(self, data, packet):
         try:

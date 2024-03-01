@@ -83,7 +83,7 @@ def apply_config():
             if active_configuration["delivery_transfer_max_accepted_size"] < 0.38:
                 active_configuration["delivery_transfer_max_accepted_size"] = 0.38
         else:
-            active_configuration["delivery_transfer_max_accepted_size"] = 1024
+            active_configuration["delivery_transfer_max_accepted_size"] = 1000
 
         if "lxmf" in lxmd_config and "on_inbound" in lxmd_config["lxmf"]:
             active_configuration["on_inbound"] = lxmd_config["lxmf"]["on_inbound"]
@@ -526,7 +526,7 @@ announce_at_start = no
 # this will be rejected before the transfer
 # begins.
 
-delivery_transfer_max_accepted_size = 1024
+delivery_transfer_max_accepted_size = 1000
 
 # You can configure an external program to be run
 # every time a message is received. The program
