@@ -48,6 +48,14 @@ class LXMPeer:
         else:
             peer.link_establishment_rate = 0
 
+        if "propagation_transfer_limit" in dictionary:
+            try:
+                peer.propagation_transfer_limit = float(dictionary["propagation_transfer_limit"])
+            except Exception as e:
+                peer.propagation_transfer_limit = None
+        else:
+            peer.propagation_transfer_limit = None
+
         for transient_id in dictionary["handled_ids"]:
             if transient_id in router.propagation_entries:
                 peer.handled_messages[transient_id] = router.propagation_entries[transient_id]
@@ -65,6 +73,7 @@ class LXMPeer:
         dictionary["last_heard"] = self.last_heard
         dictionary["destination_hash"] = self.destination_hash
         dictionary["link_establishment_rate"] = self.link_establishment_rate
+        dictionary["propagation_transfer_limit"] = self.propagation_transfer_limit
 
         handled_ids = []
         for transient_id in self.handled_messages:
@@ -87,12 +96,14 @@ class LXMPeer:
         self.sync_backoff = 0
         self.peering_timebase = 0
         self.link_establishment_rate = 0
+        self.propagation_transfer_limit = None
 
         self.link = None
         self.state = LXMPeer.IDLE
 
         self.unhandled_messages = {}
         self.handled_messages = {}
+        self.last_offer = []
         
         self.router = router
         self.destination_hash = destination_hash
@@ -133,11 +144,17 @@ class LXMPeer:
                                 self.sync_backoff = 0
 
                                 RNS.log("Synchronisation link to peer "+RNS.prettyhexrep(self.destination_hash)+" established, preparing request...", RNS.LOG_DEBUG)
+                                unhandled_entries = []
                                 unhandled_ids = []
                                 purged_ids = []
                                 for transient_id in self.unhandled_messages:
                                     if transient_id in self.router.propagation_entries:
-                                        unhandled_ids.append(transient_id)
+                                        unhandled_entry = [
+                                            transient_id,
+                                            self.router.get_weight(transient_id),
+                                            self.router.get_size(transient_id),
+                                        ]
+                                        unhandled_entries.append(unhandled_entry)
                                     else:
                                         purged_ids.append(transient_id)
 
@@ -145,8 +162,21 @@ class LXMPeer:
                                     RNS.log("Dropping unhandled message "+RNS.prettyhexrep(transient_id)+" for peer "+RNS.prettyhexrep(self.destination_hash)+" since it no longer exists in the message store.", RNS.LOG_DEBUG)
                                     self.unhandled_messages.pop(transient_id)
 
+                                unhandled_entries.sort(key=lambda e: e[1], reverse=False)
+                                cumulative_size = 0
+                                for unhandled_entry in unhandled_entries:
+                                    transient_id = unhandled_entry[0]
+                                    weight = unhandled_entry[1]
+                                    lxm_size = unhandled_entry[2]
+                                    if self.propagation_transfer_limit != None and cumulative_size + lxm_size > (self.propagation_transfer_limit*1000):
+                                        pass
+                                    else:
+                                        cumulative_size += lxm_size
+                                        unhandled_ids.append(transient_id)
+
                                 RNS.log("Sending sync request to peer "+str(self.destination), RNS.LOG_DEBUG)
-                                self.link.request(LXMPeer.OFFER_REQUEST_PATH, unhandled_ids, response_callback=self.offer_response, failed_callback=self.request_failed)
+                                self.last_offer = unhandled_ids
+                                self.link.request(LXMPeer.OFFER_REQUEST_PATH, self.last_offer, response_callback=self.offer_response, failed_callback=self.request_failed)
                                 self.state = LXMPeer.REQUEST_SENT
 
                 else:
@@ -175,33 +205,31 @@ class LXMPeer:
             if response == LXMPeer.ERROR_NO_IDENTITY:
                 if self.link != None:
                     RNS.log("Remote peer indicated that no identification was received, retrying...", RNS.LOG_DEBUG)
-                    self.link.indentify()
+                    self.link.identify()
                     self.state = LXMPeer.LINK_READY
                     self.sync()
 
             elif response == False:
                 # Peer already has all advertised messages
-                for transient_id in self.unhandled_messages:
-                    message_entry = self.unhandled_messages[transient_id]
-                    self.handled_messages[transient_id] = message_entry
-
-                self.unhandled_messages = {}
+                for transient_id in self.last_offer:
+                    if transient_id in self.unhandled_messages:
+                        self.handled_messages[transient_id] = self.unhandled_messages.pop(transient_id)
+                    
 
             elif response == True:
                 # Peer wants all advertised messages
-                for transient_id in self.unhandled_messages:
+                for transient_id in self.last_offer:
                     wanted_messages.append(self.unhandled_messages[transient_id])
                     wanted_message_ids.append(transient_id)
 
             else:
                 # Peer wants some advertised messages
-                peer_had_messages = []
-                for transient_id in self.unhandled_messages.copy():
+                for transient_id in self.last_offer.copy():
                     # If the peer did not want the message, it has
                     # already received it from another peer.
                     if not transient_id in response:
-                        message_entry = self.unhandled_messages.pop(transient_id)
-                        self.handled_messages[transient_id] = message_entry
+                        if transient_id in self.unhandled_messages:
+                            self.handled_messages[transient_id] = self.unhandled_messages.pop(transient_id)
 
                 for transient_id in response:
                     wanted_messages.append(self.unhandled_messages[transient_id])

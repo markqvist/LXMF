@@ -37,7 +37,10 @@ class LXMFPropagationAnnounceHandler:
                     node_timebase = data[1]
                     propagation_transfer_limit = None
                     if len(data) >= 3:
-                        propagation_transfer_limit = data[2]
+                        try:
+                            propagation_transfer_limit = float(data[2])
+                        except:
+                            propagation_transfer_limit = None
 
                     if data[0] == True:
                         if RNS.Transport.hops_to(destination_hash) <= self.lxmrouter.autopeer_maxdepth:

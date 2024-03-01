@@ -31,30 +31,35 @@ class LXMRouter:
     AUTOPEER_MAXDEPTH     = 4
     FASTEST_N_RANDOM_POOL = 2
 
-    PR_PATH_TIMEOUT      = 10
+    PROPAGATION_LIMIT     = 256
+    DELIVERY_LIMIT        = 1024
 
-    PR_IDLE              = 0x00
-    PR_PATH_REQUESTED    = 0x01
-    PR_LINK_ESTABLISHING = 0x02
-    PR_LINK_ESTABLISHED  = 0x03
-    PR_REQUEST_SENT      = 0x04
-    PR_RECEIVING         = 0x05
-    PR_RESPONSE_RECEIVED = 0x06
-    PR_COMPLETE          = 0x07
-    PR_NO_PATH           = 0xf0
-    PR_LINK_FAILED       = 0xf1
-    PR_TRANSFER_FAILED   = 0xf2
-    PR_NO_IDENTITY_RCVD  = 0xf3
-    PR_NO_ACCESS         = 0xf4
-    PR_FAILED            = 0xfe
+    PR_PATH_TIMEOUT       = 10
 
-    PR_ALL_MESSAGES      = 0x00
+    PR_IDLE               = 0x00
+    PR_PATH_REQUESTED     = 0x01
+    PR_LINK_ESTABLISHING  = 0x02
+    PR_LINK_ESTABLISHED   = 0x03
+    PR_REQUEST_SENT       = 0x04
+    PR_RECEIVING          = 0x05
+    PR_RESPONSE_RECEIVED  = 0x06
+    PR_COMPLETE           = 0x07
+    PR_NO_PATH            = 0xf0
+    PR_LINK_FAILED        = 0xf1
+    PR_TRANSFER_FAILED    = 0xf2
+    PR_NO_IDENTITY_RCVD   = 0xf3
+    PR_NO_ACCESS          = 0xf4
+    PR_FAILED             = 0xfe
+
+    PR_ALL_MESSAGES       = 0x00
 
 
     ### Developer-facing API ##############################
     #######################################################
 
-    def __init__(self, identity = None, storagepath = None, autopeer = AUTOPEER, autopeer_maxdepth = None):
+    def __init__(self, identity = None, storagepath = None, autopeer = AUTOPEER, autopeer_maxdepth = None,
+                 propagation_limit = PROPAGATION_LIMIT, delivery_limit = DELIVERY_LIMIT):
+
         random.seed(os.urandom(10))
 
         self.pending_inbound       = []
@@ -84,6 +89,8 @@ class LXMRouter:
 
         self.message_storage_limit = None
         self.information_storage_limit = None
+        self.propagation_per_transfer_limit = propagation_limit
+        self.delivery_per_transfer_limit = delivery_limit
 
         self.wants_download_on_path_available_from = None
         self.wants_download_on_path_available_to = None
@@ -152,7 +159,13 @@ class LXMRouter:
     def announce_propagation_node(self):
         def delayed_announce():
             time.sleep(LXMRouter.NODE_ANNOUNCE_DELAY)
-            data = msgpack.packb([self.propagation_node, int(time.time())])
+            announce_data = [
+                self.propagation_node,                  # Boolean flag signalling propagation node state
+                int(time.time()),                       # Current node timebase
+                self.propagation_per_transfer_limit,    # Per-transfer limit for message propagation in kilobytes
+            ]
+
+            data = msgpack.packb(announce_data)
             self.propagation_destination.announce(app_data=data)
 
         da_thread = threading.Thread(target=delayed_announce)
@@ -319,7 +332,10 @@ class LXMRouter:
                         peer = LXMPeer.from_bytes(serialised_peer, self)
                         if peer.identity != None:
                             self.peers[peer.destination_hash] = peer
-                            RNS.log("Loaded peer "+RNS.prettyhexrep(peer.destination_hash)+" with "+str(len(peer.unhandled_messages))+" unhandled messages", RNS.LOG_DEBUG)
+                            lim_str = ", no transfer limit"
+                            if peer.propagation_transfer_limit != None:
+                                lim_str = ", "+RNS.prettysize(peer.propagation_transfer_limit*1000)+" transfer limit"
+                            RNS.log("Loaded peer "+RNS.prettyhexrep(peer.destination_hash)+" with "+str(len(peer.unhandled_messages))+" unhandled messages"+lim_str, RNS.LOG_DEBUG)
                         else:
                             RNS.log("Peer "+RNS.prettyhexrep(peer.destination_hash)+" could not be loaded, because its identity could not be recalled. Dropping peer.", RNS.LOG_DEBUG)
 
@@ -522,6 +538,28 @@ class LXMRouter:
             self.locally_processed_transient_ids.pop(transient_id)
             RNS.log("Cleaned "+RNS.prettyhexrep(transient_id)+" from locally processed cache", RNS.LOG_DEBUG)
 
+    def get_weight(self, transient_id):
+        dst_hash = self.propagation_entries[transient_id][0]
+        lxm_rcvd = self.propagation_entries[transient_id][2]
+        lxm_size = self.propagation_entries[transient_id][3]
+
+        now = time.time()
+        age_weight = max(1, (now - lxm_rcvd)/60/60/24/4)
+
+        if dst_hash in self.prioritised_list:
+            priority_weight = 0.1
+        else:
+            priority_weight = 1.0
+        
+        weight = priority_weight * age_weight * lxm_size
+
+        return weight
+
+    def get_size(self, transient_id):
+        lxm_size = self.propagation_entries[transient_id][3]
+        return lxm_size
+
+
     def clean_message_store(self):
         # Check and remove expired messages
         now = time.time()
@@ -563,22 +601,13 @@ class LXMRouter:
                     bytes_needed = message_storage_size - self.message_storage_limit
                     bytes_cleaned = 0
 
-                    now = time.time()
                     weighted_entries = []
                     for transient_id in self.propagation_entries:
-                        entry = self.propagation_entries[transient_id]
-
-                        dst_hash = entry[0]
-                        lxm_rcvd = entry[2]
-                        lxm_size = entry[3]
-                        age_weight = max(1, (now - lxm_rcvd)/60/60/24/4)
-                        if dst_hash in self.prioritised_list:
-                            priority_weight = 0.1
-                        else:
-                            priority_weight = 1.0
-                        
-                        weight = priority_weight * age_weight * lxm_size
-                        weighted_entries.append([entry, weight, transient_id])
+                        weighted_entries.append([
+                            self.propagation_entries[transient_id],
+                            self.get_weight(transient_id),
+                            transient_id
+                        ])
 
                     weighted_entries.sort(key=lambda we: we[1], reverse=True)
 
@@ -961,7 +990,7 @@ class LXMRouter:
     ### Peer Sync & Propagation ###########################
     #######################################################
 
-    def peer(self, destination_hash, timestamp):
+    def peer(self, destination_hash, timestamp, propagation_transfer_limit):
         if destination_hash in self.peers:
             peer = self.peers[destination_hash]
             if timestamp > peer.peering_timebase:
@@ -970,11 +999,13 @@ class LXMRouter:
                 peer.next_sync_attempt = 0
                 peer.peering_timebase = timestamp
                 peer.last_heard = time.time()
+                peer.propagation_transfer_limit = propagation_transfer_limit
             
         else:
             peer = LXMPeer(self, destination_hash)
             peer.alive = True
             peer.last_heard = time.time()
+            peer.propagation_transfer_limit = propagation_transfer_limit
             self.peers[destination_hash] = peer
             RNS.log("Peered with "+str(peer.destination))
 

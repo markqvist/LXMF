@@ -77,6 +77,13 @@ def apply_config():
             active_configuration["peer_announce_interval"] = lxmd_config["lxmf"].as_int("announce_interval")*60
         else:
             active_configuration["peer_announce_interval"] = None
+        
+        if "lxmf" in lxmd_config and "delivery_transfer_max_accepted_size" in lxmd_config["lxmf"]:
+            active_configuration["delivery_transfer_max_accepted_size"] = lxmd_config["lxmf"].as_float("delivery_transfer_max_accepted_size")
+            if active_configuration["delivery_transfer_max_accepted_size"] < 0.38:
+                active_configuration["delivery_transfer_max_accepted_size"] = 0.38
+        else:
+            active_configuration["delivery_transfer_max_accepted_size"] = 1024
 
         if "lxmf" in lxmd_config and "on_inbound" in lxmd_config["lxmf"]:
             active_configuration["on_inbound"] = lxmd_config["lxmf"]["on_inbound"]
@@ -120,6 +127,13 @@ def apply_config():
                 active_configuration["message_storage_limit"] = 0.005
         else:
             active_configuration["message_storage_limit"] = 2000
+        
+        if "propagation" in lxmd_config and "propagation_transfer_max_accepted_size" in lxmd_config["propagation"]:
+            active_configuration["propagation_transfer_max_accepted_size"] = lxmd_config["propagation"].as_float("propagation_transfer_max_accepted_size")
+            if active_configuration["propagation_transfer_max_accepted_size"] < 0.38:
+                active_configuration["propagation_transfer_max_accepted_size"] = 0.38
+        else:
+            active_configuration["propagation_transfer_max_accepted_size"] = 256
         
         if "propagation" in lxmd_config and "prioritise_destinations" in lxmd_config["propagation"]:
             active_configuration["prioritised_lxmf_destinations"] = lxmd_config["propagation"].as_list("prioritise_destinations")
@@ -289,6 +303,8 @@ def program_setup(configdir = None, rnsconfigdir = None, run_pn = False, on_inbo
         storagepath = storagedir,
         autopeer = active_configuration["autopeer"],
         autopeer_maxdepth = active_configuration["autopeer_maxdepth"],
+        propagation_limit = active_configuration["propagation_transfer_max_accepted_size"],
+        delivery_limit = active_configuration["delivery_transfer_max_accepted_size"],
     )
     message_router.register_delivery_callback(lxmf_delivery)
 
@@ -418,22 +434,40 @@ __default_lxmd_config__ = """# This is an example LXM Daemon config file.
 [propagation]
 
 # Whether to enable propagation node
+
 enable_node = no
 
 # Automatic announce interval in minutes.
 # 6 hours by default.
+
 announce_interval = 360
 
 # Whether to announce when the node starts.
+
 announce_at_start = yes
 
 # Wheter to automatically peer with other
 # propagation nodes on the network.
+
 autopeer = yes
 
 # The maximum peering depth (in hops) for
 # automatically peered nodes.
+
 autopeer_maxdepth = 4
+
+# The maximum accepted transfer size per in-
+# coming propagation transfer, in kilobytes.
+# This also sets the upper limit for the size
+# of single messages accepted onto this node.
+#
+# If a node wants to propagate a larger number
+# of messages to this node, than what can fit
+# within this limit, it will prioritise sending
+# the smallest messages first, and try again
+# with any remaining messages at a later point.
+
+propagation_transfer_max_accepted_size = 256
 
 # The maximum amount of storage to use for
 # the LXMF Propagation Node message store,
@@ -444,6 +478,7 @@ autopeer_maxdepth = 4
 # new and small. Large and old messages will
 # be removed first. This setting is optional
 # and defaults to 2 gigabytes.
+
 # message_storage_limit = 2000
 
 # You can tell the LXMF message router to
@@ -453,6 +488,7 @@ autopeer_maxdepth = 4
 # keeping messages for destinations specified
 # with this option. This setting is optional,
 # and generally you do not need to use it.
+
 # prioritise_destinations = 41d20c727598a3fbbdf9106133a3a0ed, d924b81822ca24e68e2effea99bcb8cf
 
 # By default, any destination is allowed to
@@ -461,6 +497,7 @@ autopeer_maxdepth = 4
 # authentication, you must provide a list of
 # allowed identity hashes in the a file named
 # "allowed" in the lxmd config directory.
+
 auth_required = no
 
 
@@ -469,16 +506,27 @@ auth_required = no
 # The LXM Daemon will create an LXMF destination
 # that it can receive messages on. This option sets
 # the announced display name for this destination.
+
 display_name = Anonymous Peer
 
 # It is possible to announce the internal LXMF
 # destination when the LXM Daemon starts up.
+
 announce_at_start = no
 
 # You can also announce the delivery destination
 # at a specified interval. This is not enabled by
 # default.
+
 # announce_interval = 360
+
+# The maximum accepted unpacked size for mes-
+# sages received directly from other peers,
+# specified in kilobytes. Messages larger than
+# this will be rejected before the transfer
+# begins.
+
+delivery_transfer_max_accepted_size = 1024
 
 # You can configure an external program to be run
 # every time a message is received. The program
@@ -486,6 +534,7 @@ announce_at_start = no
 # message saved as a file. The example below will
 # simply result in the message getting deleted as
 # soon as it has been received.
+
 # on_inbound = rm
 
 
@@ -499,6 +548,7 @@ announce_at_start = no
 #   5: Verbose logging
 #   6: Debug logging
 #   7: Extreme logging
+
 loglevel = 4
 
 """
