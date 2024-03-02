@@ -169,7 +169,8 @@ class LXMPeer:
                                     transient_id = unhandled_entry[0]
                                     weight = unhandled_entry[1]
                                     lxm_size = unhandled_entry[2]
-                                    if self.propagation_transfer_limit != None and cumulative_size + lxm_size > (self.propagation_transfer_limit*1000):
+                                    next_size = cumulative_size + (lxm_size+per_message_overhead)
+                                    if self.propagation_transfer_limit != None and next_size > (self.propagation_transfer_limit*1000):
                                         pass
                                     else:
                                         cumulative_size += (lxm_size+per_message_overhead)
