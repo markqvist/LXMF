@@ -18,7 +18,7 @@ from .Handlers import LXMFPropagationAnnounceHandler
 class LXMRouter:
     MAX_DELIVERY_ATTEMPTS = 5
     PROCESSING_INTERVAL   = 4
-    DELIVERY_RETRY_WAIT   = 7
+    DELIVERY_RETRY_WAIT   = 10
     PATH_REQUEST_WAIT     = 7
     LINK_MAX_INACTIVITY   = 10*60
     P_LINK_MAX_INACTIVITY = 3*60
