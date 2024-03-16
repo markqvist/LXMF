@@ -14,3 +14,4 @@ FIELD_AUDIO            = 0x07
 FIELD_THREAD           = 0x08
 FIELD_COMMANDS         = 0x09
 FIELD_RESULTS          = 0x0A
+FIELD_GROUP            = 0x0B
