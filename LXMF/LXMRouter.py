@@ -1396,7 +1396,7 @@ class LXMRouter:
                                         RNS.log("No path known for delivery attempt "+str(lxmessage.delivery_attempts)+" to "+RNS.prettyhexrep(lxmessage.get_destination().hash)+". Requesting path...", RNS.LOG_DEBUG)
                                         RNS.Transport.request_path(lxmessage.get_destination().hash)
                                         lxmessage.next_delivery_attempt = time.time() + LXMRouter.PATH_REQUEST_WAIT
-                                        lxmessage.progress = 0.01
+                                        lxmessage.progress = 0.00
                     else:
                         RNS.log("Max delivery attempts reached for direct "+str(lxmessage)+" to "+RNS.prettyhexrep(lxmessage.get_destination().hash), RNS.LOG_DEBUG)
                         self.fail_message(lxmessage)
