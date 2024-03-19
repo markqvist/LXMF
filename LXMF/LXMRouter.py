@@ -953,6 +953,12 @@ class LXMRouter:
                 RNS.log(str(self)+" ignored message from "+RNS.prettyhexrep(message.source_hash), RNS.LOG_DEBUG)
                 return False
 
+            if self.has_message(message.hash):
+                RNS.log(str(self)+" ignored already received message from "+RNS.prettyhexrep(message.source_hash), RNS.LOG_DEBUG)
+                return False
+            else:
+                self.locally_delivered_transient_ids[message.hash] = time.time()
+
             if self.__delivery_callback != None and callable(self.__delivery_callback):
                 try:
                     self.__delivery_callback(message)
