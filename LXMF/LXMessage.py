@@ -118,7 +118,7 @@ class LXMessage:
         self.signature    = None
         self.hash         = None
         self.packed       = None
-        self.progress     = None
+        self.progress     = 0.0
         self.state        = LXMessage.DRAFT
         self.method       = LXMessage.UNKNOWN
         self.rssi         = None
@@ -324,12 +324,14 @@ class LXMessage:
                 if receipt:
                     receipt.set_delivery_callback(self.__mark_delivered)
                     receipt.set_timeout_callback(self.__link_packet_timed_out)
+                    self.progress = 0.50
                 else:
                     if self.__delivery_destination:
                         self.__delivery_destination.teardown()
 
             elif self.representation == LXMessage.RESOURCE:
                 self.resource_representation = self.__as_resource()
+                self.progress = 0.10
 
         elif self.method == LXMessage.PROPAGATED:
             self.state = LXMessage.SENDING
@@ -339,11 +341,13 @@ class LXMessage:
                 if receipt:
                     receipt.set_delivery_callback(self.__mark_propagated)
                     receipt.set_timeout_callback(self.__link_packet_timed_out)
+                    self.progress = 0.50
                 else:
                     self.__delivery_destination.teardown()
 
             elif self.representation == LXMessage.RESOURCE:
                 self.resource_representation = self.__as_resource()
+                self.progress = 0.10
 
 
     def determine_transport_encryption(self):
@@ -387,6 +391,7 @@ class LXMessage:
     def __mark_delivered(self, receipt = None):
         RNS.log("Received delivery notification for "+str(self), RNS.LOG_DEBUG)
         self.state = LXMessage.DELIVERED
+        self.progress = 1.0
 
         if self.__delivery_callback != None and callable(self.__delivery_callback):
             try:
@@ -397,6 +402,7 @@ class LXMessage:
     def __mark_propagated(self, receipt = None):
         RNS.log("Received propagation success notification for "+str(self), RNS.LOG_DEBUG)
         self.state = LXMessage.SENT
+        self.progress = 1.0
 
         if self.__delivery_callback != None and callable(self.__delivery_callback):
             try:
@@ -407,6 +413,7 @@ class LXMessage:
     def __mark_paper_generated(self, receipt = None):
         RNS.log("Paper message generation succeeded for "+str(self), RNS.LOG_DEBUG)
         self.state = LXMessage.PAPER
+        self.progress = 1.0
 
         if self.__delivery_callback != None and callable(self.__delivery_callback):
             try:
@@ -436,7 +443,7 @@ class LXMessage:
 
 
     def __update_transfer_progress(self, resource):
-        self.progress = resource.get_progress()
+        self.progress = 0.10 + (resource.get_progress()*0.90)
 
     def __as_packet(self):
         if not self.packed:
@@ -464,8 +471,6 @@ class LXMessage:
 
         if not self.__delivery_destination.status == RNS.Link.ACTIVE:
             raise ConnectionError("Tried to synthesize resource for LXMF message on a link that was not active")
-
-        self.progress = 0.0
 
         if self.method == LXMessage.DIRECT:
             return RNS.Resource(self.packed, self.__delivery_destination, callback = self.__resource_concluded, progress_callback = self.__update_transfer_progress)

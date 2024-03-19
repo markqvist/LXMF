@@ -909,10 +909,6 @@ class LXMRouter:
             return True
         else:
             return False
-
-
-    ### Message Routing & Delivery ########################
-    #######################################################
     
     def handle_outbound(self, lxmessage):
         lxmessage.state = LXMessage.OUTBOUND
@@ -926,6 +922,17 @@ class LXMRouter:
 
         self.pending_outbound.append(lxmessage)
         self.process_outbound()
+
+    def get_outbound_progress(self, lxm_hash):
+        for lxm in self.pending_outbound:
+            if lxm.hash == lxm_hash:
+                return lxm.progress
+        
+        return None
+
+
+    ### Message Routing & Delivery ########################
+    #######################################################
 
     def lxmf_delivery(self, lxmf_data, destination_type = None, phy_stats = None):
         try:
@@ -1340,6 +1347,8 @@ class LXMRouter:
                             # to deliver the message
                             direct_link = self.direct_links[delivery_destination_hash]
                             if direct_link.status == RNS.Link.ACTIVE:
+                                if lxmessage.progress == None or lxmessage.progress < 0.05:
+                                    lxmessage.progress = 0.05
                                 if lxmessage.state != LXMessage.SENDING:
                                     RNS.log("Starting transfer of "+str(lxmessage)+" to "+RNS.prettyhexrep(lxmessage.get_destination().hash), RNS.LOG_DEBUG)
                                     lxmessage.set_delivery_destination(direct_link)
@@ -1366,8 +1375,7 @@ class LXMRouter:
                                 self.direct_links.pop(delivery_destination_hash)
                                 lxmessage.next_delivery_attempt = time.time() + LXMRouter.DELIVERY_RETRY_WAIT
                             else:
-                                # Simply wait for the link to become
-                                # active or close
+                                # Simply wait for the link to become active or close
                                 RNS.log("The link to "+RNS.prettyhexrep(lxmessage.get_destination().hash)+" is pending, waiting for link to become active", RNS.LOG_DEBUG)
                         else:
                             # No link exists, so we'll try to establish one, but
@@ -1383,10 +1391,12 @@ class LXMRouter:
                                         delivery_link = RNS.Link(lxmessage.get_destination())
                                         delivery_link.set_link_established_callback(self.process_outbound)
                                         self.direct_links[delivery_destination_hash] = delivery_link
+                                        lxmessage.progress = 0.03
                                     else:
                                         RNS.log("No path known for delivery attempt "+str(lxmessage.delivery_attempts)+" to "+RNS.prettyhexrep(lxmessage.get_destination().hash)+". Requesting path...", RNS.LOG_DEBUG)
                                         RNS.Transport.request_path(lxmessage.get_destination().hash)
                                         lxmessage.next_delivery_attempt = time.time() + LXMRouter.PATH_REQUEST_WAIT
+                                        lxmessage.progress = 0.01
                     else:
                         RNS.log("Max delivery attempts reached for direct "+str(lxmessage)+" to "+RNS.prettyhexrep(lxmessage.get_destination().hash), RNS.LOG_DEBUG)
                         self.fail_message(lxmessage)
