@@ -997,8 +997,9 @@ class LXMRouter:
                 RNS.log("Error while retrieving physical link stats for LXMF delivery packet: "+str(e), RNS.LOG_ERROR)
 
             phy_stats = {"rssi": packet.rssi, "snr": packet.snr, "q": packet.q}
-            if self.lxmf_delivery(lxmf_data, packet.destination_type, phy_stats=phy_stats):
-                packet.prove()
+
+            packet.prove()
+            self.lxmf_delivery(lxmf_data, packet.destination_type, phy_stats=phy_stats)
 
         except Exception as e:
             RNS.log("Exception occurred while parsing incoming LXMF data.", RNS.LOG_ERROR)
