@@ -980,6 +980,7 @@ class LXMRouter:
             return False
 
     def delivery_packet(self, data, packet):
+        packet.prove()
         try:
             if packet.destination_type != RNS.Destination.LINK:
                 lxmf_data  = b""
@@ -998,7 +999,6 @@ class LXMRouter:
 
             phy_stats = {"rssi": packet.rssi, "snr": packet.snr, "q": packet.q}
 
-            packet.prove()
             self.lxmf_delivery(lxmf_data, packet.destination_type, phy_stats=phy_stats)
 
         except Exception as e:
