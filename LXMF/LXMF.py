@@ -39,3 +39,7 @@ AM_OPUS_STANDARD       = 0x15
 AM_OPUS_HQ             = 0x16
 AM_OPUS_BROADCAST      = 0x17
 AM_OPUS_LOSSLESS       = 0x18
+
+# Custom, unspecified audio mode, the
+# client must determined it itself
+AM_CUSTOM              = 0xFF
