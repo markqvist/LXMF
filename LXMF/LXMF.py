@@ -30,15 +30,16 @@ AM_CODEC2_2400         = 0x08
 AM_CODEC2_3200         = 0x09
 
 # Opus Audio Modes
-AM_OPUS_LBW            = 0x10
-AM_OPUS_MBW            = 0x11
-AM_OPUS_PTT            = 0x12
-AM_OPUS_RT_HDX         = 0x13
-AM_OPUS_RT_FDX         = 0x14
-AM_OPUS_STANDARD       = 0x15
-AM_OPUS_HQ             = 0x16
-AM_OPUS_BROADCAST      = 0x17
-AM_OPUS_LOSSLESS       = 0x18
+AM_OPUS_OGG            = 0x10
+AM_OPUS_LBW            = 0x11
+AM_OPUS_MBW            = 0x12
+AM_OPUS_PTT            = 0x13
+AM_OPUS_RT_HDX         = 0x14
+AM_OPUS_RT_FDX         = 0x15
+AM_OPUS_STANDARD       = 0x16
+AM_OPUS_HQ             = 0x17
+AM_OPUS_BROADCAST      = 0x18
+AM_OPUS_LOSSLESS       = 0x19
 
 # Custom, unspecified audio mode, the
 # client must determined it itself
