@@ -7,7 +7,7 @@ LXMF is efficient enough that it can deliver messages over extremely low-bandwid
 User-facing clients built on LXMF include:
 
 - [Sideband](https://unsigned.io/sideband)
-- [Reticulum MeshChat](https://github.com/liamcottle/reticulum-meshchat)
+- [MeshChat](https://github.com/liamcottle/reticulum-meshchat)
 - [Nomad Network](https://unsigned.io/nomadnet)
 
 Community-provided tools and utilities for LXMF include:
