@@ -15,7 +15,7 @@ FIELD_THREAD           = 0x08
 FIELD_COMMANDS         = 0x09
 FIELD_RESULTS          = 0x0A
 FIELD_GROUP            = 0x0B
-FIELD_COT              = 0x0C # Cursor on Target for TAK integration
+FIELD_COT              = 0x20 # Cursor on Target for TAK integration
 
 # Audio modes for the data structure in FIELD_AUDIO
 
