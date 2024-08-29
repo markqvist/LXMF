@@ -1,9 +1,10 @@
 APP_NAME = "lxmf"
 
-# WARNING! These field specifiers are floating and not
-# yet final! Consider highly experiemental, and expect
-# them to change in the future! You have been warned :)
-
+##########################################################
+# The following core fields are provided to facilitate   #
+# interoperability in data exchange between various LXMF #
+# clients and systems.                                   #
+##########################################################
 FIELD_EMBEDDED_LXMS    = 0x01
 FIELD_TELEMETRY        = 0x02
 FIELD_TELEMETRY_STREAM = 0x03
@@ -15,6 +16,34 @@ FIELD_THREAD           = 0x08
 FIELD_COMMANDS         = 0x09
 FIELD_RESULTS          = 0x0A
 FIELD_GROUP            = 0x0B
+
+# For usecases such as including custom data structures,
+# embedding or encapsulating other data types or protocols
+# that are not native to LXMF, or bridging/tunneling
+# external protocols or services over LXMF, the following
+# fields are available. A format/type/protocol (or other)
+# identifier can be included in the CUSTOM_TYPE field, and
+# the embedded payload can be included in the CUSTOM_DATA
+# field. It is up to the client application to correctly
+# discern and potentially utilise any data embedded using
+# this mechanism.
+FIELD_CUSTOM_TYPE      = 0xFB
+FIELD_CUSTOM_DATA      = 0xFC
+FIELD_CUSTOM_META      = 0xFD
+
+# The non-specific and debug fields are intended for
+# development, testing and debugging use.
+FIELD_NON_SPECIFIC     = 0xFE
+FIELD_DEBUG            = 0xFF
+
+##########################################################
+# The following section lists field-specific specifiers, #
+# modes and identifiers that are native to LXMF. It is   #
+# optional for any client or system to support any of    #
+# these, and they are provided as template for easing    #
+# interoperability without sacrificing expandability     #
+# and flexibility of the format.                         #
+##########################################################
 
 # Audio modes for the data structure in FIELD_AUDIO
 
@@ -41,6 +70,6 @@ AM_OPUS_HQ             = 0x17
 AM_OPUS_BROADCAST      = 0x18
 AM_OPUS_LOSSLESS       = 0x19
 
-# Custom, unspecified audio mode, the
-# client must determined it itself
+# Custom, unspecified audio mode, the client must
+# determine it itself based on the included data.
 AM_CUSTOM              = 0xFF
