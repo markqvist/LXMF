@@ -130,10 +130,6 @@ You can also find the entire message in <a href="lxm://azNivSwdv4e2aoX3mo2MdTAoz
 
 On operating systems that allow for registering custom URI-handlers, you can click the link, and it will be decoded directly in your LXMF client. This works with Sideband on Android.
 
-## Caveat Emptor
-
-LXMF is beta software, and should be considered experimental. While it has been built with cryptography best practices very foremost in mind, it _has not_ been externally security audited, and there could very well be privacy-breaking bugs. If you want to help out, or help sponsor an audit, please do get in touch.
-
 ## Installation
 
 If you want to try out LXMF, you can install it with pip:
@@ -156,6 +152,39 @@ Alternatively, you can use the `pipx` tool to install Reticulum in an isolated e
 ```bash
 pipx install lxmf
 ```
+
+## Batteries Included
+
+The `lxmf` package comes with the `lxmd` program, a fully functional (but lightweight) LXMF message router and propagation node daemon. After installing the `lxmf` package, you can run `lxmd --help` to learn more about the command-line options:
+
+```text
+$ lxmd --help
+
+usage: lxmd [-h] [--config CONFIG] [--rnsconfig RNSCONFIG] [-p] [-i PATH] [-v] [-q] [-s] [--exampleconfig] [--version]
+
+Lightweight Extensible Messaging Daemon
+
+options:
+  -h, --help            show this help message and exit
+  --config CONFIG       path to alternative lxmd config directory
+  --rnsconfig RNSCONFIG
+                        path to alternative Reticulum config directory
+  -p, --propagation-node
+                        run an LXMF Propagation Node
+  -i PATH, --on-inbound PATH
+                        executable to run when a message is received
+  -v, --verbose
+  -q, --quiet
+  -s, --service         lxmd is running as a service and should log to file
+  --exampleconfig       print verbose configuration example to stdout and exit
+  --version             show program's version number and exit
+```
+
+Or run `lxmd --exampleconfig` to generate a commented example configuration documenting all the available configuration directives.
+
+## Caveat Emptor
+
+LXMF is beta software, and should be considered experimental. While it has been built with cryptography best practices very foremost in mind, it _has not_ been externally security audited, and there could very well be privacy-breaking bugs. If you want to help out, or help sponsor an audit, please do get in touch.
 
 ## Development Roadmap
 
