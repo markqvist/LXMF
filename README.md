@@ -190,10 +190,9 @@ LXMF is beta software, and should be considered experimental. While it has been 
 
 LXMF is actively being developed, and the following improvements and features are currently planned for implementation:
 
-- Write and release full API and protocol documentation
-- Update examples in readme to actually work
-- Content Destinations, and easy to use API for group messaging and discussion threads 
+- ~~Update examples in readme to actually work~~
+- ~~Sync affinity based on link speeds and distances, for more intelligently choosing peer sync order~~
 - Sneakernet and physical transport functionality
+- Content Destinations, and easy to use API for group messaging and discussion threads 
+- Write and release full API and protocol documentation
 - Documenting and possibly expanding LXMF limits and priorities
-- Sync affinity based on link speeds and distances, for more intelligently choosing peer sync order
-- Markets on LXMF
