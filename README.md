@@ -153,7 +153,7 @@ Alternatively, you can use the `pipx` tool to install Reticulum in an isolated e
 pipx install lxmf
 ```
 
-## Batteries Included
+## Daemon Included
 
 The `lxmf` package comes with the `lxmd` program, a fully functional (but lightweight) LXMF message router and propagation node daemon. After installing the `lxmf` package, you can run `lxmd --help` to learn more about the command-line options:
 
