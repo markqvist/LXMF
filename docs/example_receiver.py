@@ -34,4 +34,21 @@ my_lxmf_destination = router.register_delivery_identity(identity)
 router.register_delivery_callback(delivery_callback)
 
 RNS.log("Ready to receive on: "+RNS.prettyhexrep(my_lxmf_destination.hash))
-input()
+
+
+# You can set a propagation node address to test receiving
+# messages from a propagation node, instead of directly
+
+# router.set_outbound_propagation_node(bytes.fromhex("e75d9b6a69f82b48b6077cf2242d7499"))
+
+
+# This loop allows you to execute various actions for testing
+# and experimenting with the example scripts.
+while True:
+  input()
+  RNS.log("Announcing lxmf.delivery destination...")
+  my_lxmf_destination.announce()
+
+  # input()
+  # RNS.log("Requesting messages from propagation node...")
+  # router.request_messages_from_propagation_node(identity)

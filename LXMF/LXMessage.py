@@ -351,6 +351,7 @@ class LXMessage:
 
 
     def determine_transport_encryption(self):
+        # TODO: Update transport encryption descriptions to account for ratchets
         if self.method == LXMessage.OPPORTUNISTIC:
             if self.__destination.type == RNS.Destination.SINGLE:
                 self.transport_encrypted = True

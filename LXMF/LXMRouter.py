@@ -84,6 +84,7 @@ class LXMRouter:
             raise ValueError("LXMF cannot be initialised without a storage path")
         else:
             self.storagepath = storagepath+"/lxmf"
+            self.ratchetpath = self.storagepath+"/ratchets"
 
         self.outbound_propagation_node = None
         self.outbound_propagation_link = None
@@ -174,7 +175,11 @@ class LXMRouter:
         da_thread.start()
 
     def register_delivery_identity(self, identity, display_name = None):
+        if not os.path.isdir(self.ratchetpath):
+            os.makedirs(self.ratchetpath)
+
         delivery_destination = RNS.Destination(identity, RNS.Destination.IN, RNS.Destination.SINGLE, APP_NAME, "delivery")
+        delivery_destination.enable_ratchets(f"{self.ratchetpath}/{RNS.hexrep(delivery_destination.hash, delimit=False)}.ratchets")
         delivery_destination.set_packet_callback(self.delivery_packet)
         delivery_destination.set_link_established_callback(self.delivery_link_established)
         delivery_destination.display_name = display_name
@@ -971,6 +976,7 @@ class LXMRouter:
                     self.__delivery_callback(message)
                 except Exception as e:
                     RNS.log("An error occurred in the external delivery callback for "+str(message), RNS.LOG_ERROR)
+                    RNS.trace_exception(e)
 
             return True
 
