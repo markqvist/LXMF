@@ -351,7 +351,9 @@ class LXMessage:
 
 
     def determine_transport_encryption(self):
-        # TODO: Update transport encryption descriptions to account for ratchets
+        # TODO: These descriptions are old and outdated.
+        # Update the transport encryption descriptions to
+        # account for ratchets and other changes.
         if self.method == LXMessage.OPPORTUNISTIC:
             if self.__destination.type == RNS.Destination.SINGLE:
                 self.transport_encrypted = True

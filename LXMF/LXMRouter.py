@@ -58,7 +58,7 @@ class LXMRouter:
     #######################################################
 
     def __init__(self, identity = None, storagepath = None, autopeer = AUTOPEER, autopeer_maxdepth = None,
-                 propagation_limit = PROPAGATION_LIMIT, delivery_limit = DELIVERY_LIMIT):
+                 propagation_limit = PROPAGATION_LIMIT, delivery_limit = DELIVERY_LIMIT, enforce_ratchets = False):
 
         random.seed(os.urandom(10))
 
@@ -93,6 +93,7 @@ class LXMRouter:
         self.information_storage_limit = None
         self.propagation_per_transfer_limit = propagation_limit
         self.delivery_per_transfer_limit = delivery_limit
+        self.enforce_ratchets = enforce_ratchets
 
         self.wants_download_on_path_available_from = None
         self.wants_download_on_path_available_to = None
@@ -183,6 +184,8 @@ class LXMRouter:
         delivery_destination.set_packet_callback(self.delivery_packet)
         delivery_destination.set_link_established_callback(self.delivery_link_established)
         delivery_destination.display_name = display_name
+        if self.enforce_ratchets:
+            delivery_destination.enforce_ratchets()
 
         if display_name != None:
             delivery_destination.set_default_app_data(display_name.encode("utf-8"))
@@ -1245,12 +1248,13 @@ class LXMRouter:
                         delivery_destination = self.delivery_destinations[destination_hash]
                         encrypted_lxmf_data = lxmf_data[LXMessage.DESTINATION_LENGTH:]
                         decrypted_lxmf_data = delivery_destination.decrypt(encrypted_lxmf_data)
-                        delivery_data = lxmf_data[:LXMessage.DESTINATION_LENGTH]+decrypted_lxmf_data
-                        self.lxmf_delivery(delivery_data, delivery_destination.type)
-                        self.locally_delivered_transient_ids[transient_id] = time.time()
+                        if decrypted_lxmf_data != None:
+                            delivery_data = lxmf_data[:LXMessage.DESTINATION_LENGTH]+decrypted_lxmf_data
+                            self.lxmf_delivery(delivery_data, delivery_destination.type)
+                            self.locally_delivered_transient_ids[transient_id] = time.time()
 
-                        if signal_local_delivery != None:
-                            return signal_local_delivery
+                            if signal_local_delivery != None:
+                                return signal_local_delivery
 
                     else:
                         if self.propagation_node:
@@ -1326,7 +1330,7 @@ class LXMRouter:
             if lxmessage.state == LXMessage.DELIVERED:
                 RNS.log("Delivery has occurred for "+str(lxmessage)+", removing from outbound queue", RNS.LOG_DEBUG)
                 self.pending_outbound.remove(lxmessage)
-            elif lxmessage.state == LXMessage.SENT:
+            elif lxmessage.method == LXMessage.PROPAGATED and lxmessage.state == LXMessage.SENT:
                 RNS.log("Propagation has occurred for "+str(lxmessage)+", removing from outbound queue", RNS.LOG_DEBUG)
                 self.pending_outbound.remove(lxmessage)
             else:
