@@ -1,6 +1,7 @@
 import RNS
 import RNS.vendor.umsgpack as msgpack
 
+import os
 import time
 import base64
 
@@ -90,7 +91,9 @@ class LXMessage:
         else:
             return "<LXMessage>"
 
-    def __init__(self, destination, source, content = "", title = "", fields = None, desired_method = None, destination_hash = None, source_hash = None):
+    def __init__(self, destination, source, content = "", title = "", fields = None, desired_method = None,
+                 destination_hash = None, source_hash = None, stamp_cost=None):
+
         if isinstance(destination, RNS.Destination) or destination == None:
             self.__destination    = destination
             if destination != None:
@@ -118,9 +121,11 @@ class LXMessage:
         self.signature    = None
         self.hash         = None
         self.packed       = None
-        self.progress     = 0.0
+        self.stamp        = None
+        self.stamp_cost   = stamp_cost
         self.state        = LXMessage.DRAFT
         self.method       = LXMessage.UNKNOWN
+        self.progress     = 0.0
         self.rssi         = None
         self.snr          = None
         self.q            = None
@@ -219,6 +224,41 @@ class LXMessage:
     def register_failed_callback(self, callback):
         self.failed_callback = callback
 
+    def validate_stamp(self, target_cost):
+        if self.stamp == None:
+            return False
+        else:
+            target = 0b1 << 256-target_cost
+            if int.from_bytes(RNS.Identity.full_hash(self.message_id+self.stamp)) > target:
+                return False
+            else:
+                return True
+
+    def get_stamp(self, timeout=None):
+        if self.stamp_cost == None:
+            return None
+
+        elif self.stamp != None:
+            # TODO: Check that message hash cannot actually
+            # change under any circumstances before handoff
+            return self.stamp
+
+        else:
+            RNS.log(f"Generating stamp for {self}...", RNS.LOG_DEBUG)
+            start_time = time.time()
+            stamp = os.urandom(256//8); target = 0b1 << 256-self.stamp_cost; rounds = 1
+            while int.from_bytes(RNS.Identity.full_hash(self.message_id+stamp)) > target:
+                if timeout != None and rounds % 10000 == 0:
+                    if time.time() > start_time + timeout:
+                        RNS.log(f"Stamp generation for {self} timed out", RNS.LOG_ERROR)
+                        return None
+
+                stamp = os.urandom(256//8)
+                rounds += 1
+
+            RNS.log(f"Stamp generated in {RNS.prettytime(time.time() - start_time)}", RNS.LOG_DEBUG)
+            return stamp
+
     def pack(self):
         if not self.packed:
             if self.timestamp == None:
@@ -235,6 +275,9 @@ class LXMessage:
             hashed_part     += msgpack.packb(self.payload)
             self.hash        = RNS.Identity.full_hash(hashed_part)
             self.message_id  = self.hash
+            self.stamp       = self.get_stamp()
+            if self.stamp   != None:
+                self.payload.append(self.stamp)
             
             signed_part      = b""
             signed_part     += hashed_part
@@ -242,11 +285,11 @@ class LXMessage:
             self.signature   = self.__source.sign(signed_part)
             self.signature_validated = True
 
+            packed_payload   = msgpack.packb(self.payload)
             self.packed      = b""
             self.packed     += self.__destination.hash
             self.packed     += self.__source.hash
             self.packed     += self.signature
-            packed_payload   = msgpack.packb(self.payload)
             self.packed     += packed_payload
             self.packed_size = len(self.packed)
             content_size     = len(packed_payload)
@@ -566,10 +609,19 @@ class LXMessage:
         source_hash          = lxmf_bytes[LXMessage.DESTINATION_LENGTH:2*LXMessage.DESTINATION_LENGTH]
         signature            = lxmf_bytes[2*LXMessage.DESTINATION_LENGTH:2*LXMessage.DESTINATION_LENGTH+LXMessage.SIGNATURE_LENGTH]
         packed_payload       = lxmf_bytes[2*LXMessage.DESTINATION_LENGTH+LXMessage.SIGNATURE_LENGTH:]
+        unpacked_payload     = msgpack.unpackb(packed_payload)
+        
+        # Extract stamp from payload if included
+        if len(unpacked_payload) > 4:
+            stamp = unpacked_payload[4]
+            unpacked_payload = unpacked_payload[:4]
+            packed_payload = msgpack.packb(unpacked_payload)
+        else:
+            stamp = None
+
         hashed_part          = b"" + destination_hash + source_hash + packed_payload
         message_hash         = RNS.Identity.full_hash(hashed_part)
         signed_part          = b"" + hashed_part + message_hash
-        unpacked_payload     = msgpack.unpackb(packed_payload)
         timestamp            = unpacked_payload[0]
         title_bytes          = unpacked_payload[1]
         content_bytes        = unpacked_payload[2]
@@ -598,7 +650,9 @@ class LXMessage:
             desired_method = original_method)
 
         message.hash        = message_hash
+        message.message_id  = message.hash
         message.signature   = signature
+        message.stamp       = stamp
         message.incoming    = True
         message.timestamp   = timestamp
         message.packed      = lxmf_bytes
