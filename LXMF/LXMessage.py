@@ -125,6 +125,7 @@ class LXMessage:
         self.packed       = None
         self.stamp        = None
         self.stamp_cost   = stamp_cost
+        self.stamp_valid  = False
         self.state        = LXMessage.DRAFT
         self.method       = LXMessage.UNKNOWN
         self.progress     = 0.0
