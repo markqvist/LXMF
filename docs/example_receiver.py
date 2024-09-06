@@ -13,6 +13,12 @@ def delivery_callback(message):
     if message.unverified_reason == LXMF.LXMessage.SOURCE_UNKNOWN:
       signature_string = "Cannot verify, source is unknown"
 
+  stamp_cost = 12
+  if message.validate_stamp(stamp_cost):
+    stamp_string = "Valid"
+  else:
+    stamp_string = "Not valid"
+
   RNS.log("\t+--- LXMF Delivery ---------------------------------------------")
   RNS.log("\t| Source hash            : "+RNS.prettyhexrep(message.source_hash))
   RNS.log("\t| Source instance        : "+str(message.get_source()))
@@ -24,6 +30,7 @@ def delivery_callback(message):
   RNS.log("\t| Content                : "+message.content_as_string())
   RNS.log("\t| Fields                 : "+str(message.fields))
   RNS.log("\t| Message signature      : "+signature_string)
+  RNS.log("\t| Stamp                  : "+stamp_string)
   RNS.log("\t+---------------------------------------------------------------")
 
 r = RNS.Reticulum()
