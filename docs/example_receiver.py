@@ -13,8 +13,8 @@ def delivery_callback(message):
     if message.unverified_reason == LXMF.LXMessage.SOURCE_UNKNOWN:
       signature_string = "Cannot verify, source is unknown"
 
-  stamp_cost = 12
-  if message.validate_stamp(stamp_cost):
+  required_stamp_cost = 12
+  if message.validate_stamp(required_stamp_cost):
     stamp_string = "Valid"
   else:
     stamp_string = "Not valid"
