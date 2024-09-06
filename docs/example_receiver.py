@@ -2,6 +2,9 @@ import RNS
 import LXMF
 import time
 
+required_stamp_cost = 8
+enforce_stamps = False
+
 def delivery_callback(message):
   time_string      = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(message.timestamp))
   signature_string = "Signature is invalid, reason undetermined"
@@ -13,11 +16,10 @@ def delivery_callback(message):
     if message.unverified_reason == LXMF.LXMessage.SOURCE_UNKNOWN:
       signature_string = "Cannot verify, source is unknown"
 
-  required_stamp_cost = 12
-  if message.validate_stamp(required_stamp_cost):
-    stamp_string = "Valid"
+  if message.stamp_valid:
+    stamp_string = "Validated"
   else:
-    stamp_string = "Not valid"
+    stamp_string = "Invalid"
 
   RNS.log("\t+--- LXMF Delivery ---------------------------------------------")
   RNS.log("\t| Source hash            : "+RNS.prettyhexrep(message.source_hash))
@@ -35,9 +37,9 @@ def delivery_callback(message):
 
 r = RNS.Reticulum()
 
-router = LXMF.LXMRouter(storagepath="./tmp1")
+router = LXMF.LXMRouter(storagepath="./tmp1", enforce_stamps=enforce_stamps)
 identity = RNS.Identity()
-my_lxmf_destination = router.register_delivery_identity(identity)
+my_lxmf_destination = router.register_delivery_identity(identity, stamp_cost=required_stamp_cost)
 router.register_delivery_callback(delivery_callback)
 
 RNS.log("Ready to receive on: "+RNS.prettyhexrep(my_lxmf_destination.hash))
@@ -54,7 +56,7 @@ RNS.log("Ready to receive on: "+RNS.prettyhexrep(my_lxmf_destination.hash))
 while True:
   input()
   RNS.log("Announcing lxmf.delivery destination...")
-  my_lxmf_destination.announce()
+  router.announce(my_lxmf_destination.hash)
 
   # input()
   # RNS.log("Requesting messages from propagation node...")
