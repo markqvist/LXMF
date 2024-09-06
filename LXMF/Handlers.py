@@ -2,13 +2,14 @@ import time
 import RNS
 import RNS.vendor.umsgpack as msgpack
 
-from .LXMF import APP_NAME
+from .LXMF import APP_NAME, stamp_cost_from_app_data
 
 from .LXMessage import LXMessage
 
 class LXMFDeliveryAnnounceHandler:
     def __init__(self, lxmrouter):
         self.aspect_filter = APP_NAME+".delivery"
+        self.receive_path_responses = True
         self.lxmrouter = lxmrouter
 
     def received_announce(self, destination_hash, announced_identity, app_data):
@@ -22,10 +23,18 @@ class LXMFDeliveryAnnounceHandler:
 
                     self.lxmrouter.process_outbound()
 
+        try:
+            stamp_cost = stamp_cost_from_app_data(app_data)
+            if stamp_cost != None:
+                self.lxmrouter.update_stamp_cost(destination_hash, stamp_cost)
+        except Exception as e:
+            RNS.log(f"An error occurred while trying to decode announced stamp cost. The contained exception was: {e}", RNS.LOG_ERROR)
+
 
 class LXMFPropagationAnnounceHandler:
     def __init__(self, lxmrouter):
         self.aspect_filter = APP_NAME+".propagation"
+        self.receive_path_responses = False
         self.lxmrouter = lxmrouter
 
     def received_announce(self, destination_hash, announced_identity, app_data):
