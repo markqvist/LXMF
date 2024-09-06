@@ -74,3 +74,44 @@ AM_OPUS_LOSSLESS       = 0x19
 # Custom, unspecified audio mode, the client must
 # determine it itself based on the included data.
 AM_CUSTOM              = 0xFF
+
+
+##########################################################
+# The following helper functions makes it easier to      #
+# handle and operate on LXMF data in client programs     #
+##########################################################
+
+import RNS.vendor.umsgpack as msgpack
+def display_name_from_app_data(app_data=None):
+    if app_data == None:
+        return None
+    else:
+        # Version 0.5.0+ announce format
+        if (app_data[0] >= 0x90 and app_data[0] <= 0x9f) or app_data[0] == 0xdc:
+            peer_data = msgpack.unpackb(app_data)
+            if type(peer_data) == list:
+                if len(peer_data) < 1:
+                    return None
+                else:
+                    return peer_data[0].decode("utf-8")
+
+        # Original announce format
+        else:
+            return app_data.decode("utf-8")
+
+def stamp_cost_from_app_data(app_data=None):
+    if app_data == None:
+        return None
+    else:
+        # Version 0.5.0+ announce format
+        if (app_data[0] >= 0x90 and app_data[0] <= 0x9f) or app_data[0] == 0xdc:
+            peer_data = msgpack.unpackb(app_data)
+            if type(peer_data) == list:
+                if len(peer_data) < 2:
+                    return None
+                else:
+                    return peer_data[1]
+
+        # Original announce format
+        else:
+            return None
