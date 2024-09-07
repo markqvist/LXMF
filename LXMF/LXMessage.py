@@ -45,7 +45,7 @@ class LXMessage:
     TICKET_EXPIRY      = 21*24*60*60
     TICKET_GRACE       = 5*24*60*60
     TICKET_RENEW       = 14*24*60*60
-    TICKET_INTERVAL    = 3*24*60*60
+    TICKET_INTERVAL    = 1*24*60*60
 
     # LXMF overhead is 111 bytes per message:
     #   16  bytes for destination hash
@@ -131,24 +131,24 @@ class LXMessage:
         self.set_content_from_string(content)
         self.set_fields(fields)
 
-        self.payload         = None
-        self.timestamp       = None
-        self.signature       = None
-        self.hash            = None
-        self.packed          = None
-        self.state           = LXMessage.GENERATING
-        self.method          = LXMessage.UNKNOWN
-        self.progress        = 0.0
-        self.rssi            = None
-        self.snr             = None
-        self.q               = None
+        self.payload          = None
+        self.timestamp        = None
+        self.signature        = None
+        self.hash             = None
+        self.packed           = None
+        self.state            = LXMessage.GENERATING
+        self.method           = LXMessage.UNKNOWN
+        self.progress         = 0.0
+        self.rssi             = None
+        self.snr              = None
+        self.q                = None
 
-        self.stamp           = None
-        self.stamp_cost      = stamp_cost
-        self.stamp_valid     = False
-        self.defer_stamp     = False
-        self.outbound_ticket = None
-        self.include_ticket  = include_ticket
+        self.stamp            = None
+        self.stamp_cost       = stamp_cost
+        self.stamp_valid      = False
+        self.defer_stamp      = True
+        self.outbound_ticket  = None
+        self.include_ticket   = include_ticket
 
         self.propagation_packed      = None
         self.paper_packed            = None
@@ -166,7 +166,9 @@ class LXMessage:
         self.resource_representation = None
         self.__delivery_destination  = None
         self.__delivery_callback     = None
-        self.failed_callback       = None
+        self.failed_callback         = None
+        
+        self.deferred_stamp_generating = False
 
     def set_title_from_string(self, title_string):
         self.title = title_string.encode("utf-8")
@@ -312,50 +314,79 @@ class LXMessage:
             total_rounds = 0
 
             if not RNS.vendor.platformutils.is_android():
-                RNS.log("Preparing IPC semaphores", RNS.LOG_DEBUG) # TODO: Remove
+                mp_debug = True
+
+                jobs = multiprocessing.cpu_count()
                 stop_event   = multiprocessing.Event()
-                result_queue = multiprocessing.Queue(maxsize=1)
+                result_queue = multiprocessing.Queue(1)
                 rounds_queue = multiprocessing.Queue()
-                def job(stop_event):
+
+                def job(stop_event, pn, sc, wb):
                     terminated = False
                     rounds = 0
+                    pstamp = os.urandom(256//8)
 
-                    stamp = os.urandom(256//8)
-                    while not LXMessage.stamp_valid(stamp, self.stamp_cost, workblock):
-                        if stop_event.is_set():
-                            break
+                    def sv(s, c, w):
+                        target = 0b1<<256-c; m = w+s
+                        result = RNS.Identity.full_hash(m)
+                        if int.from_bytes(result, byteorder="big") > target:
+                            return False
+                        else:
+                            return True
 
-                        if timeout != None and rounds % 10000 == 0:
-                            if time.time() > start_time + timeout:
-                                RNS.log(f"Stamp generation for {self} timed out", RNS.LOG_ERROR)
-                                return None
+                    while not stop_event.is_set() and not sv(pstamp, sc, wb):
+                        pstamp = os.urandom(256//8); rounds += 1
 
-                        stamp = os.urandom(256//8)
-                        rounds += 1
-
-                    rounds_queue.put(rounds)
                     if not stop_event.is_set():
-                        result_queue.put(stamp)
-
+                        stop_event.set()
+                        result_queue.put(pstamp)
+                    rounds_queue.put(rounds)
+    
                 job_procs = []
-                jobs = multiprocessing.cpu_count()
-                RNS.log("Starting workers", RNS.LOG_DEBUG) # TODO: Remove
-                for _ in range(jobs):
-                    process = multiprocessing.Process(target=job, kwargs={"stop_event": stop_event},)
+                RNS.log(f"Starting {jobs} workers", RNS.LOG_DEBUG) # TODO: Remove
+                for jpn in range(jobs):
+                    process = multiprocessing.Process(target=job, kwargs={"stop_event": stop_event, "pn": jpn, "sc": self.stamp_cost, "wb": workblock},)
                     job_procs.append(process)
                     process.start()
 
-                RNS.log("Awaiting results on queue", RNS.LOG_DEBUG) # TODO: Remove
                 stamp = result_queue.get()
-                stop_event.set()
-
-                RNS.log("Joining worker processes", RNS.LOG_DEBUG) # TODO: Remove
-                for j in range(jobs):
-                    process = job_procs[j]
-                    process.join()
-                    total_rounds += rounds_queue.get()
-
+                RNS.log("Got stamp result from worker", RNS.LOG_DEBUG) # TODO: Remove
                 duration = time.time() - start_time
+
+                spurious_results = 0
+                try:
+                    while True:
+                        result_queue.get_nowait()
+                        spurious_results += 1
+                except:
+                    pass
+
+                for j in range(jobs):
+                    nrounds = 0
+                    try:
+                        nrounds = rounds_queue.get(timeout=2)
+                    except Exception as e:
+                        RNS.log(f"Failed to get round stats part {j}: {e}", RNS.LOG_ERROR) # TODO: Remove
+                    total_rounds += nrounds
+
+                all_exited = False
+                exit_timeout = time.time() + 5
+                while time.time() < exit_timeout:
+                    if not any(p.is_alive() for p in job_procs):
+                        all_exited = True
+                        break
+                    time.sleep(0.1)
+
+                if not all_exited:
+                    RNS.log("Stamp generation IPC timeout, possible worker deadlock", RNS.LOG_ERROR)
+                    return None
+
+                else:
+                    for j in range(jobs):
+                        process = job_procs[j]
+                        process.join()
+                        # RNS.log(f"Joined {j} / {process}", RNS.LOG_DEBUG) # TODO: Remove
+
                 rounds = total_rounds
             
             else:
@@ -365,17 +396,21 @@ class LXMessage:
                 # checking in on the progress.
 
                 use_nacl = False
-                try:
-                    import nacl.encoding
-                    import nacl.hash
-                    use_nacl = True
-                except:
-                    pass
+                rounds_per_worker = 1000
+                if RNS.vendor.platformutils.is_android():
+                    rounds_per_worker = 500
+                    try:
+                        import nacl.encoding
+                        import nacl.hash
+                        use_nacl = True
+                    except:
+                        pass
 
-                def full_hash(m):
-                    if use_nacl:
+                if use_nacl:
+                    def full_hash(m):
                         return nacl.hash.sha256(m, encoder=nacl.encoding.RawEncoder)
-                    else:
+                else:
+                    def full_hash(m):
                         return RNS.Identity.full_hash(m)
 
                 def sv(s, c, w):
@@ -391,30 +426,35 @@ class LXMessage:
                 wm = multiprocessing.Manager()
                 jobs = multiprocessing.cpu_count()
 
-                # RNS.log(f"Dispatching {jobs} workers for stamp generation...") # TODO: Remove
+                RNS.log(f"Dispatching {jobs} workers for stamp generation...", RNS.LOG_DEBUG) # TODO: Remove
 
                 results_dict = wm.dict()
                 while stamp == None:
                     job_procs = []
 
-                    def job(procnum=None, results_dict=None, wb=None):
-                        # RNS.log(f"Worker {procnum} starting...") # TODO: Remove
+                    def job(procnum=None, results_dict=None, wb=None, sc=None, jr=None):
+                        RNS.log(f"Worker {procnum} starting for {jr} rounds...") # TODO: Remove
                         rounds = 0
+                        found_stamp = None
+                        found_time = None
 
-                        stamp = os.urandom(256//8)
-                        while not sv(stamp, self.stamp_cost, wb):
-                            if rounds >= 500:
-                                stamp = None
+                        while True:
+                            pstamp = os.urandom(256//8)
+                            rounds += 1
+                            if sv(pstamp, sc, wb):
+                                found_stamp = pstamp
+                                found_time = time.time()
+                                break
+
+                            if rounds >= jr:
                                 # RNS.log(f"Worker {procnum} found no result in {rounds} rounds") # TODO: Remove
                                 break
 
-                            stamp = os.urandom(256//8)
-                            rounds += 1
-
-                        results_dict[procnum] = [stamp, rounds]
+                        results_dict[procnum] = [found_stamp, rounds, found_time]
 
                     for pnum in range(jobs):
-                        process = multiprocessing.Process(target=job, kwargs={"procnum":pnum, "results_dict": results_dict, "wb": workblock},)
+                        pargs = {"procnum":pnum, "results_dict": results_dict, "wb": workblock, "sc":self.stamp_cost, "jr":rounds_per_worker}
+                        process = multiprocessing.Process(target=job, kwargs=pargs)
                         job_procs.append(process)
                         process.start()
 
@@ -423,14 +463,13 @@ class LXMessage:
 
                     for j in results_dict:
                         r = results_dict[j]
-                        # RNS.log(f"Result from {r}: {r[1]} rounds, stamp: {r[0]}") # TODO: Remove
                         total_rounds += r[1]
                         if r[0] != None:
                             stamp = r[0]
-                            # RNS.log(f"Found stamp: {stamp}") # TODO: Remove
+                            found_time = r[2]
 
                     if stamp == None:
-                        elapsed = time.time() - start_time
+                        elapsed = found_time - start_time
                         speed = total_rounds/elapsed
                         RNS.log(f"Stamp generation for {self} running. {total_rounds} rounds completed so far, {int(speed)} rounds per second", RNS.LOG_DEBUG)
 
@@ -439,12 +478,7 @@ class LXMessage:
             
             speed = total_rounds/duration
 
-            # TODO: Remove stats output
             RNS.log(f"Stamp generated in {RNS.prettytime(duration)}, {rounds} rounds, {int(speed)} rounds per second", RNS.LOG_DEBUG)
-            # RNS.log(f"Rounds per second {int(rounds/duration)}", RNS.LOG_DEBUG)
-            # RNS.log(f"Stamp: {RNS.hexrep(stamp)}", RNS.LOG_DEBUG)
-            # RNS.log(f"Resulting hash: {RNS.hexrep(RNS.Identity.full_hash(workblock+stamp))}", RNS.LOG_DEBUG)
-            ###########################
 
             return stamp
 
