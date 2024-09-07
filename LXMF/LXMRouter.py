@@ -58,10 +58,7 @@ class LXMRouter:
     ### Developer-facing API ##############################
     #######################################################
 
-    def __init__(self, identity = None, storagepath = None, autopeer = AUTOPEER, autopeer_maxdepth = None,
-                 propagation_limit = PROPAGATION_LIMIT, delivery_limit = DELIVERY_LIMIT, enforce_ratchets = False,
-                 enforce_stamps = False):
-
+    def __init__(self, identity = None, storagepath = None, autopeer = AUTOPEER, autopeer_maxdepth = None, propagation_limit = PROPAGATION_LIMIT, delivery_limit = DELIVERY_LIMIT, enforce_ratchets = False, enforce_stamps = False):
         random.seed(os.urandom(10))
 
         self.pending_inbound       = []
