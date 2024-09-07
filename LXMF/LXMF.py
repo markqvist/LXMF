@@ -85,6 +85,8 @@ import RNS.vendor.umsgpack as msgpack
 def display_name_from_app_data(app_data=None):
     if app_data == None:
         return None
+    elif len(app_data) == 0:
+        return None
     else:
         # Version 0.5.0+ announce format
         if (app_data[0] >= 0x90 and app_data[0] <= 0x9f) or app_data[0] == 0xdc:
@@ -93,7 +95,16 @@ def display_name_from_app_data(app_data=None):
                 if len(peer_data) < 1:
                     return None
                 else:
-                    return peer_data[0].decode("utf-8")
+                    dn = peer_data[0]
+                    if dn == None:
+                        return None
+                    else:
+                        try:
+                            decoded = dn.decode("utf-8")
+                            return decoded
+                        except:
+                            RNS.log("Could not decode display name in included announce data. The contained exception was: {e}", RNS.LOG_ERROR)
+                            return None
 
         # Original announce format
         else:

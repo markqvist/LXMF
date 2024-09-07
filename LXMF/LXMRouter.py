@@ -173,9 +173,9 @@ class LXMRouter:
         job_thread.setDaemon(True)
         job_thread.start()
 
-    def announce(self, destination_hash):
+    def announce(self, destination_hash, attached_interface=None):
         if destination_hash in self.delivery_destinations:
-            self.delivery_destinations[destination_hash].announce(app_data=self.get_announce_app_data(destination_hash))
+            self.delivery_destinations[destination_hash].announce(app_data=self.get_announce_app_data(destination_hash), attached_interface=attached_interface)
 
     def announce_propagation_node(self):
         def delayed_announce():
@@ -202,7 +202,6 @@ class LXMRouter:
         delivery_destination.set_packet_callback(self.delivery_packet)
         delivery_destination.set_link_established_callback(self.delivery_link_established)
         delivery_destination.display_name = display_name
-        delivery_destination.stamp_cost = stamp_cost
 
         if self.enforce_ratchets:
             delivery_destination.enforce_ratchets()
@@ -214,10 +213,37 @@ class LXMRouter:
             delivery_destination.set_default_app_data(get_app_data)
 
         self.delivery_destinations[delivery_destination.hash] = delivery_destination
+        self.set_inbound_stamp_cost(delivery_destination.hash, stamp_cost)
+
         return delivery_destination
 
     def register_delivery_callback(self, callback):
         self.__delivery_callback = callback
+
+    def set_inbound_stamp_cost(self, destination_hash, stamp_cost):
+        if destination_hash in self.delivery_destinations:
+            delivery_destination = self.delivery_destinations[destination_hash]
+            if stamp_cost == None:
+                delivery_destination.stamp_cost = None
+                return True
+            elif type(stamp_cost) == int:
+                if stamp_cost < 1:
+                    delivery_destination.stamp_cost = None
+                elif stamp_cost < 255:
+                    delivery_destination.stamp_cost = stamp_cost
+                else:
+                    return False
+    
+                return True
+
+        return False
+
+    def get_outbound_stamp_cost(self, destination_hash):
+        if destination_hash in self.outbound_stamp_costs:
+            stamp_cost = self.outbound_stamp_costs[destination_hash][1]
+            return stamp_cost
+        else:
+            return None
 
     def set_outbound_propagation_node(self, destination_hash):
         if len(destination_hash) != RNS.Identity.TRUNCATED_HASHLENGTH//8 or type(destination_hash) != bytes:
@@ -1020,12 +1046,25 @@ class LXMRouter:
             time.sleep(0.1)
 
         self.pending_outbound.append(lxmessage)
-        self.process_outbound()
+
+        if lxmessage.defer_stamp and lxmessage.stamp_cost == None:
+            RNS.log(f"Deferred stamp generation was requested for {lxmessage}, but no stamp is required, processing immediately", RNS.LOG_DEBUG)
+            lxmessage.defer_stamp = False
+
+        if not lxmessage.defer_stamp:
+            self.process_outbound()
 
     def get_outbound_progress(self, lxm_hash):
         for lxm in self.pending_outbound:
             if lxm.hash == lxm_hash:
                 return lxm.progress
+        
+        return None
+
+    def get_outbound_lxm_stamp_cost(self, lxm_hash):
+        for lxm in self.pending_outbound:
+            if lxm.hash == lxm_hash:
+                return lxm.stamp_cost
         
         return None
 
@@ -1440,6 +1479,18 @@ class LXMRouter:
                 self.pending_outbound.remove(lxmessage)
             else:
                 RNS.log("Starting outbound processing for "+str(lxmessage)+" to "+RNS.prettyhexrep(lxmessage.get_destination().hash), RNS.LOG_DEBUG)
+                
+                # Handle potentially deferred stamp generation
+                if lxmessage.defer_stamp and lxmessage.stamp == None:
+                    RNS.log(f"Generating deferred stamp for {lxmessage} now", RNS.LOG_DEBUG)
+                    lxmessage.stamp = lxmessage.get_stamp()
+                    lxmessage.defer_stamp = False
+                    lxmessage.packed = None
+                    lxmessage.pack()
+
+                if lxmessage.progress == None or lxmessage.progress < 0.01:
+                    lxmessage.progress = 0.01
+
                 # Outbound handling for opportunistic messages
                 if lxmessage.method == LXMessage.OPPORTUNISTIC:
                     if lxmessage.delivery_attempts <= LXMRouter.MAX_DELIVERY_ATTEMPTS:

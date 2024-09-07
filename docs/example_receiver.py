@@ -39,7 +39,7 @@ r = RNS.Reticulum()
 
 router = LXMF.LXMRouter(storagepath="./tmp1", enforce_stamps=enforce_stamps)
 identity = RNS.Identity()
-my_lxmf_destination = router.register_delivery_identity(identity, stamp_cost=required_stamp_cost)
+my_lxmf_destination = router.register_delivery_identity(identity, display_name="Anonymous Peer", stamp_cost=required_stamp_cost)
 router.register_delivery_callback(delivery_callback)
 
 RNS.log("Ready to receive on: "+RNS.prettyhexrep(my_lxmf_destination.hash))
