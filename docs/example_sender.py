@@ -14,7 +14,7 @@ r = RNS.Reticulum()
 router = LXMF.LXMRouter(storagepath="./tmp2")
 router.register_delivery_callback(delivery_callback)
 ident = RNS.Identity()
-source = router.register_delivery_identity(ident, display_name=random_names[random.randint(0,len(random_names)-1)])
+source = router.register_delivery_identity(ident, display_name=random_names[random.randint(0,len(random_names)-1)], stamp_cost=8)
 router.announce(source.hash)
 RNS.log("Source announced")
 
@@ -42,14 +42,14 @@ while True:
 
     lxm = LXMF.LXMessage(dest, source, random_msgs[random.randint(0,len(random_msgs)-1)],
                          random_titles[random.randint(0,len(random_titles)-1)],
-                         desired_method=LXMF.LXMessage.DIRECT)
+                         desired_method=LXMF.LXMessage.DIRECT, include_ticket=True)
 
     # Or, create an oppertunistic, single-packet message
     # for sending without first establishing a link:
 
     # lxm = LXMF.LXMessage(dest, source, "This is a test",
     #                      random_titles[random.randint(0,len(random_titles)-1)],
-    #                      desired_method=LXMF.LXMessage.OPPORTUNISTIC)
+    #                      desired_method=LXMF.LXMessage.OPPORTUNISTIC, include_ticket=True)
 
 
     # Or, try sending the message via a propagation node:

@@ -35,6 +35,17 @@ class LXMessage:
 
     DESTINATION_LENGTH = RNS.Identity.TRUNCATED_HASHLENGTH//8
     SIGNATURE_LENGTH   = RNS.Identity.SIGLENGTH//8
+    TICKET_LENGTH      = RNS.Identity.TRUNCATED_HASHLENGTH//8
+
+    # Default ticket expiry is 3 weeks, with an
+    # additional grace period of 5 days, allowing
+    # for timekeeping inaccuracies. Tickets will
+    # automatically renew when there is less than
+    # 14 days to expiry.
+    TICKET_EXPIRY      = 21*24*60*60
+    TICKET_GRACE       = 5*24*60*60
+    TICKET_RENEW       = 14*24*60*60
+    TICKET_INTERVAL    = 3*24*60*60
 
     # LXMF overhead is 111 bytes per message:
     #   16  bytes for destination hash
@@ -93,8 +104,7 @@ class LXMessage:
         else:
             return "<LXMessage>"
 
-    def __init__(self, destination, source, content = "", title = "", fields = None, desired_method = None,
-                 destination_hash = None, source_hash = None, stamp_cost=None):
+    def __init__(self, destination, source, content = "", title = "", fields = None, desired_method = None, destination_hash = None, source_hash = None, stamp_cost=None, include_ticket=False):
 
         if isinstance(destination, RNS.Destination) or destination == None:
             self.__destination    = destination
@@ -114,25 +124,31 @@ class LXMessage:
         else:
             raise ValueError("LXMessage initialised with invalid source")
 
+        if title == None:
+            title = ""
+
         self.set_title_from_string(title)
         self.set_content_from_string(content)
         self.set_fields(fields)
 
-        self.payload      = None
-        self.timestamp    = None
-        self.signature    = None
-        self.hash         = None
-        self.packed       = None
-        self.stamp        = None
-        self.stamp_cost   = stamp_cost
-        self.stamp_valid  = False
-        self.defer_stamp  = False
-        self.state        = LXMessage.GENERATING
-        self.method       = LXMessage.UNKNOWN
-        self.progress     = 0.0
-        self.rssi         = None
-        self.snr          = None
-        self.q            = None
+        self.payload         = None
+        self.timestamp       = None
+        self.signature       = None
+        self.hash            = None
+        self.packed          = None
+        self.state           = LXMessage.GENERATING
+        self.method          = LXMessage.UNKNOWN
+        self.progress        = 0.0
+        self.rssi            = None
+        self.snr             = None
+        self.q               = None
+
+        self.stamp           = None
+        self.stamp_cost      = stamp_cost
+        self.stamp_valid     = False
+        self.defer_stamp     = False
+        self.outbound_ticket = None
+        self.include_ticket  = include_ticket
 
         self.propagation_packed      = None
         self.paper_packed            = None
@@ -254,7 +270,13 @@ class LXMessage:
         else:
             return True
 
-    def validate_stamp(self, target_cost):
+    def validate_stamp(self, target_cost, tickets=None):
+        if tickets != None:
+            for ticket in tickets:
+                if self.stamp == RNS.Identity.truncated_hash(ticket+self.message_id):
+                    RNS.log(f"Stamp on {self} validated by inbound ticket", RNS.LOG_DEBUG) # TODO: Remove at some point
+                    return True
+
         if self.stamp == None:
             return False
         else:
@@ -264,14 +286,25 @@ class LXMessage:
                 return False
 
     def get_stamp(self, timeout=None):
-        if self.stamp_cost == None:
+        # If an outbound ticket exists, use this for
+        # generating a valid stamp.
+        if self.outbound_ticket != None and type(self.outbound_ticket) == bytes and len(self.outbound_ticket) == LXMessage.TICKET_LENGTH:
+            RNS.log(f"Generating stamp with outbound ticket for {self}", RNS.LOG_DEBUG) # TODO: Remove at some point
+            return RNS.Identity.truncated_hash(self.outbound_ticket+self.message_id)
+
+        # If no stamp cost is required, we can just
+        # return immediately.
+        elif self.stamp_cost == None:
             return None
 
+        # If a stamp was already generated, return
+        # it immediately.
         elif self.stamp != None:
-            # TODO: Check that message hash cannot actually
-            # change under any circumstances before handoff
             return self.stamp
 
+        # Otherwise, we will need to generate a
+        # valid stamp according to the cost that
+        # the receiver has specified.
         else:
             RNS.log(f"Generating stamp with cost {self.stamp_cost} for {self}...", RNS.LOG_DEBUG)
             workblock = LXMessage.stamp_workblock(self.message_id)
@@ -279,6 +312,7 @@ class LXMessage:
             total_rounds = 0
 
             if not RNS.vendor.platformutils.is_android():
+                RNS.log("Preparing IPC semaphores", RNS.LOG_DEBUG) # TODO: Remove
                 stop_event   = multiprocessing.Event()
                 result_queue = multiprocessing.Queue(maxsize=1)
                 rounds_queue = multiprocessing.Queue()
@@ -305,14 +339,17 @@ class LXMessage:
 
                 job_procs = []
                 jobs = multiprocessing.cpu_count()
+                RNS.log("Starting workers", RNS.LOG_DEBUG) # TODO: Remove
                 for _ in range(jobs):
                     process = multiprocessing.Process(target=job, kwargs={"stop_event": stop_event},)
                     job_procs.append(process)
                     process.start()
 
+                RNS.log("Awaiting results on queue", RNS.LOG_DEBUG) # TODO: Remove
                 stamp = result_queue.get()
                 stop_event.set()
 
+                RNS.log("Joining worker processes", RNS.LOG_DEBUG) # TODO: Remove
                 for j in range(jobs):
                     process = job_procs[j]
                     process.join()
@@ -354,21 +391,21 @@ class LXMessage:
                 wm = multiprocessing.Manager()
                 jobs = multiprocessing.cpu_count()
 
-                RNS.log(f"Dispatching {jobs} workers for stamp generation...") # TODO: Remove
+                # RNS.log(f"Dispatching {jobs} workers for stamp generation...") # TODO: Remove
 
                 results_dict = wm.dict()
                 while stamp == None:
                     job_procs = []
 
                     def job(procnum=None, results_dict=None, wb=None):
-                        RNS.log(f"Worker {procnum} starting...") # TODO: Remove
+                        # RNS.log(f"Worker {procnum} starting...") # TODO: Remove
                         rounds = 0
 
                         stamp = os.urandom(256//8)
                         while not sv(stamp, self.stamp_cost, wb):
                             if rounds >= 500:
                                 stamp = None
-                                RNS.log(f"Worker {procnum} found no result in {rounds} rounds") # TODO: Remove
+                                # RNS.log(f"Worker {procnum} found no result in {rounds} rounds") # TODO: Remove
                                 break
 
                             stamp = os.urandom(256//8)
@@ -386,17 +423,24 @@ class LXMessage:
 
                     for j in results_dict:
                         r = results_dict[j]
-                        RNS.log(f"Result from {r}: {r[1]} rounds, stamp: {r[0]}") # TODO: Remove
+                        # RNS.log(f"Result from {r}: {r[1]} rounds, stamp: {r[0]}") # TODO: Remove
                         total_rounds += r[1]
                         if r[0] != None:
                             stamp = r[0]
-                            RNS.log(f"Found stamp: {stamp}") # TODO: Remove
+                            # RNS.log(f"Found stamp: {stamp}") # TODO: Remove
+
+                    if stamp == None:
+                        elapsed = time.time() - start_time
+                        speed = total_rounds/elapsed
+                        RNS.log(f"Stamp generation for {self} running. {total_rounds} rounds completed so far, {int(speed)} rounds per second", RNS.LOG_DEBUG)
 
                 duration = time.time() - start_time
                 rounds = total_rounds
+            
+            speed = total_rounds/duration
 
             # TODO: Remove stats output
-            RNS.log(f"Stamp generated in {RNS.prettytime(duration)} / {rounds} rounds", RNS.LOG_DEBUG)
+            RNS.log(f"Stamp generated in {RNS.prettytime(duration)}, {rounds} rounds, {int(speed)} rounds per second", RNS.LOG_DEBUG)
             # RNS.log(f"Rounds per second {int(rounds/duration)}", RNS.LOG_DEBUG)
             # RNS.log(f"Stamp: {RNS.hexrep(stamp)}", RNS.LOG_DEBUG)
             # RNS.log(f"Resulting hash: {RNS.hexrep(RNS.Identity.full_hash(workblock+stamp))}", RNS.LOG_DEBUG)

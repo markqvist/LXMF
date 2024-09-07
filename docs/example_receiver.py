@@ -6,6 +6,7 @@ required_stamp_cost = 8
 enforce_stamps = False
 
 def delivery_callback(message):
+  global my_lxmf_destination, router
   time_string      = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(message.timestamp))
   signature_string = "Signature is invalid, reason undetermined"
   if message.signature_validated:
@@ -34,6 +35,12 @@ def delivery_callback(message):
   RNS.log("\t| Message signature      : "+signature_string)
   RNS.log("\t| Stamp                  : "+stamp_string)
   RNS.log("\t+---------------------------------------------------------------")
+
+  # Optionally, send a reply
+  # source = my_lxmf_destination
+  # dest = message.source
+  # lxm = LXMF.LXMessage(dest, source, "Reply", None, desired_method=LXMF.LXMessage.DIRECT, include_ticket=True)
+  # router.handle_outbound(lxm)
 
 r = RNS.Reticulum()
 
