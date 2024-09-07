@@ -1282,8 +1282,10 @@ class LXMRouter:
                 destination_tickets = self.get_inbound_tickets(message.source_hash)
                 if message.validate_stamp(required_stamp_cost, tickets=destination_tickets):
                     message.stamp_valid = True
+                    message.stamp_checked = True
                 else:
                     message.stamp_valid = False
+                    message.stamp_checked = True
 
                 if not message.stamp_valid:
                     if self._enforce_stamps:
