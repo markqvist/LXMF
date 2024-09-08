@@ -853,7 +853,7 @@ class LXMRouter:
             locally_processed_file.close()
 
         except Exception as e:
-            RNS.log("Could not save locally processed message ID cache to storage. The contained exception was: "+str(e), RNS.LOG_ERROR)
+            RNS.log("Could not save locally processed transient ID cache to storage. The contained exception was: "+str(e), RNS.LOG_ERROR)
 
     def clean_outbound_stamp_costs(self):
         try:
@@ -864,7 +864,6 @@ class LXMRouter:
                     expired.append(destination_hash)
 
             for destination_hash in expired:
-                RNS.log(f"Cleaning expired stamp cost for {destination_hash}") # TODO: Remove
                 self.outbound_stamp_costs.pop(destination_hash)
         
         except Exception as e:
@@ -874,7 +873,6 @@ class LXMRouter:
     def save_outbound_stamp_costs(self):
         with self.cost_file_lock:
             try:
-                RNS.log("Saving outbound stamp costs...", RNS.LOG_DEBUG) # TODO: Remove
                 if not os.path.isdir(self.storagepath):
                         os.makedirs(self.storagepath)
 
@@ -883,7 +881,7 @@ class LXMRouter:
                 outbound_stamp_costs_file.close()
 
             except Exception as e:
-                RNS.log("Could not save locally processed message ID cache to storage. The contained exception was: "+str(e), RNS.LOG_ERROR)
+                RNS.log("Could not save outbound stamp costs to storage. The contained exception was: "+str(e), RNS.LOG_ERROR)
 
     def clean_available_tickets(self):
         try:
@@ -912,7 +910,7 @@ class LXMRouter:
                     self.available_tickets["inbound"][destination_hash].pop(destination_hash)
         
         except Exception as e:
-            RNS.log(f"Error while cleaning outbound stamp costs. The contained exception was: {e}", RNS.LOG_ERROR)
+            RNS.log(f"Error while cleaning available tickets. The contained exception was: {e}", RNS.LOG_ERROR)
             RNS.trace_exception(e)
 
     def save_available_tickets(self):
@@ -1260,7 +1258,7 @@ class LXMRouter:
     ### Message Routing & Delivery ########################
     #######################################################
 
-    def lxmf_delivery(self, lxmf_data, destination_type = None, phy_stats = None, ratchet_id = None, method = None):
+    def lxmf_delivery(self, lxmf_data, destination_type = None, phy_stats = None, ratchet_id = None, method = None, no_stamp_enforcement=False):
         try:
             message = LXMessage.unpack_from_bytes(lxmf_data)
             if ratchet_id and not message.ratchet_id:
@@ -1293,11 +1291,16 @@ class LXMRouter:
                     message.stamp_checked = True
 
                 if not message.stamp_valid:
-                    if self._enforce_stamps:
-                        RNS.log(f"Dropping {message} with invalid stamp", RNS.LOG_NOTICE)
-                        return False
+                    if no_stamp_enforcement:
+                        RNS.log(f"Received {message} with invalid stamp, but allowing anyway, since stamp enforcement was temporarily disabled", RNS.LOG_NOTICE)
                     else:
-                        RNS.log(f"Received {message} with invalid stamp, but allowing anyway, since stamp enforcement is disabled", RNS.LOG_NOTICE)
+                        if self._enforce_stamps:
+                            RNS.log(f"Dropping {message} with invalid stamp", RNS.LOG_NOTICE)
+                            return False
+                        else:
+                            RNS.log(f"Received {message} with invalid stamp, but allowing anyway, since stamp enforcement is disabled", RNS.LOG_NOTICE)
+                else:
+                    RNS.log(f"Received {message} valid stamp", RNS.LOG_DEBUG)
 
             if phy_stats != None:
                 if "rssi" in phy_stats: message.rssi = phy_stats["rssi"]
@@ -1593,7 +1596,11 @@ class LXMRouter:
             except Exception as e:
                 RNS.log("Error while unpacking received propagation resource", RNS.LOG_DEBUG)
 
-    def lxmf_propagation(self, lxmf_data, signal_local_delivery=None, signal_duplicate=None):
+    def lxmf_propagation(self, lxmf_data, signal_local_delivery=None, signal_duplicate=None, is_paper_message=False):
+        no_stamp_enforcement = False
+        if is_paper_message:
+            no_stamp_enforcement = True
+
         try:
             if len(lxmf_data) >= LXMessage.LXMF_OVERHEAD:
                 transient_id = RNS.Identity.full_hash(lxmf_data)
@@ -1611,7 +1618,7 @@ class LXMRouter:
                         decrypted_lxmf_data = delivery_destination.decrypt(encrypted_lxmf_data)
                         if decrypted_lxmf_data != None:
                             delivery_data = lxmf_data[:LXMessage.DESTINATION_LENGTH]+decrypted_lxmf_data
-                            self.lxmf_delivery(delivery_data, delivery_destination.type, ratchet_id=delivery_destination.latest_ratchet_id, method=LXMessage.PROPAGATED)
+                            self.lxmf_delivery(delivery_data, delivery_destination.type, ratchet_id=delivery_destination.latest_ratchet_id, method=LXMessage.PROPAGATED, no_stamp_enforcement=no_stamp_enforcement)
                             self.locally_delivered_transient_ids[transient_id] = time.time()
 
                             if signal_local_delivery != None:
@@ -1661,7 +1668,7 @@ class LXMRouter:
                 lxmf_data = base64.urlsafe_b64decode(uri.replace(LXMessage.URI_SCHEMA+"://", "").replace("/", "")+"==")
                 transient_id = RNS.Identity.full_hash(lxmf_data)
                 
-                router_propagation_result = self.lxmf_propagation(lxmf_data, signal_local_delivery=signal_local_delivery, signal_duplicate=signal_duplicate)
+                router_propagation_result = self.lxmf_propagation(lxmf_data, signal_local_delivery=signal_local_delivery, signal_duplicate=signal_duplicate, is_paper_message=True)
                 if router_propagation_result != False:
                     RNS.log("LXM with transient ID "+RNS.prettyhexrep(transient_id)+" was ingested.", RNS.LOG_DEBUG)
                     return router_propagation_result
@@ -1687,7 +1694,6 @@ class LXMRouter:
 
     def process_deferred_stamps(self):
         if len(self.pending_deferred_stamps) > 0:
-            RNS.log(f"Processing deferred stamps...", RNS.LOG_DEBUG) # TODO: Remove
 
             if self.stamp_gen_lock.locked():
                 RNS.log(f"A stamp is already generating, returning...", RNS.LOG_DEBUG) # TODO: Remove

@@ -301,6 +301,7 @@ class LXMessage:
         else:
             workblock = LXMessage.stamp_workblock(self.message_id)
             if LXMessage.stamp_valid(self.stamp, target_cost, workblock):
+                RNS.log(f"Stamp on {self} validated", RNS.LOG_DEBUG) # TODO: Remove at some point
                 self.stamp_value = LXMessage.stamp_value(RNS.Identity.full_hash(workblock+self.stamp))
                 return True
             else:
