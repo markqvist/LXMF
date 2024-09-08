@@ -159,6 +159,7 @@ class LXMessage:
         self.incoming                = False
         self.signature_validated     = False
         self.unverified_reason       = None
+        self.ratchet_id              = None
 
         self.representation          = LXMessage.UNKNOWN
         self.desired_method          = desired_method
@@ -310,11 +311,13 @@ class LXMessage:
         # generating a valid stamp.
         if self.outbound_ticket != None and type(self.outbound_ticket) == bytes and len(self.outbound_ticket) == LXMessage.TICKET_LENGTH:
             RNS.log(f"Generating stamp with outbound ticket for {self}", RNS.LOG_DEBUG) # TODO: Remove at some point
+            self.stamp_value = LXMessage.COST_TICKET
             return RNS.Identity.truncated_hash(self.outbound_ticket+self.message_id)
 
         # If no stamp cost is required, we can just
         # return immediately.
         elif self.stamp_cost == None:
+            self.stamp_value = None
             return None
 
         # If a stamp was already generated, return
@@ -504,6 +507,9 @@ class LXMessage:
 
             RNS.log(f"Stamp generated in {RNS.prettytime(duration)}, {rounds} rounds, {int(speed)} rounds per second", RNS.LOG_DEBUG)
 
+            self.stamp_value = LXMessage.stamp_value(RNS.Identity.full_hash(workblock+stamp))
+            self.stamp_valid = True
+
             return stamp
 
     def pack(self):
@@ -575,6 +581,7 @@ class LXMessage:
                 single_packet_content_limit = LXMessage.LINK_PACKET_MAX_CONTENT
 
                 encrypted_data = self.__destination.encrypt(self.packed[LXMessage.DESTINATION_LENGTH:])
+                self.ratchet_id = self.__destination.latest_ratchet_id
                 self.propagation_packed = msgpack.packb([time.time(), [self.packed[:LXMessage.DESTINATION_LENGTH]+encrypted_data]])
 
                 content_size = len(self.propagation_packed)
@@ -589,6 +596,7 @@ class LXMessage:
                 paper_content_limit = LXMessage.PAPER_MDU
 
                 encrypted_data = self.__destination.encrypt(self.packed[LXMessage.DESTINATION_LENGTH:])
+                self.ratchet_id = self.__destination.latest_ratchet_id
                 self.paper_packed = self.packed[:LXMessage.DESTINATION_LENGTH]+encrypted_data
 
                 content_size = len(self.paper_packed)
@@ -605,14 +613,18 @@ class LXMessage:
         self.determine_transport_encryption()
 
         if self.method == LXMessage.OPPORTUNISTIC:
-            self.__as_packet().send().set_delivery_callback(self.__mark_delivered)
+            lxm_packet = self.__as_packet()
+            lxm_packet.send().set_delivery_callback(self.__mark_delivered)
+            self.ratchet_id = lxm_packet.ratchet_id
             self.state = LXMessage.SENT
         
         elif self.method == LXMessage.DIRECT:
             self.state = LXMessage.SENDING
 
             if self.representation == LXMessage.PACKET:
-                receipt = self.__as_packet().send()
+                lxm_packet = self.__as_packet()
+                receipt = lxm_packet.send()
+                self.ratchet_id = self.__delivery_destination.link_id
                 if receipt:
                     receipt.set_delivery_callback(self.__mark_delivered)
                     receipt.set_timeout_callback(self.__link_packet_timed_out)
@@ -623,6 +635,7 @@ class LXMessage:
 
             elif self.representation == LXMessage.RESOURCE:
                 self.resource_representation = self.__as_resource()
+                self.ratchet_id = self.__delivery_destination.link_id
                 self.progress = 0.10
 
         elif self.method == LXMessage.PROPAGATED:
@@ -692,7 +705,8 @@ class LXMessage:
             try:
                 self.__delivery_callback(self)
             except Exception as e:
-                    RNS.log("An error occurred in the external delivery callback for "+str(message), RNS.LOG_ERROR)
+                    RNS.log("An error occurred in the external delivery callback for "+str(self), RNS.LOG_ERROR)
+                    RNS.trace_exception(e)
 
     def __mark_propagated(self, receipt = None):
         RNS.log("Received propagation success notification for "+str(self), RNS.LOG_DEBUG)
@@ -703,7 +717,8 @@ class LXMessage:
             try:
                 self.__delivery_callback(self)
             except Exception as e:
-                    RNS.log("An error occurred in the external delivery callback for "+str(message), RNS.LOG_ERROR)
+                    RNS.log("An error occurred in the external delivery callback for "+str(self), RNS.LOG_ERROR)
+                    RNS.trace_exception(e)
 
     def __mark_paper_generated(self, receipt = None):
         RNS.log("Paper message generation succeeded for "+str(self), RNS.LOG_DEBUG)
@@ -714,7 +729,8 @@ class LXMessage:
             try:
                 self.__delivery_callback(self)
             except Exception as e:
-                    RNS.log("An error occurred in the external delivery callback for "+str(message), RNS.LOG_ERROR)
+                    RNS.log("An error occurred in the external delivery callback for "+str(self), RNS.LOG_ERROR)
+                    RNS.trace_exception(e)
 
     def __resource_concluded(self, resource):
         if resource.status == RNS.Resource.COMPLETE:

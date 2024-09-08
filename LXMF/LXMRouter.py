@@ -1260,9 +1260,14 @@ class LXMRouter:
     ### Message Routing & Delivery ########################
     #######################################################
 
-    def lxmf_delivery(self, lxmf_data, destination_type = None, phy_stats = None):
+    def lxmf_delivery(self, lxmf_data, destination_type = None, phy_stats = None, ratchet_id = None, method = None):
         try:
             message = LXMessage.unpack_from_bytes(lxmf_data)
+            if ratchet_id and not message.ratchet_id:
+                message.ratchet_id = ratchet_id
+
+            if method:
+                message.method = method
 
             if message.signature_validated and FIELD_TICKET in message.fields:
                 ticket_entry = message.fields[FIELD_TICKET]
@@ -1299,6 +1304,7 @@ class LXMRouter:
                 if "snr" in phy_stats: message.snr = phy_stats["snr"]
                 if "q" in phy_stats: message.q = phy_stats["q"]
 
+            # TODO: Update these descriptions to account for ratchets
             if destination_type == RNS.Destination.SINGLE:
                 message.transport_encrypted = True
                 message.transport_encryption = LXMessage.ENCRYPTION_DESCRIPTION_EC
@@ -1339,11 +1345,14 @@ class LXMRouter:
     def delivery_packet(self, data, packet):
         packet.prove()
         try:
+            method = None
             if packet.destination_type != RNS.Destination.LINK:
+                method = LXMessage.OPPORTUNISTIC
                 lxmf_data  = b""
                 lxmf_data += packet.destination.hash
                 lxmf_data += data
             else:
+                method = LXMessage.DIRECT
                 lxmf_data = data
 
             try:
@@ -1356,7 +1365,7 @@ class LXMRouter:
 
             phy_stats = {"rssi": packet.rssi, "snr": packet.snr, "q": packet.q}
 
-            self.lxmf_delivery(lxmf_data, packet.destination_type, phy_stats=phy_stats)
+            self.lxmf_delivery(lxmf_data, packet.destination_type, phy_stats=phy_stats, ratchet_id=packet.ratchet_id, method=method)
 
         except Exception as e:
             RNS.log("Exception occurred while parsing incoming LXMF data.", RNS.LOG_ERROR)
@@ -1388,8 +1397,12 @@ class LXMRouter:
     def delivery_resource_concluded(self, resource):
         RNS.log("Transfer concluded for LXMF delivery resource "+str(resource), RNS.LOG_DEBUG)
         if resource.status == RNS.Resource.COMPLETE:
+            ratchet_id = None
+            # Set ratchet ID to link ID if available
+            if resource.link and hasattr(resource.link, "link_id"):
+                ratchet_id = resource.link.link_id
             phy_stats = {"rssi": resource.link.rssi, "snr": resource.link.snr, "q": resource.link.q}
-            self.lxmf_delivery(resource.data.read(), resource.link.type, phy_stats=phy_stats)
+            self.lxmf_delivery(resource.data.read(), resource.link.type, phy_stats=phy_stats, ratchet_id=ratchet_id, method=LXMessage.DIRECT)
 
 
     ### Peer Sync & Propagation ###########################
@@ -1598,7 +1611,7 @@ class LXMRouter:
                         decrypted_lxmf_data = delivery_destination.decrypt(encrypted_lxmf_data)
                         if decrypted_lxmf_data != None:
                             delivery_data = lxmf_data[:LXMessage.DESTINATION_LENGTH]+decrypted_lxmf_data
-                            self.lxmf_delivery(delivery_data, delivery_destination.type)
+                            self.lxmf_delivery(delivery_data, delivery_destination.type, ratchet_id=delivery_destination.latest_ratchet_id, method=LXMessage.PROPAGATED)
                             self.locally_delivered_transient_ids[transient_id] = time.time()
 
                             if signal_local_delivery != None:
