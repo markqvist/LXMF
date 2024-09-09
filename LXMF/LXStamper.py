@@ -261,3 +261,20 @@ def job_android(stamp_cost, workblock):
             RNS.trace_exception(e)
 
     return stamp, total_rounds
+
+if __name__ == "__main__":
+    import sys
+    if len(sys.argv) < 2:
+        RNS.log("No cost argument provided", RNS.LOG_ERROR)
+        exit(1)
+    else:
+        try:
+            cost = int(sys.argv[1])
+        except Exception as e:
+            RNS.log(f"Invalid cost argument provided: {e}", RNS.LOG_ERROR)
+            exit(1)
+
+    RNS.loglevel = RNS.LOG_DEBUG
+    RNS.log("Testing LXMF stamp generation", RNS.LOG_DEBUG)
+    message_id = os.urandom(32)
+    generate_stamp(message_id, cost)
