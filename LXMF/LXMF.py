@@ -17,6 +17,7 @@ FIELD_COMMANDS         = 0x09
 FIELD_RESULTS          = 0x0A
 FIELD_GROUP            = 0x0B
 FIELD_TICKET           = 0x0C
+FIELD_EVENT            = 0x0D
 
 # For usecases such as including custom data structures,
 # embedding or encapsulating other data types or protocols
