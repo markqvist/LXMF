@@ -32,6 +32,8 @@ def delivery_callback(message):
   RNS.log("\t| Title                  : "+message.title_as_string())
   RNS.log("\t| Content                : "+message.content_as_string())
   RNS.log("\t| Fields                 : "+str(message.fields))
+  if message.ratchet_id:
+    RNS.log("\t| Ratchet                : "+str(RNS.Identity._get_ratchet_id(message.ratchet_id)))
   RNS.log("\t| Message signature      : "+signature_string)
   RNS.log("\t| Stamp                  : "+stamp_string)
   RNS.log("\t+---------------------------------------------------------------")

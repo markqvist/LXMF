@@ -1696,7 +1696,6 @@ class LXMRouter:
         if len(self.pending_deferred_stamps) > 0:
 
             if self.stamp_gen_lock.locked():
-                RNS.log(f"A stamp is already generating, returning...", RNS.LOG_DEBUG) # TODO: Remove
                 return
 
             else:
