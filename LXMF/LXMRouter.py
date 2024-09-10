@@ -117,7 +117,6 @@ class LXMRouter:
             identity = RNS.Identity()
 
         self.identity = identity
-        self.lxmf_query_destination  = RNS.Destination(None, RNS.Destination.IN, RNS.Destination.PLAIN, APP_NAME, "query")
         self.propagation_destination = RNS.Destination(self.identity, RNS.Destination.IN, RNS.Destination.SINGLE, APP_NAME, "propagation")
 
         if autopeer != None:
