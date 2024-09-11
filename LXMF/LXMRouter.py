@@ -1299,7 +1299,7 @@ class LXMRouter:
                         else:
                             RNS.log(f"Received {message} with invalid stamp, but allowing anyway, since stamp enforcement is disabled", RNS.LOG_NOTICE)
                 else:
-                    RNS.log(f"Received {message} valid stamp", RNS.LOG_DEBUG)
+                    RNS.log(f"Received {message} with valid stamp", RNS.LOG_DEBUG)
 
             if phy_stats != None:
                 if "rssi" in phy_stats: message.rssi = phy_stats["rssi"]

@@ -264,10 +264,14 @@ class LXMessage:
     def validate_stamp(self, target_cost, tickets=None):
         if tickets != None:
             for ticket in tickets:
-                if self.stamp == RNS.Identity.truncated_hash(ticket+self.message_id):
-                    RNS.log(f"Stamp on {self} validated by inbound ticket", RNS.LOG_DEBUG) # TODO: Remove at some point
-                    self.stamp_value = LXMessage.COST_TICKET
-                    return True
+                try:
+                    if self.stamp == RNS.Identity.truncated_hash(ticket+self.message_id):
+                        RNS.log(f"Stamp on {self} validated by inbound ticket", RNS.LOG_DEBUG) # TODO: Remove at some point
+                        self.stamp_value = LXMessage.COST_TICKET
+                        return True
+                except Exception as e:
+                    RNS.log(f"Error while validating ticket: {e}", RNS.LOG_ERROR)
+                    RNS.trace_exception(e)
 
         if self.stamp == None:
             return False
@@ -284,9 +288,10 @@ class LXMessage:
         # If an outbound ticket exists, use this for
         # generating a valid stamp.
         if self.outbound_ticket != None and type(self.outbound_ticket) == bytes and len(self.outbound_ticket) == LXMessage.TICKET_LENGTH:
-            RNS.log(f"Generating stamp with outbound ticket for {self}", RNS.LOG_DEBUG) # TODO: Remove at some point
+            generated_stamp = RNS.Identity.truncated_hash(self.outbound_ticket+self.message_id)
             self.stamp_value = LXMessage.COST_TICKET
-            return RNS.Identity.truncated_hash(self.outbound_ticket+self.message_id)
+            RNS.log(f"Generated stamp with outbound ticket {RNS.hexrep(self.outbound_ticket)} for {self}", RNS.LOG_DEBUG) # TODO: Remove at some point
+            return generated_stamp
 
         # If no stamp cost is required, we can just
         # return immediately.
