@@ -112,7 +112,7 @@ def display_name_from_app_data(app_data=None):
             return app_data.decode("utf-8")
 
 def stamp_cost_from_app_data(app_data=None):
-    if app_data == None:
+    if app_data == None or app_data == b"":
         return None
     else:
         # Version 0.5.0+ announce format
