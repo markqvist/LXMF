@@ -1756,9 +1756,10 @@ class LXMRouter:
                             source_destination_hash = lxmessage.get_source().hash
                             if source_destination_hash in self.delivery_destinations:
                                 backchannel_identity = self.delivery_destinations[source_destination_hash].identity
+                                backchannel_desthash = RNS.Destination.hash_from_name_and_identity("lxmf.delivery", backchannel_identity)
                                 direct_link.identify(backchannel_identity)
                                 self.delivery_link_established(direct_link)
-                                RNS.log(f"Performed backchannel identification as {backchannel_identity} on {direct_link}", RNS.LOG_DEBUG)
+                                RNS.log(f"Performed backchannel identification as {RNS.prettyhexrep(backchannel_desthash)} on {direct_link}", RNS.LOG_DEBUG)
 
             elif lxmessage.method == LXMessage.PROPAGATED and lxmessage.state == LXMessage.SENT:
                 RNS.log("Propagation has occurred for "+str(lxmessage)+", removing from outbound queue", RNS.LOG_DEBUG)
@@ -1817,7 +1818,7 @@ class LXMRouter:
                                         RNS.log("Waiting for proof for "+str(lxmessage)+" sent as link packet", RNS.LOG_DEBUG)
                             elif direct_link.status == RNS.Link.CLOSED:
                                 if direct_link.activated_at != None:
-                                    RNS.log("The link to "+RNS.prettyhexrep(lxmessage.get_destination().hash)+" was closed, reason: "+str(direct_link.teardown_reason), RNS.LOG_DEBUG)
+                                    RNS.log("The link to "+RNS.prettyhexrep(lxmessage.get_destination().hash)+" was closed", RNS.LOG_DEBUG)
                                 else:
                                     if not hasattr(lxmessage, "path_request_retried"):
                                         RNS.log("The link to "+RNS.prettyhexrep(lxmessage.get_destination().hash)+" was never activated, retrying path request...", RNS.LOG_DEBUG)
