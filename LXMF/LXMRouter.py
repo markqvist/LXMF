@@ -1758,6 +1758,7 @@ class LXMRouter:
                                 backchannel_identity = self.delivery_destinations[source_destination_hash].identity
                                 backchannel_desthash = RNS.Destination.hash_from_name_and_identity("lxmf.delivery", backchannel_identity)
                                 direct_link.identify(backchannel_identity)
+                                direct_link.backchannel_identified = True
                                 self.delivery_link_established(direct_link)
                                 RNS.log(f"Performed backchannel identification as {RNS.prettyhexrep(backchannel_desthash)} on {direct_link}", RNS.LOG_DEBUG)
 
