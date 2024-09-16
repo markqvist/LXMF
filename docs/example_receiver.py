@@ -29,8 +29,8 @@ def delivery_callback(message):
   RNS.log("\t| Destination instance   : "+str(message.get_destination()))
   RNS.log("\t| Transport Encryption   : "+str(message.transport_encryption))
   RNS.log("\t| Timestamp              : "+time_string)
-  RNS.log("\t| Title                  : "+message.title_as_string())
-  RNS.log("\t| Content                : "+message.content_as_string())
+  RNS.log("\t| Title                  : "+str(message.title_as_string()))
+  RNS.log("\t| Content                : "+str(message.content_as_string()))
   RNS.log("\t| Fields                 : "+str(message.fields))
   if message.ratchet_id:
     RNS.log("\t| Ratchet                : "+str(RNS.Identity._get_ratchet_id(message.ratchet_id)))
