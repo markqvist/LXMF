@@ -536,6 +536,12 @@ class LXMRouter:
     def information_storage_size(self):
         pass
 
+    def delivery_link_available(self, destination_hash):
+        if destination_hash in self.direct_links or destination_hash in self.backchannel_links:
+            return True
+        else:
+            return False
+
 
     ### Utility & Maintenance #############################
     #######################################################
@@ -1746,7 +1752,7 @@ class LXMRouter:
 
                 # Prepare link for backchannel communications
                 delivery_destination_hash = lxmessage.get_destination().hash
-                if delivery_destination_hash in self.direct_links:
+                if lxmessage.method == LXMessage.DIRECT and delivery_destination_hash in self.direct_links:
                     direct_link = self.direct_links[delivery_destination_hash]
                     if not hasattr(direct_link, "backchannel_identified") or direct_link.backchannel_identified == False:
                         if direct_link.initiator == True:

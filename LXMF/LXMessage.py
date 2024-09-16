@@ -372,8 +372,16 @@ class LXMessage:
             # one will be chosen according to these rules:
             if self.desired_method == None:
                 self.desired_method = LXMessage.DIRECT
-            # TODO: Expand rules to something more intelligent
+            
+            # If opportunistic delivery was requested, check
+            # that message will fit within packet size limits
+            if self.desired_method == LXMessage.OPPORTUNISTIC:
+                if self.__destination.type == RNS.Destination.SINGLE:
+                    if content_size > LXMessage.ENCRYPTED_PACKET_MAX_CONTENT:
+                        RNS.log(f"Opportunistic delivery was requested for {self}, but content exceeds packet size limit. Falling back to link-based delivery.", RNS.LOG_DEBUG)
+                        self.desired_method = LXMessage.DIRECT
 
+            # Set delivery parameters according to delivery method
             if self.desired_method == LXMessage.OPPORTUNISTIC:
                 if self.__destination.type == RNS.Destination.SINGLE:
                     single_packet_content_limit = LXMessage.ENCRYPTED_PACKET_MAX_CONTENT
@@ -434,6 +442,7 @@ class LXMessage:
         if self.method == LXMessage.OPPORTUNISTIC:
             lxm_packet = self.__as_packet()
             lxm_packet.send().set_delivery_callback(self.__mark_delivered)
+            self.progress = 0.50
             self.ratchet_id = lxm_packet.ratchet_id
             self.state = LXMessage.SENT
         
