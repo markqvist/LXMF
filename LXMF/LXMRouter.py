@@ -276,6 +276,10 @@ class LXMRouter:
         else:
             return None
 
+    def set_active_propagation_node(self, destination_hash):
+        self.set_outbound_propagation_node(destination_hash)
+        # self.set_inbound_propagation_node(destination_hash)
+
     def set_outbound_propagation_node(self, destination_hash):
         if len(destination_hash) != RNS.Identity.TRUNCATED_HASHLENGTH//8 or type(destination_hash) != bytes:
             raise ValueError("Invalid destination hash for outbound propagation node")
@@ -288,6 +292,13 @@ class LXMRouter:
 
     def get_outbound_propagation_node(self):
         return self.outbound_propagation_node
+
+    def set_inbound_propagation_node(self, destination_hash):
+        # TODO: Implement
+        raise NotImplementedError("Inbound/outbound propagation node differentiation is currently not implemented")
+
+    def get_inbound_propagation_node(self):
+        return self.get_outbound_propagation_node()
 
     def set_retain_node_lxms(self, retain):
         if retain == True:
@@ -1195,6 +1206,7 @@ class LXMRouter:
     
     def handle_outbound(self, lxmessage):
         destination_hash = lxmessage.get_destination().hash
+
         if lxmessage.stamp_cost == None:
             if destination_hash in self.outbound_stamp_costs:
                 stamp_cost = self.outbound_stamp_costs[destination_hash][1]
@@ -1220,10 +1232,13 @@ class LXMRouter:
         if not lxmessage.packed:
             lxmessage.pack()
 
-        lxmessage.determine_transport_encryption()
+        unknown_path_requested = False
+        if not RNS.Transport.has_path(destination_hash) and lxmessage.method == LXMessage.OPPORTUNISTIC:
+            RNS.log(f"Pre-emptively requesting unknown path for opportunistic {lxmessage}", RNS.LOG_DEBUG)
+            RNS.Transport.request_path(destination_hash)
+            unknown_path_requested = True
 
-        while self.processing_outbound:
-            time.sleep(0.1)
+        lxmessage.determine_transport_encryption()
 
         if lxmessage.defer_stamp and lxmessage.stamp_cost == None:
             RNS.log(f"Deferred stamp generation was requested for {lxmessage}, but no stamp is required, processing immediately", RNS.LOG_DEBUG)
@@ -1231,7 +1246,10 @@ class LXMRouter:
 
         if not lxmessage.defer_stamp:
             self.pending_outbound.append(lxmessage)
-            self.process_outbound()
+            if not unknown_path_requested:
+                while self.processing_outbound:
+                    time.sleep(0.05)
+                self.process_outbound()
         else:
             self.pending_deferred_stamps[lxmessage.message_id] = lxmessage
 
@@ -1783,7 +1801,7 @@ class LXMRouter:
                             RNS.Transport.request_path(lxmessage.get_destination().hash)
                             lxmessage.next_delivery_attempt = time.time() + LXMRouter.PATH_REQUEST_WAIT
                             lxmessage.progress = 0.00
-                        elif lxmessage.delivery_attempts == LXMRouter.MAX_PATHLESS_TRIES+2 and RNS.Transport.has_path(lxmessage.get_destination().hash):
+                        elif lxmessage.delivery_attempts == LXMRouter.MAX_PATHLESS_TRIES+3 and RNS.Transport.has_path(lxmessage.get_destination().hash):
                             RNS.log(f"Opportunistic delivery for {lxmessage} still unsuccessful after {lxmessage.delivery_attempts} attempts, trying to update path to {RNS.prettyhexrep(lxmessage.get_destination().hash)}", RNS.LOG_DEBUG)
                             lxmessage.delivery_attempts += 1
                             RNS.Transport.request_path(lxmessage.get_destination().hash)
