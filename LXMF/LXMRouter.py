@@ -1236,6 +1236,7 @@ class LXMRouter:
         if not RNS.Transport.has_path(destination_hash) and lxmessage.method == LXMessage.OPPORTUNISTIC:
             RNS.log(f"Pre-emptively requesting unknown path for opportunistic {lxmessage}", RNS.LOG_DEBUG)
             RNS.Transport.request_path(destination_hash)
+            lxmessage.next_delivery_attempt = time.time() + LXMRouter.PATH_REQUEST_WAIT
             unknown_path_requested = True
 
         lxmessage.determine_transport_encryption()
@@ -1245,11 +1246,13 @@ class LXMRouter:
             lxmessage.defer_stamp = False
 
         if not lxmessage.defer_stamp:
+            while not unknown_path_requested and self.processing_outbound:
+                time.sleep(0.05)
+
             self.pending_outbound.append(lxmessage)
             if not unknown_path_requested:
-                while self.processing_outbound:
-                    time.sleep(0.05)
                 self.process_outbound()
+
         else:
             self.pending_deferred_stamps[lxmessage.message_id] = lxmessage
 
@@ -1786,6 +1789,7 @@ class LXMRouter:
             elif lxmessage.method == LXMessage.PROPAGATED and lxmessage.state == LXMessage.SENT:
                 RNS.log("Propagation has occurred for "+str(lxmessage)+", removing from outbound queue", RNS.LOG_DEBUG)
                 self.pending_outbound.remove(lxmessage)
+
             else:
                 RNS.log("Starting outbound processing for "+str(lxmessage)+" to "+RNS.prettyhexrep(lxmessage.get_destination().hash), RNS.LOG_DEBUG)
 
