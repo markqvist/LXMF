@@ -1805,10 +1805,14 @@ class LXMRouter:
                             RNS.Transport.request_path(lxmessage.get_destination().hash)
                             lxmessage.next_delivery_attempt = time.time() + LXMRouter.PATH_REQUEST_WAIT
                             lxmessage.progress = 0.00
-                        elif lxmessage.delivery_attempts == LXMRouter.MAX_PATHLESS_TRIES+3 and RNS.Transport.has_path(lxmessage.get_destination().hash):
-                            RNS.log(f"Opportunistic delivery for {lxmessage} still unsuccessful after {lxmessage.delivery_attempts} attempts, trying to update path to {RNS.prettyhexrep(lxmessage.get_destination().hash)}", RNS.LOG_DEBUG)
+                        elif lxmessage.delivery_attempts == LXMRouter.MAX_PATHLESS_TRIES+1 and RNS.Transport.has_path(lxmessage.get_destination().hash):
+                            RNS.log(f"Opportunistic delivery for {lxmessage} still unsuccessful after {lxmessage.delivery_attempts} attempts, trying to rediscover path to {RNS.prettyhexrep(lxmessage.get_destination().hash)}", RNS.LOG_DEBUG)
                             lxmessage.delivery_attempts += 1
-                            RNS.Transport.request_path(lxmessage.get_destination().hash)
+                            RNS.Reticulum.get_instance().drop_path(lxmessage.get_destination().hash)
+                            def rediscover_job():
+                                time.sleep(0.5)
+                                RNS.Transport.request_path(lxmessage.get_destination().hash)
+                            threading.Thread(target=rediscover_job, daemon=True).start()
                             lxmessage.next_delivery_attempt = time.time() + LXMRouter.PATH_REQUEST_WAIT
                             lxmessage.progress = 0.00
                         else:
