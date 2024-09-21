@@ -23,19 +23,19 @@ def delivery_callback(message):
     stamp_string = "Invalid"
 
   RNS.log("\t+--- LXMF Delivery ---------------------------------------------")
-  RNS.log("\t| Source hash            : "+RNS.prettyhexrep(message.source_hash))
-  RNS.log("\t| Source instance        : "+str(message.get_source()))
-  RNS.log("\t| Destination hash       : "+RNS.prettyhexrep(message.destination_hash))
-  RNS.log("\t| Destination instance   : "+str(message.get_destination()))
-  RNS.log("\t| Transport Encryption   : "+str(message.transport_encryption))
-  RNS.log("\t| Timestamp              : "+time_string)
-  RNS.log("\t| Title                  : "+str(message.title_as_string()))
-  RNS.log("\t| Content                : "+str(message.content_as_string()))
-  RNS.log("\t| Fields                 : "+str(message.fields))
+  RNS.log(f"\t| Source hash            : {RNS.prettyhexrep(message.source_hash)}")
+  RNS.log(f"\t| Source instance        : {message.get_source()}")
+  RNS.log(f"\t| Destination hash       : {RNS.prettyhexrep(message.destination_hash)}")
+  RNS.log(f"\t| Destination instance   : {message.get_destination()}")
+  RNS.log(f"\t| Transport Encryption   : {message.transport_encryption}")
+  RNS.log(f"\t| Timestamp              : {time_string}")
+  RNS.log(f"\t| Title                  : {message.title_as_string()}")
+  RNS.log(f"\t| Content                : {message.content_as_string()}")
+  RNS.log(f"\t| Fields                 : {message.fields}")
   if message.ratchet_id:
-    RNS.log("\t| Ratchet                : "+str(RNS.Identity._get_ratchet_id(message.ratchet_id)))
-  RNS.log("\t| Message signature      : "+signature_string)
-  RNS.log("\t| Stamp                  : "+stamp_string)
+    RNS.log(f"\t| Ratchet                : {RNS.Identity._get_ratchet_id(message.ratchet_id)}")
+  RNS.log(f"\t| Message signature      : {signature_string}")
+  RNS.log(f"\t| Stamp                  : {stamp_string}")
   RNS.log("\t+---------------------------------------------------------------")
 
   # Optionally, send a reply
@@ -51,7 +51,7 @@ identity = RNS.Identity()
 my_lxmf_destination = router.register_delivery_identity(identity, display_name="Anonymous Peer", stamp_cost=required_stamp_cost)
 router.register_delivery_callback(delivery_callback)
 
-RNS.log("Ready to receive on: "+RNS.prettyhexrep(my_lxmf_destination.hash))
+RNS.log(f"Ready to receive on: {RNS.prettyhexrep(my_lxmf_destination.hash)}")
 
 
 # You can set a propagation node address to test receiving

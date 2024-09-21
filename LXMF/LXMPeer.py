@@ -114,17 +114,17 @@ class LXMPeer:
             RNS.log(f"Could not recall identity for LXMF propagation peer {RNS.prettyhexrep(self.destination_hash)}, will retry identity resolution on next sync", RNS.LOG_WARNING)
 
     def sync(self):
-        RNS.log("Initiating LXMF Propagation Node sync with peer "+RNS.prettyhexrep(self.destination_hash), RNS.LOG_DEBUG)
+        RNS.log(f"Initiating LXMF Propagation Node sync with peer {RNS.prettyhexrep(self.destination_hash)}", RNS.LOG_DEBUG)
         self.last_sync_attempt = time.time()
 
         if time.time() > self.next_sync_attempt:
             if not RNS.Transport.has_path(self.destination_hash):
-                RNS.log("No path to peer "+RNS.prettyhexrep(self.destination_hash)+" exists, requesting...", RNS.LOG_DEBUG)
+                RNS.log(f"No path to peer {RNS.prettyhexrep(self.destination_hash)} exists, requesting...", RNS.LOG_DEBUG)
                 RNS.Transport.request_path(self.destination_hash)
                 time.sleep(LXMPeer.PATH_REQUEST_GRACE)
 
             if not RNS.Transport.has_path(self.destination_hash):
-                RNS.log("Path request was not answered, retrying sync with peer "+RNS.prettyhexrep(self.destination_hash)+" later", RNS.LOG_DEBUG)
+                RNS.log(f"Path request was not answered, retrying sync with peer {RNS.prettyhexrep(self.destination_hash)} later", RNS.LOG_DEBUG)
             
             else:
                 if self.identity == None:
@@ -135,7 +135,7 @@ class LXMPeer:
                 if self.destination != None:
                     if len(self.unhandled_messages) > 0:
                         if self.state == LXMPeer.IDLE:
-                            RNS.log("Establishing link for sync to peer "+RNS.prettyhexrep(self.destination_hash)+"...", RNS.LOG_DEBUG)
+                            RNS.log(f"Establishing link for sync to peer {RNS.prettyhexrep(self.destination_hash)}...", RNS.LOG_DEBUG)
                             self.sync_backoff += LXMPeer.SYNC_BACKOFF_STEP
                             self.next_sync_attempt = time.time() + self.sync_backoff
                             self.link = RNS.Link(self.destination, established_callback = self.link_established, closed_callback = self.link_closed)
@@ -147,7 +147,7 @@ class LXMPeer:
                                 self.last_heard = time.time()
                                 self.sync_backoff = 0
 
-                                RNS.log("Synchronisation link to peer "+RNS.prettyhexrep(self.destination_hash)+" established, preparing request...", RNS.LOG_DEBUG)
+                                RNS.log(f"Synchronisation link to peer {RNS.prettyhexrep(self.destination_hash)} established, preparing request...", RNS.LOG_DEBUG)
                                 unhandled_entries = []
                                 unhandled_ids = []
                                 purged_ids = []
@@ -163,7 +163,7 @@ class LXMPeer:
                                         purged_ids.append(transient_id)
 
                                 for transient_id in purged_ids:
-                                    RNS.log("Dropping unhandled message "+RNS.prettyhexrep(transient_id)+" for peer "+RNS.prettyhexrep(self.destination_hash)+" since it no longer exists in the message store.", RNS.LOG_DEBUG)
+                                    RNS.log(f"Dropping unhandled message {RNS.prettyhexrep(transient_id)} for peer {RNS.prettyhexrep(self.destination_hash)} since it no longer exists in the message store.", RNS.LOG_DEBUG)
                                     self.unhandled_messages.pop(transient_id)
 
                                 unhandled_entries.sort(key=lambda e: e[1], reverse=False)
@@ -180,21 +180,21 @@ class LXMPeer:
                                         cumulative_size += (lxm_size+per_message_overhead)
                                         unhandled_ids.append(transient_id)
 
-                                RNS.log("Sending sync request to peer "+str(self.destination), RNS.LOG_DEBUG)
+                                RNS.log(f"Sending sync request to peer {self.destination}", RNS.LOG_DEBUG)
                                 self.last_offer = unhandled_ids
                                 self.link.request(LXMPeer.OFFER_REQUEST_PATH, self.last_offer, response_callback=self.offer_response, failed_callback=self.request_failed)
                                 self.state = LXMPeer.REQUEST_SENT
 
                 else:
-                    RNS.log("Could not request sync to peer "+RNS.prettyhexrep(self.destination_hash)+" since its identity could not be recalled.", RNS.LOG_ERROR)
+                    RNS.log(f"Could not request sync to peer {RNS.prettyhexrep(self.destination_hash)} since its identity could not be recalled.", RNS.LOG_ERROR)
 
         else:
-            RNS.log("Postponing sync with peer "+RNS.prettyhexrep(self.destination_hash)+" for "+RNS.prettytime(self.next_sync_attempt-time.time())+" due to previous failures", RNS.LOG_DEBUG)
+            RNS.log(f"Postponing sync with peer {RNS.prettyhexrep(self.destination_hash)} for {RNS.prettytime(self.next_sync_attempt - time.time())} due to previous failures", RNS.LOG_DEBUG)
             if self.last_sync_attempt > self.last_heard:
                 self.alive = False
 
     def request_failed(self, request_receipt):
-        RNS.log("Sync request to peer "+str(self.destination)+" failed", RNS.LOG_DEBUG)
+        RNS.log(f"Sync request to peer {self.destination} failed", RNS.LOG_DEBUG)
         if self.link != None:
             self.link.teardown()
         
@@ -242,7 +242,7 @@ class LXMPeer:
                     wanted_message_ids.append(transient_id)
 
             if len(wanted_messages) > 0:
-                RNS.log("Peer wanted "+str(len(wanted_messages))+" of the available messages", RNS.LOG_DEBUG)
+                RNS.log(f"Peer wanted {len(wanted_messages)} of the available messages", RNS.LOG_DEBUG)
 
                 lxm_list = []
 
@@ -260,7 +260,7 @@ class LXMPeer:
                 self.state = LXMPeer.RESOURCE_TRANSFERRING
 
             else:
-                RNS.log("Peer "+RNS.prettyhexrep(self.destination_hash)+" did not request any of the available messages, sync completed", RNS.LOG_DEBUG)
+                RNS.log(f"Peer {RNS.prettyhexrep(self.destination_hash)} did not request any of the available messages, sync completed", RNS.LOG_DEBUG)
                 if self.link != None:
                     self.link.teardown()
 
@@ -268,8 +268,8 @@ class LXMPeer:
                 self.state = LXMPeer.IDLE
 
         except Exception as e:
-            RNS.log("Error while handling offer response from peer "+str(self.destination), RNS.LOG_ERROR)
-            RNS.log("The contained exception was: "+str(e), RNS.LOG_ERROR)
+            RNS.log(f"Error while handling offer response from peer {self.destination}", RNS.LOG_ERROR)
+            RNS.log(f"The contained exception was: {e}", RNS.LOG_ERROR)
 
             if self.link != None:
                 self.link.teardown()
@@ -289,12 +289,12 @@ class LXMPeer:
             self.link = None
             self.state = LXMPeer.IDLE
 
-            RNS.log("Sync to peer "+RNS.prettyhexrep(self.destination_hash)+" completed", RNS.LOG_DEBUG)
+            RNS.log(f"Sync to peer {RNS.prettyhexrep(self.destination_hash)} completed", RNS.LOG_DEBUG)
             self.alive = True
             self.last_heard = time.time()
         
         else:
-            RNS.log("Resource transfer for LXMF peer sync failed to "+str(self.destination), RNS.LOG_DEBUG)
+            RNS.log(f"Resource transfer for LXMF peer sync failed to {self.destination}", RNS.LOG_DEBUG)
             if self.link != None:
                 self.link.teardown()
 
