@@ -104,7 +104,7 @@ class LXMessage:
 
     def __str__(self):
         if self.hash != None:
-            return "<LXMessage "+RNS.hexrep(self.hash, delimit=False)+">"
+            return f"<LXMessage {RNS.hexrep(self.hash, delimit=False)}>"
         else:
             return "<LXMessage>"
 
@@ -434,7 +434,7 @@ class LXMessage:
                     raise TypeError("LXMessage desired paper delivery method, but content exceeds paper message maximum size.")
 
         else:
-            raise ValueError("Attempt to re-pack LXMessage "+str(self)+" that was already packed")
+            raise ValueError(f"Attempt to re-pack LXMessage {self} that was already packed")
 
     def send(self):
         self.determine_transport_encryption()
@@ -525,7 +525,7 @@ class LXMessage:
             self.transport_encryption = LXMessage.ENCRYPTION_DESCRIPTION_UNENCRYPTED
 
     def __mark_delivered(self, receipt = None):
-        RNS.log("Received delivery notification for "+str(self), RNS.LOG_DEBUG)
+        RNS.log(f"Received delivery notification for {self}", RNS.LOG_DEBUG)
         self.state = LXMessage.DELIVERED
         self.progress = 1.0
 
@@ -533,11 +533,11 @@ class LXMessage:
             try:
                 self.__delivery_callback(self)
             except Exception as e:
-                    RNS.log("An error occurred in the external delivery callback for "+str(self), RNS.LOG_ERROR)
+                    RNS.log(f"An error occurred in the external delivery callback for {self}", RNS.LOG_ERROR)
                     RNS.trace_exception(e)
 
     def __mark_propagated(self, receipt = None):
-        RNS.log("Received propagation success notification for "+str(self), RNS.LOG_DEBUG)
+        RNS.log(f"Received propagation success notification for {self}", RNS.LOG_DEBUG)
         self.state = LXMessage.SENT
         self.progress = 1.0
 
@@ -545,11 +545,11 @@ class LXMessage:
             try:
                 self.__delivery_callback(self)
             except Exception as e:
-                    RNS.log("An error occurred in the external delivery callback for "+str(self), RNS.LOG_ERROR)
+                    RNS.log(f"An error occurred in the external delivery callback for {self}", RNS.LOG_ERROR)
                     RNS.trace_exception(e)
 
     def __mark_paper_generated(self, receipt = None):
-        RNS.log("Paper message generation succeeded for "+str(self), RNS.LOG_DEBUG)
+        RNS.log(f"Paper message generation succeeded for {self}", RNS.LOG_DEBUG)
         self.state = LXMessage.PAPER
         self.progress = 1.0
 
@@ -557,7 +557,7 @@ class LXMessage:
             try:
                 self.__delivery_callback(self)
             except Exception as e:
-                    RNS.log("An error occurred in the external delivery callback for "+str(self), RNS.LOG_ERROR)
+                    RNS.log(f"An error occurred in the external delivery callback for {self}", RNS.LOG_ERROR)
                     RNS.trace_exception(e)
 
     def __resource_concluded(self, resource):
@@ -635,7 +635,7 @@ class LXMessage:
 
     def write_to_directory(self, directory_path):
         file_name = RNS.hexrep(self.hash, delimit=False)
-        file_path = directory_path+"/"+file_name
+        file_path = f"{directory_path}/{file_name}"
 
         try:
             file = open(file_path, "wb")
@@ -645,7 +645,7 @@ class LXMessage:
             return file_path
 
         except Exception as e:
-            RNS.log("Error while writing LXMF message to file \""+str(file_path)+"\". The contained exception was: "+str(e), RNS.LOG_ERROR)
+            RNS.log(f"Error while writing LXMF message to file \"{file_path}\". The contained exception was: {e}", RNS.LOG_ERROR)
             return None
 
     def as_uri(self, finalise=True):
@@ -657,7 +657,7 @@ class LXMessage:
             encoded_bytes = base64.urlsafe_b64encode(self.paper_packed)
 
             # Add protocol specifier and return
-            lxm_uri = LXMessage.URI_SCHEMA+"://"+encoded_bytes.decode("utf-8").replace("=","")
+            lxm_uri = f"{LXMessage.URI_SCHEMA}://{encoded_bytes.decode('utf-8').replace('=', '')}"
 
             if finalise:
                 self.determine_transport_encryption()
@@ -766,7 +766,7 @@ class LXMessage:
                 RNS.log("Unpacked LXMF message signature could not be validated, since source identity is unknown", RNS.LOG_DEBUG)
         except Exception as e:
             message.signature_validated = False
-            RNS.log("Error while validating LXMF message signature. The contained exception was: "+str(e), RNS.LOG_ERROR)
+            RNS.log(f"Error while validating LXMF message signature. The contained exception was: {e}", RNS.LOG_ERROR)
 
         return message
         
@@ -787,5 +787,5 @@ class LXMessage:
 
             return lxm
         except Exception as e:
-            RNS.log("Could not unpack LXMessage from file. The contained exception was: "+str(e), RNS.LOG_ERROR)
+            RNS.log(f"Could not unpack LXMessage from file. The contained exception was: {e}", RNS.LOG_ERROR)
             return None

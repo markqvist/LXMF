@@ -160,11 +160,11 @@ def apply_config():
                             active_configuration["ignored_lxmf_destinations"].append(ignored_hash)
 
                         except Exception as e:
-                            RNS.log("Could not decode hash from: "+str(hash_str), RNS.LOG_DEBUG)
-                            RNS.log("The contained exception was: "+str(e), RNS.LOG_DEBUG)
+                            RNS.log(f"Could not decode hash from: {hash_str}", RNS.LOG_DEBUG)
+                            RNS.log(f"The contained exception was: {e}", RNS.LOG_DEBUG)
 
             except Exception as e:
-                RNS.log("Error while loading list of ignored destinations: "+str(e), RNS.LOG_ERROR)
+                RNS.log(f"Error while loading list of ignored destinations: {e}", RNS.LOG_ERROR)
 
         active_configuration["allowed_identities"] = []
         if os.path.isfile(allowedpath):
@@ -182,14 +182,14 @@ def apply_config():
                             active_configuration["allowed_identities"].append(allowed_hash)
 
                         except Exception as e:
-                            RNS.log("Could not decode hash from: "+str(hash_str), RNS.LOG_DEBUG)
-                            RNS.log("The contained exception was: "+str(e), RNS.LOG_DEBUG)
+                            RNS.log(f"Could not decode hash from: {hash_str}", RNS.LOG_DEBUG)
+                            RNS.log(f"The contained exception was: {e}", RNS.LOG_DEBUG)
 
             except Exception as e:
-                RNS.log("Error while loading list of allowed identities: "+str(e), RNS.LOG_ERROR)
+                RNS.log(f"Error while loading list of allowed identities: {e}", RNS.LOG_ERROR)
 
     except Exception as e:
-        RNS.log("Could not apply LXM Daemon configuration. The contained exception was: "+str(e), RNS.LOG_ERROR)
+        RNS.log(f"Could not apply LXM Daemon configuration. The contained exception was: {e}", RNS.LOG_ERROR)
         raise e
         exit(3)
 
@@ -198,19 +198,19 @@ def lxmf_delivery(lxm):
 
     try:
         written_path = lxm.write_to_directory(lxmdir)
-        RNS.log("Received "+str(lxm)+" written to "+str(written_path), RNS.LOG_DEBUG)
+        RNS.log(f"Received {lxm} written to {written_path}", RNS.LOG_DEBUG)
 
         if active_configuration["on_inbound"]:
             RNS.log("Calling external program to handle message", RNS.LOG_DEBUG)
             command = active_configuration["on_inbound"]
-            processing_command = command+" \""+written_path+"\""
+            processing_command = f"{command} \"{written_path}\""
             return_code = subprocess.call(shlex.split(processing_command), stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
         else:
             RNS.log("No action defined for inbound messages, ignoring", RNS.LOG_DEBUG)
 
     except Exception as e:
-        RNS.log("Error occurred while processing received message "+str(lxm)+". The contained exception was: "+str(e), RNS.LOG_ERROR)
+        RNS.log(f"Error occurred while processing received message {lxm}. The contained exception was: {e}", RNS.LOG_ERROR)
 
 
 def program_setup(configdir = None, rnsconfigdir = None, run_pn = False, on_inbound = None, verbosity = 0, quietness = 0, service = False):
@@ -228,17 +228,17 @@ def program_setup(configdir = None, rnsconfigdir = None, run_pn = False, on_inbo
     if configdir == None:
         if os.path.isdir("/etc/lxmd") and os.path.isfile("/etc/lxmd/config"):
             configdir = "/etc/lxmd"
-        elif os.path.isdir(RNS.Reticulum.userdir+"/.config/lxmd") and os.path.isfile(Reticulum.userdir+"/.config/lxmd/config"):
-            configdir = RNS.Reticulum.userdir+"/.config/lxmd"
+        elif os.path.isdir(f"{RNS.Reticulum.userdir}/.config/lxmd") and os.path.isfile(f"{Reticulum.userdir}/.config/lxmd/config"):
+            configdir = f"{RNS.Reticulum.userdir}/.config/lxmd"
         else:
-            configdir = RNS.Reticulum.userdir+"/.lxmd"
+            configdir = f"{RNS.Reticulum.userdir}/.lxmd"
 
-    configpath   = configdir+"/config"
-    ignoredpath  = configdir+"/ignored"
-    allowedpath  = configdir+"/allowed"
-    identitypath = configdir+"/identity"
-    storagedir   = configdir+"/storage"
-    lxmdir       = storagedir+"/messages"
+    configpath   = f"{configdir}/config"
+    ignoredpath  = f"{configdir}/ignored"
+    allowedpath  = f"{configdir}/allowed"
+    identitypath = f"{configdir}/identity"
+    storagedir   = f"{configdir}/storage"
+    lxmdir       = f"{storagedir}/messages"
 
     if not os.path.isdir(storagedir):
         os.makedirs(storagedir)
@@ -249,19 +249,19 @@ def program_setup(configdir = None, rnsconfigdir = None, run_pn = False, on_inbo
     if not os.path.isfile(configpath):
         RNS.log("Could not load config file, creating default configuration file...")
         create_default_config(configpath)
-        RNS.log("Default config file created. Make any necessary changes in "+configpath+" and restart lxmd if needed.")
+        RNS.log(f"Default config file created. Make any necessary changes in {configpath} and restart lxmd if needed.")
         time.sleep(1.5)
 
     if os.path.isfile(configpath):
         try:
             lxmd_config = ConfigObj(configpath)
         except Exception as e:
-            RNS.log("Could not parse the configuration at "+configpath, RNS.LOG_ERROR)
+            RNS.log(f"Could not parse the configuration at {configpath}", RNS.LOG_ERROR)
             RNS.log("Check your configuration file for errors!", RNS.LOG_ERROR)
             RNS.panic()
     
     apply_config()
-    RNS.log("Configuration loaded from "+configpath, RNS.LOG_VERBOSE)
+    RNS.log(f"Configuration loaded from {configpath}", RNS.LOG_VERBOSE)
 
     if targetloglevel == None:
         targetloglevel = 3
@@ -278,23 +278,23 @@ def program_setup(configdir = None, rnsconfigdir = None, run_pn = False, on_inbo
         try:
             identity = RNS.Identity.from_file(identitypath)
             if identity != None:
-                RNS.log("Loaded Primary Identity %s" % (str(identity)))
+                RNS.log(f"Loaded Primary Identity {identity}")
             else:
-                RNS.log("Could not load the Primary Identity from "+identitypath, RNS.LOG_ERROR)
+                RNS.log(f"Could not load the Primary Identity from {identitypath}", RNS.LOG_ERROR)
                 exit(4)
         except Exception as e:
-            RNS.log("Could not load the Primary Identity from "+identitypath, RNS.LOG_ERROR)
-            RNS.log("The contained exception was: %s" % (str(e)), RNS.LOG_ERROR)
+            RNS.log(f"Could not load the Primary Identity from {identitypath}", RNS.LOG_ERROR)
+            RNS.log(f"The contained exception was: {e}", RNS.LOG_ERROR)
             exit(1)
     else:
         try:
             RNS.log("No Primary Identity file found, creating new...")
             identity = RNS.Identity()
             identity.to_file(identitypath)
-            RNS.log("Created new Primary Identity %s" % (str(identity)))
+            RNS.log(f"Created new Primary Identity {identity}")
         except Exception as e:
             RNS.log("Could not create and save a new Primary Identity", RNS.LOG_ERROR)
-            RNS.log("The contained exception was: %s" % (str(e)), RNS.LOG_ERROR)
+            RNS.log(f"The contained exception was: {e}", RNS.LOG_ERROR)
             exit(2)
         
     # Start LXMF
@@ -325,12 +325,12 @@ def program_setup(configdir = None, rnsconfigdir = None, run_pn = False, on_inbo
         message_router.set_authentication(required=True)
 
         if len(active_configuration["allowed_identities"]) == 0:
-            RNS.log("Clint authentication was enabled, but no identity hashes could be loaded from "+str(allowedpath)+". Nobody will be able to sync messages from this propagation node.", RNS.LOG_WARNING)
+            RNS.log(f"Clint authentication was enabled, but no identity hashes could be loaded from {allowedpath}. Nobody will be able to sync messages from this propagation node.", RNS.LOG_WARNING)
             
         for identity_hash in active_configuration["allowed_identities"]:
             message_router.allow(identity_hash)
 
-    RNS.log("LXMF Router ready to receive on "+RNS.prettyhexrep(lxmf_destination.hash))
+    RNS.log(f"LXMF Router ready to receive on {RNS.prettyhexrep(lxmf_destination.hash)}")
 
     if run_pn or active_configuration["enable_propagation_node"]:
         message_router.set_message_storage_limit(megabytes=active_configuration["message_storage_limit"])
@@ -341,13 +341,13 @@ def program_setup(configdir = None, rnsconfigdir = None, run_pn = False, on_inbo
                     message_router.prioritise(dest_hash)
 
             except Exception as e:
-                RNS.log("Cannot prioritise "+str(dest_str)+", it is not a valid destination hash", RNS.LOG_ERROR)
+                RNS.log(f"Cannot prioritise {dest_str}, it is not a valid destination hash", RNS.LOG_ERROR)
 
         message_router.enable_propagation()
 
-        RNS.log("LXMF Propagation Node started on "+RNS.prettyhexrep(message_router.propagation_destination.hash))
+        RNS.log(f"LXMF Propagation Node started on {RNS.prettyhexrep(message_router.propagation_destination.hash)}")
 
-    RNS.log("Started lxmd version {version}".format(version=__version__), RNS.LOG_NOTICE)
+    RNS.log(f"Started lxmd version {__version__}", RNS.LOG_NOTICE)
 
     threading.Thread(target=deferred_start_jobs, daemon=True).start()
 
@@ -373,7 +373,7 @@ def jobs():
                     last_node_announce = time.time()
 
         except Exception as e:
-            RNS.log("An error occurred while running periodic jobs. The contained exception was: "+str(e), RNS.LOG_ERROR)
+            RNS.log(f"An error occurred while running periodic jobs. The contained exception was: {e}", RNS.LOG_ERROR)
 
         time.sleep(JOBS_INTERVAL)
 
@@ -405,7 +405,7 @@ def main():
         parser.add_argument("-q", "--quiet", action="count", default=0)
         parser.add_argument("-s", "--service", action="store_true", default=False, help="lxmd is running as a service and should log to file")
         parser.add_argument("--exampleconfig", action="store_true", default=False, help="print verbose configuration example to stdout and exit")
-        parser.add_argument("--version", action="version", version="lxmd {version}".format(version=__version__))
+        parser.add_argument("--version", action="version", version=f"lxmd {__version__}")
         
         args = parser.parse_args()
 
