@@ -15,7 +15,7 @@ class LXMFDeliveryAnnounceHandler:
     def received_announce(self, destination_hash, announced_identity, app_data):
         for lxmessage in self.lxmrouter.pending_outbound:
             if destination_hash == lxmessage.destination_hash:
-                if lxmessage.method == LXMessage.DIRECT:
+                if lxmessage.method == LXMessage.DIRECT or lxmessage.method == LXMessage.OPPORTUNISTIC:
                     lxmessage.next_delivery_attempt = time.time()
 
                     while self.lxmrouter.processing_outbound:
