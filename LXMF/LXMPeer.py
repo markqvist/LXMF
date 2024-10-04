@@ -108,7 +108,10 @@ class LXMPeer:
         self.router = router
         self.destination_hash = destination_hash
         self.identity = RNS.Identity.recall(destination_hash)
-        self.destination = RNS.Destination(self.identity, RNS.Destination.OUT, RNS.Destination.SINGLE, APP_NAME, "propagation")
+        if self.identity != None:
+            self.destination = RNS.Destination(self.identity, RNS.Destination.OUT, RNS.Destination.SINGLE, APP_NAME, "propagation")
+        else:
+            RNS.log(f"Could not recall identity for LXMF propagation peer {RNS.prettyhexrep(self.destination_hash)}, will retry identity resolution on next sync", RNS.LOG_WARNING)
 
     def sync(self):
         RNS.log("Initiating LXMF Propagation Node sync with peer "+RNS.prettyhexrep(self.destination_hash), RNS.LOG_DEBUG)
@@ -126,9 +129,10 @@ class LXMPeer:
             else:
                 if self.identity == None:
                     self.identity = RNS.Identity.recall(destination_hash)
-                    self.destination = RNS.Destination(self.identity, RNS.Destination.OUT, RNS.Destination.SINGLE, APP_NAME, "propagation")
+                    if self.identity != None:
+                        self.destination = RNS.Destination(self.identity, RNS.Destination.OUT, RNS.Destination.SINGLE, APP_NAME, "propagation")
 
-                if self.identity != None:
+                if self.destination != None:
                     if len(self.unhandled_messages) > 0:
                         if self.state == LXMPeer.IDLE:
                             RNS.log("Establishing link for sync to peer "+RNS.prettyhexrep(self.destination_hash)+"...", RNS.LOG_DEBUG)
