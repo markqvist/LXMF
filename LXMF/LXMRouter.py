@@ -284,11 +284,12 @@ class LXMRouter:
         if len(destination_hash) != RNS.Identity.TRUNCATED_HASHLENGTH//8 or type(destination_hash) != bytes:
             raise ValueError("Invalid destination hash for outbound propagation node")
         else:
-            self.outbound_propagation_node = destination_hash
-            if self.outbound_propagation_link != None:
-                if self.outbound_propagation_link.destination.hash != destination_hash:
-                    self.outbound_propagation_link.teardown()
-                    self.outbound_propagation_link = None
+            if self.outbound_propagation_node != destination_hash:
+                self.outbound_propagation_node = destination_hash
+                if self.outbound_propagation_link != None:
+                    if self.outbound_propagation_link.destination.hash != destination_hash:
+                        self.outbound_propagation_link.teardown()
+                        self.outbound_propagation_link = None
 
     def get_outbound_propagation_node(self):
         return self.outbound_propagation_node
