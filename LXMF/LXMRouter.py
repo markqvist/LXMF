@@ -922,7 +922,7 @@ class LXMRouter:
                         expired_inbound.append(inbound_ticket)
 
                 for inbound_ticket in expired_inbound:
-                    self.available_tickets["inbound"][destination_hash].pop(destination_hash)
+                    self.available_tickets["inbound"][destination_hash].pop(inbound_ticket)
         
         except Exception as e:
             RNS.log(f"Error while cleaning available tickets. The contained exception was: {e}", RNS.LOG_ERROR)
