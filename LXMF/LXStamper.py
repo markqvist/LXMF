@@ -31,13 +31,13 @@ def stamp_value(workblock, stamp):
     while ((i & (1 << (bits - 1))) == 0):
         i = (i << 1)
         value += 1
- 
+
     return value
 
 def generate_stamp(message_id, stamp_cost):
     RNS.log(f"Generating stamp with cost {stamp_cost} for {RNS.prettyhexrep(message_id)}...", RNS.LOG_DEBUG)
     workblock = stamp_workblock(message_id)
-    
+
     start_time = time.time()
     stamp = None
     rounds = 0
@@ -51,7 +51,7 @@ def generate_stamp(message_id, stamp_cost):
 
     else:
         stamp, rounds = job_linux(stamp_cost, workblock)
-    
+
     duration = time.time() - start_time
     speed = rounds/duration
     value = stamp_value(workblock, stamp)
@@ -118,7 +118,7 @@ def job_linux(stamp_cost, workblock):
             stop_event.set()
             result_queue.put(pstamp)
         rounds_queue.put(rounds)
-    
+
     job_procs = []
     RNS.log(f"Starting {jobs} stamp generation workers", RNS.LOG_DEBUG)
     for jpn in range(jobs):
@@ -175,12 +175,12 @@ def job_android(stamp_cost, workblock):
     # Android, so we need to manually dispatch and
     # manage workloads here, while periodically
     # checking in on the progress.
-    
+
     stamp = None
     start_time = time.time()
     total_rounds = 0
     rounds_per_worker = 1000
-    
+
     use_nacl = False
     try:
         import nacl.encoding
@@ -255,7 +255,7 @@ def job_android(stamp_cost, workblock):
                 elapsed = time.time() - start_time
                 speed = total_rounds/elapsed
                 RNS.log(f"Stamp generation running. {total_rounds} rounds completed so far, {int(speed)} rounds per second", RNS.LOG_DEBUG)
-        
+
         except Exception as e:
             RNS.log(f"Stamp generation job error: {e}")
             RNS.trace_exception(e)

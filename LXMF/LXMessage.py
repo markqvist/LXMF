@@ -63,7 +63,7 @@ class LXMessage:
     # we can send in a single encrypted packet is
     # 391 bytes.
     ENCRYPTED_PACKET_MDU = RNS.Packet.ENCRYPTED_MDU + TIMESTAMP_SIZE
-    
+
     # The max content length we can fit in LXMF message
     # inside a single RNS packet is the encrypted MDU, minus
     # the LXMF overhead. We can optimise a bit though, by
@@ -74,7 +74,7 @@ class LXMessage:
     # LXMF message we can send is 295 bytes. If a message
     # is larger than that, a Reticulum link will be used.
     ENCRYPTED_PACKET_MAX_CONTENT = ENCRYPTED_PACKET_MDU - LXMF_OVERHEAD + DESTINATION_LENGTH
-    
+
     # Links can carry a larger MDU, due to less overhead per
     # packet. The link MDU with default Reticulum parameters
     # is 431 bytes.
@@ -183,7 +183,7 @@ class LXMessage:
         self.__delivery_destination  = None
         self.__delivery_callback     = None
         self.failed_callback         = None
-        
+
         self.deferred_stamp_generating = False
 
     def set_title_from_string(self, title_string):
@@ -327,7 +327,7 @@ class LXMessage:
                 self.stamp_value = value
                 self.stamp_valid = True
                 return generated_stamp
-            
+
             else:
                 return None
 
@@ -352,7 +352,7 @@ class LXMessage:
                 self.stamp       = self.get_stamp()
                 if self.stamp   != None:
                     self.payload.append(self.stamp)
-            
+
             signed_part      = b""
             signed_part     += hashed_part
             signed_part     += self.hash
@@ -372,7 +372,7 @@ class LXMessage:
             # one will be chosen according to these rules:
             if self.desired_method == None:
                 self.desired_method = LXMessage.DIRECT
-            
+
             # If opportunistic delivery was requested, check
             # that message will fit within packet size limits
             if self.desired_method == LXMessage.OPPORTUNISTIC:
@@ -445,7 +445,7 @@ class LXMessage:
             self.progress = 0.50
             self.ratchet_id = lxm_packet.ratchet_id
             self.state = LXMessage.SENT
-        
+
         elif self.method == LXMessage.DIRECT:
             self.state = LXMessage.SENDING
 
@@ -577,7 +577,7 @@ class LXMessage:
     def __link_packet_timed_out(self, packet_receipt):
         if packet_receipt:
             packet_receipt.destination.teardown()
-    
+
         self.state = LXMessage.OUTBOUND
 
 
@@ -662,7 +662,7 @@ class LXMessage:
             if finalise:
                 self.determine_transport_encryption()
                 self.__mark_paper_generated()
-            
+
             return lxm_uri
 
         else:
@@ -703,7 +703,7 @@ class LXMessage:
         signature            = lxmf_bytes[2*LXMessage.DESTINATION_LENGTH:2*LXMessage.DESTINATION_LENGTH+LXMessage.SIGNATURE_LENGTH]
         packed_payload       = lxmf_bytes[2*LXMessage.DESTINATION_LENGTH+LXMessage.SIGNATURE_LENGTH:]
         unpacked_payload     = msgpack.unpackb(packed_payload)
-        
+
         # Extract stamp from payload if included
         if len(unpacked_payload) > 4:
             stamp = unpacked_payload[4]
@@ -725,7 +725,7 @@ class LXMessage:
             destination = RNS.Destination(destination_identity, RNS.Destination.OUT, RNS.Destination.SINGLE, APP_NAME, "delivery")
         else:
             destination = None
-        
+
         source_identity = RNS.Identity.recall(source_hash)
         if source_identity != None:
             source = RNS.Destination(source_identity, RNS.Destination.OUT, RNS.Destination.SINGLE, APP_NAME, "delivery")
@@ -769,7 +769,7 @@ class LXMessage:
             RNS.log(f"Error while validating LXMF message signature. The contained exception was: {e}", RNS.LOG_ERROR)
 
         return message
-        
+
     @staticmethod
     def unpack_from_file(lxmf_file_handle):
         try:

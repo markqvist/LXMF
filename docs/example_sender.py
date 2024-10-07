@@ -62,7 +62,7 @@ while True:
     # Finally dispatch the message to the LXMF message
     # router, which will handle the delivery according
     # to the specified message parameters and options:
-    
+
     router.handle_outbound(lxm)
 
     # Wait for user input before starting over
