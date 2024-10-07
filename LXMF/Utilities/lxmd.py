@@ -77,7 +77,7 @@ def apply_config():
             active_configuration["peer_announce_interval"] = lxmd_config["lxmf"].as_int("announce_interval")*60
         else:
             active_configuration["peer_announce_interval"] = None
-        
+
         if "lxmf" in lxmd_config and "delivery_transfer_max_accepted_size" in lxmd_config["lxmf"]:
             active_configuration["delivery_transfer_max_accepted_size"] = lxmd_config["lxmf"].as_float("delivery_transfer_max_accepted_size")
             if active_configuration["delivery_transfer_max_accepted_size"] < 0.38:
@@ -127,14 +127,14 @@ def apply_config():
                 active_configuration["message_storage_limit"] = 0.005
         else:
             active_configuration["message_storage_limit"] = 2000
-        
+
         if "propagation" in lxmd_config and "propagation_transfer_max_accepted_size" in lxmd_config["propagation"]:
             active_configuration["propagation_transfer_max_accepted_size"] = lxmd_config["propagation"].as_float("propagation_transfer_max_accepted_size")
             if active_configuration["propagation_transfer_max_accepted_size"] < 0.38:
                 active_configuration["propagation_transfer_max_accepted_size"] = 0.38
         else:
             active_configuration["propagation_transfer_max_accepted_size"] = 256
-        
+
         if "propagation" in lxmd_config and "prioritise_destinations" in lxmd_config["propagation"]:
             active_configuration["prioritised_lxmf_destinations"] = lxmd_config["propagation"].as_list("prioritise_destinations")
         else:
@@ -259,7 +259,7 @@ def program_setup(configdir = None, rnsconfigdir = None, run_pn = False, on_inbo
             RNS.log(f"Could not parse the configuration at {configpath}", RNS.LOG_ERROR)
             RNS.log("Check your configuration file for errors!", RNS.LOG_ERROR)
             RNS.panic()
-    
+
     apply_config()
     RNS.log(f"Configuration loaded from {configpath}", RNS.LOG_VERBOSE)
 
@@ -268,7 +268,7 @@ def program_setup(configdir = None, rnsconfigdir = None, run_pn = False, on_inbo
 
     if verbosity != 0 or quietness != 0:
         targetloglevel = targetloglevel+verbosity-quietness
-    
+
     # Start Reticulum
     RNS.log("Substantiating Reticulum...")
     reticulum = RNS.Reticulum(configdir=rnsconfigdir, loglevel=targetloglevel, logdest=targetlogdest)
@@ -296,7 +296,7 @@ def program_setup(configdir = None, rnsconfigdir = None, run_pn = False, on_inbo
             RNS.log("Could not create and save a new Primary Identity", RNS.LOG_ERROR)
             RNS.log(f"The contained exception was: {e}", RNS.LOG_ERROR)
             exit(2)
-        
+
     # Start LXMF
     message_router = LXMF.LXMRouter(
         identity = identity,
@@ -326,7 +326,7 @@ def program_setup(configdir = None, rnsconfigdir = None, run_pn = False, on_inbo
 
         if len(active_configuration["allowed_identities"]) == 0:
             RNS.log(f"Clint authentication was enabled, but no identity hashes could be loaded from {allowedpath}. Nobody will be able to sync messages from this propagation node.", RNS.LOG_WARNING)
-            
+
         for identity_hash in active_configuration["allowed_identities"]:
             message_router.allow(identity_hash)
 
@@ -357,7 +357,7 @@ def program_setup(configdir = None, rnsconfigdir = None, run_pn = False, on_inbo
 def jobs():
     global active_configuration, last_peer_announce, last_node_announce
     global message_router, lxmf_destination
-    
+
     while True:
         try:
             if "peer_announce_interval" in active_configuration and active_configuration["peer_announce_interval"] != None:
@@ -406,7 +406,7 @@ def main():
         parser.add_argument("-s", "--service", action="store_true", default=False, help="lxmd is running as a service and should log to file")
         parser.add_argument("--exampleconfig", action="store_true", default=False, help="print verbose configuration example to stdout and exit")
         parser.add_argument("--version", action="version", version=f"lxmd {__version__}")
-        
+
         args = parser.parse_args()
 
         if args.exampleconfig:

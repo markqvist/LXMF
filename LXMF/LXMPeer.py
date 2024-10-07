@@ -104,7 +104,7 @@ class LXMPeer:
         self.unhandled_messages = {}
         self.handled_messages = {}
         self.last_offer = []
-        
+
         self.router = router
         self.destination_hash = destination_hash
         self.identity = RNS.Identity.recall(destination_hash)
@@ -125,7 +125,7 @@ class LXMPeer:
 
             if not RNS.Transport.has_path(self.destination_hash):
                 RNS.log(f"Path request was not answered, retrying sync with peer {RNS.prettyhexrep(self.destination_hash)} later", RNS.LOG_DEBUG)
-            
+
             else:
                 if self.identity == None:
                     self.identity = RNS.Identity.recall(destination_hash)
@@ -197,7 +197,7 @@ class LXMPeer:
         RNS.log(f"Sync request to peer {self.destination} failed", RNS.LOG_DEBUG)
         if self.link != None:
             self.link.teardown()
-        
+
         self.state = LXMPeer.IDLE
 
     def offer_response(self, request_receipt):
@@ -220,7 +220,7 @@ class LXMPeer:
                 for transient_id in self.last_offer:
                     if transient_id in self.unhandled_messages:
                         self.handled_messages[transient_id] = self.unhandled_messages.pop(transient_id)
-                    
+
 
             elif response == True:
                 # Peer wants all advertised messages
@@ -282,7 +282,7 @@ class LXMPeer:
             for transient_id in resource.transferred_messages:
                 message = self.unhandled_messages.pop(transient_id)
                 self.handled_messages[transient_id] = message
-            
+
             if self.link != None:
                 self.link.teardown()
 
@@ -292,7 +292,7 @@ class LXMPeer:
             RNS.log(f"Sync to peer {RNS.prettyhexrep(self.destination_hash)} completed", RNS.LOG_DEBUG)
             self.alive = True
             self.last_heard = time.time()
-        
+
         else:
             RNS.log(f"Resource transfer for LXMF peer sync failed to {self.destination}", RNS.LOG_DEBUG)
             if self.link != None:
