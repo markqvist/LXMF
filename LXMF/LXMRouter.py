@@ -1805,7 +1805,7 @@ class LXMRouter:
                             lxmessage.delivery_attempts += 1
                             RNS.Transport.request_path(lxmessage.get_destination().hash)
                             lxmessage.next_delivery_attempt = time.time() + LXMRouter.PATH_REQUEST_WAIT
-                            lxmessage.progress = 0.00
+                            lxmessage.progress = 0.01
                         elif lxmessage.delivery_attempts == LXMRouter.MAX_PATHLESS_TRIES+1 and RNS.Transport.has_path(lxmessage.get_destination().hash):
                             RNS.log(f"Opportunistic delivery for {lxmessage} still unsuccessful after {lxmessage.delivery_attempts} attempts, trying to rediscover path to {RNS.prettyhexrep(lxmessage.get_destination().hash)}", RNS.LOG_DEBUG)
                             lxmessage.delivery_attempts += 1
@@ -1815,7 +1815,7 @@ class LXMRouter:
                                 RNS.Transport.request_path(lxmessage.get_destination().hash)
                             threading.Thread(target=rediscover_job, daemon=True).start()
                             lxmessage.next_delivery_attempt = time.time() + LXMRouter.PATH_REQUEST_WAIT
-                            lxmessage.progress = 0.00
+                            lxmessage.progress = 0.01
                         else:
                             if not hasattr(lxmessage, "next_delivery_attempt") or time.time() > lxmessage.next_delivery_attempt:
                                 lxmessage.delivery_attempts += 1
@@ -1901,7 +1901,7 @@ class LXMRouter:
                                         RNS.log("No path known for delivery attempt "+str(lxmessage.delivery_attempts)+" to "+RNS.prettyhexrep(lxmessage.get_destination().hash)+". Requesting path...", RNS.LOG_DEBUG)
                                         RNS.Transport.request_path(lxmessage.get_destination().hash)
                                         lxmessage.next_delivery_attempt = time.time() + LXMRouter.PATH_REQUEST_WAIT
-                                        lxmessage.progress = 0.00
+                                        lxmessage.progress = 0.01
                     else:
                         RNS.log("Max delivery attempts reached for direct "+str(lxmessage)+" to "+RNS.prettyhexrep(lxmessage.get_destination().hash), RNS.LOG_DEBUG)
                         self.fail_message(lxmessage)
