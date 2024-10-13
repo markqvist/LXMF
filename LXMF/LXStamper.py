@@ -27,7 +27,7 @@ def stamp_value(workblock, stamp):
     value = 0
     bits = 256
     material = RNS.Identity.full_hash(workblock+stamp)
-    i = int.from_bytes(material)
+    i = int.from_bytes(material, byteorder="big")
     while ((i & (1 << (bits - 1))) == 0):
         i = (i << 1)
         value += 1
