@@ -83,6 +83,7 @@ AM_CUSTOM              = 0xFF
 # handle and operate on LXMF data in client programs     #
 ##########################################################
 
+import RNS
 import RNS.vendor.umsgpack as msgpack
 def display_name_from_app_data(app_data=None):
     if app_data == None:
@@ -104,8 +105,8 @@ def display_name_from_app_data(app_data=None):
                         try:
                             decoded = dn.decode("utf-8")
                             return decoded
-                        except:
-                            RNS.log("Could not decode display name in included announce data. The contained exception was: {e}", RNS.LOG_ERROR)
+                        except Exception as e:
+                            RNS.log(f"Could not decode display name in included announce data. The contained exception was: {e}", RNS.LOG_ERROR)
                             return None
 
         # Original announce format
@@ -128,3 +129,24 @@ def stamp_cost_from_app_data(app_data=None):
         # Original announce format
         else:
             return None
+
+def pn_announce_data_is_valid(data):
+    try:
+        if type(data) == bytes:
+            data = msgpack.unpackb(data)
+
+        if len(data) < 3:
+            raise ValueError("Invalid announce data: Insufficient peer data")
+        else:
+            if data[0] != True and data[0] != False:
+                raise ValueError("Invalid announce data: Indeterminate propagation node status")
+            try:
+                int(data[1])
+            except:
+                raise ValueError("Invalid announce data: Could not decode peer timebase")
+    
+    except Exception as e:
+        RNS.log(f"Could not validate propagation node announce data: {e}", RNS.LOG_DEBUG)
+        return False
+
+    return True
