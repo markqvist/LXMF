@@ -19,6 +19,7 @@ FIELD_GROUP            = 0x0B
 FIELD_TICKET           = 0x0C
 FIELD_EVENT            = 0x0D
 FIELD_RNR_REFS         = 0x0E
+FIELD_RENDERER         = 0x0F
 
 # For usecases such as including custom data structures,
 # embedding or encapsulating other data types or protocols
@@ -77,6 +78,18 @@ AM_OPUS_LOSSLESS       = 0x19
 # determine it itself based on the included data.
 AM_CUSTOM              = 0xFF
 
+# Message renderer specifications for FIELD_RENDERER.
+# The renderer specification is completely optional,
+# and only serves as an indication to the receiving
+# client on how to render the message contents. It is
+# not mandatory to implement, either on sending or
+# receiving sides, but is the recommended way to
+# signal how to render a message, if non-plaintext
+# formatting is used.
+RENDERER_PLAIN         = 0x00
+RENDERER_MICRON        = 0x01
+RENDERER_MARKDOWN      = 0x02
+RENDERER_BBCODE        = 0x03
 
 ##########################################################
 # The following helper functions makes it easier to      #
