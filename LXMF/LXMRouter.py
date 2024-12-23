@@ -143,19 +143,31 @@ class LXMRouter:
             if os.path.isfile(self.storagepath+"/local_deliveries"):
                 locally_delivered_file = open(self.storagepath+"/local_deliveries", "rb")
                 data = locally_delivered_file.read()
-                self.locally_delivered_transient_ids = msgpack.unpackb(data)
                 locally_delivered_file.close()
-
-            if os.path.isfile(self.storagepath+"/locally_processed"):
-                locally_processed_file = open(self.storagepath+"/locally_processed", "rb")
-                data = locally_processed_file.read()
-                self.locally_processed_transient_ids = msgpack.unpackb(data)
-                locally_processed_file.close()
-            
-            self.clean_transient_id_caches()
+                self.locally_delivered_transient_ids = msgpack.unpackb(data)
 
         except Exception as e:
             RNS.log("Could not load locally delivered message ID cache from storage. The contained exception was: "+str(e), RNS.LOG_ERROR)
+            self.locally_delivered_transient_ids = {}
+
+        try:
+            if os.path.isfile(self.storagepath+"/locally_processed"):
+                locally_processed_file = open(self.storagepath+"/locally_processed", "rb")
+                data = locally_processed_file.read()
+                locally_processed_file.close()
+                self.locally_processed_transient_ids = msgpack.unpackb(data)
+
+        except Exception as e:
+            RNS.log("Could not load locally processed message ID cache from storage. The contained exception was: "+str(e), RNS.LOG_ERROR)
+            self.locally_processed_transient_ids = {}
+
+        try:
+            self.clean_transient_id_caches()
+
+        except Exception as e:
+            RNS.log("Could not clean transient ID caches. The contained exception was : "+str(e), RNS.LOG_ERROR)
+            self.locally_delivered_transient_ids = {}
+            self.locally_processed_transient_ids = {}
 
         try:
             if os.path.isfile(self.storagepath+"/outbound_stamp_costs"):
