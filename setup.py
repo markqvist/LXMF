@@ -1,9 +1,9 @@
 import setuptools
 
-with open("README.md", "r") as fh:
+with open("README.md") as fh:
     long_description = fh.read()
 
-exec(open("LXMF/_version.py", "r").read())
+exec(open("LXMF/_version.py").read())
 
 setuptools.setup(
     name="lxmf",

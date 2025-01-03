@@ -7,7 +7,7 @@ from .LXMessage import LXMessage
 
 class LXMFDeliveryAnnounceHandler:
     def __init__(self, lxmrouter):
-        self.aspect_filter = APP_NAME+".delivery"
+        self.aspect_filter = f"{APP_NAME}.delivery"
         self.receive_path_responses = True
         self.lxmrouter = lxmrouter
 
@@ -32,7 +32,7 @@ class LXMFDeliveryAnnounceHandler:
 
 class LXMFPropagationAnnounceHandler:
     def __init__(self, lxmrouter):
-        self.aspect_filter = APP_NAME+".propagation"
+        self.aspect_filter = f"{APP_NAME}.propagation"
         self.receive_path_responses = False
         self.lxmrouter = lxmrouter
 
@@ -60,4 +60,4 @@ class LXMFPropagationAnnounceHandler:
 
         except Exception as e:
             RNS.log("Error while evaluating propagation node announce, ignoring announce.", RNS.LOG_DEBUG)
-            RNS.log("The contained exception was: "+str(e), RNS.LOG_DEBUG)
+            RNS.log(f"The contained exception was: {e}", RNS.LOG_DEBUG)
