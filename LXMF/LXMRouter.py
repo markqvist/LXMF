@@ -1514,12 +1514,12 @@ class LXMRouter:
         if len(waiting_peers) > 0:
             fastest_peers = sorted(
                 waiting_peers,
-                key=lambda p: p.link_establishment_rate,
+                key=lambda p: p.sync_transfer_rate,
                 reverse=True
             )[0:min(LXMRouter.FASTEST_N_RANDOM_POOL, len(waiting_peers))]
             peer_pool.extend(fastest_peers)
             
-            unknown_speed_peers = [p for p in waiting_peers if p.link_establishment_rate == 0]
+            unknown_speed_peers = [p for p in waiting_peers if p.sync_transfer_rate == 0]
             if len(unknown_speed_peers) > 0:
                 peer_pool.extend(
                     unknown_speed_peers[
