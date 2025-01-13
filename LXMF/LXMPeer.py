@@ -47,6 +47,11 @@ class LXMPeer:
             peer.link_establishment_rate = dictionary["link_establishment_rate"]
         else:
             peer.link_establishment_rate = 0
+        
+        if "sync_transfer_rate" in dictionary:
+            peer.sync_transfer_rate = dictionary["sync_transfer_rate"]
+        else:
+            peer.sync_transfer_rate = 0
 
         if "propagation_transfer_limit" in dictionary:
             try:
@@ -73,6 +78,7 @@ class LXMPeer:
         dictionary["last_heard"] = self.last_heard
         dictionary["destination_hash"] = self.destination_hash
         dictionary["link_establishment_rate"] = self.link_establishment_rate
+        dictionary["sync_transfer_rate"] = self.sync_transfer_rate
         dictionary["propagation_transfer_limit"] = self.propagation_transfer_limit
 
         handled_ids = []
@@ -96,6 +102,7 @@ class LXMPeer:
         self.sync_backoff = 0
         self.peering_timebase = 0
         self.link_establishment_rate = 0
+        self.sync_transfer_rate = 0
         self.propagation_transfer_limit = None
 
         self.link = None
@@ -257,6 +264,7 @@ class LXMPeer:
                 data = msgpack.packb([time.time(), lxm_list])
                 resource = RNS.Resource(data, self.link, callback = self.resource_concluded)
                 resource.transferred_messages = wanted_message_ids
+                resource.sync_transfer_started = time.time()
                 self.state = LXMPeer.RESOURCE_TRANSFERRING
 
             else:
@@ -289,7 +297,12 @@ class LXMPeer:
             self.link = None
             self.state = LXMPeer.IDLE
 
-            RNS.log("Sync to peer "+RNS.prettyhexrep(self.destination_hash)+" completed", RNS.LOG_DEBUG)
+            rate_str = ""
+            if hasattr(resource, "sync_transfer_started") and resource.sync_transfer_started:
+                self.sync_transfer_rate = (resource.get_transfer_size()*8)/(time.time()-resource.sync_transfer_started)
+                rate_str = f" at {RNS.prettyspeed(self.sync_transfer_rate)}"
+
+            RNS.log("Sync to peer "+RNS.prettyhexrep(self.destination_hash)+" completed"+rate_str, RNS.LOG_DEBUG)
             self.alive = True
             self.last_heard = time.time()
         
