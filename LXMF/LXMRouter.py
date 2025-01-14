@@ -145,6 +145,9 @@ class LXMRouter:
                 data = locally_delivered_file.read()
                 locally_delivered_file.close()
                 self.locally_delivered_transient_ids = msgpack.unpackb(data)
+                if not type(self.locally_delivered_transient_ids) == dict:
+                    RNS.log("Invalid data format for loaded locally delivered transient IDs, recreating...", RNS.LOG_ERROR)
+                    self.locally_delivered_transient_ids = {}
 
         except Exception as e:
             RNS.log("Could not load locally delivered message ID cache from storage. The contained exception was: "+str(e), RNS.LOG_ERROR)
@@ -156,6 +159,10 @@ class LXMRouter:
                 data = locally_processed_file.read()
                 locally_processed_file.close()
                 self.locally_processed_transient_ids = msgpack.unpackb(data)
+                if not type(self.locally_processed_transient_ids) == dict:
+                    RNS.log("Invalid data format for loaded locally processed transient IDs, recreating...", RNS.LOG_ERROR)
+                    self.locally_processed_transient_ids = {}
+
 
         except Exception as e:
             RNS.log("Could not load locally processed message ID cache from storage. The contained exception was: "+str(e), RNS.LOG_ERROR)
@@ -175,6 +182,9 @@ class LXMRouter:
                     with open(self.storagepath+"/outbound_stamp_costs", "rb") as outbound_stamp_cost_file:
                         data = outbound_stamp_cost_file.read()
                         self.outbound_stamp_costs = msgpack.unpackb(data)
+                        if not type(self.outbound_stamp_costs) == dict:
+                            RNS.log("Invalid data format for loaded outbound stamp costs, recreating...", RNS.LOG_ERROR)
+                            self.outbound_stamp_costs = {}
 
                 self.clean_outbound_stamp_costs()
                 self.save_outbound_stamp_costs()
