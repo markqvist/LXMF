@@ -16,9 +16,10 @@ class LXMessage:
     SENDING            = 0x02
     SENT               = 0x04
     DELIVERED          = 0x08
+    REJECTED           = 0xFD
     CANCELLED          = 0xFE
     FAILED             = 0xFF
-    states             = [GENERATING, OUTBOUND, SENDING, SENT, DELIVERED, CANCELLED, FAILED]
+    states             = [GENERATING, OUTBOUND, SENDING, SENT, DELIVERED, REJECTED, CANCELLED, FAILED]
 
     UNKNOWN            = 0x00
     PACKET             = 0x01
@@ -565,7 +566,10 @@ class LXMessage:
         if resource.status == RNS.Resource.COMPLETE:
             self.__mark_delivered()
         else:
-            if self.state != LXMessage.CANCELLED:
+            if resource.status == RNS.Resource.REJECTED:
+                self.state = LXMessage.REJECTED
+
+            elif self.state != LXMessage.CANCELLED:
                 resource.link.teardown()
                 self.state = LXMessage.OUTBOUND
 

@@ -1777,7 +1777,9 @@ class LXMRouter:
 
         self.failed_outbound.append(lxmessage)
 
-        lxmessage.state = LXMessage.FAILED
+        if lxmessage.state != LXMessage.REJECTED:
+            lxmessage.state = LXMessage.FAILED
+
         if lxmessage.failed_callback != None and callable(lxmessage.failed_callback):
             lxmessage.failed_callback(lxmessage)
 
@@ -1867,6 +1869,12 @@ class LXMRouter:
 
             elif lxmessage.state == LXMessage.CANCELLED:
                 RNS.log("Cancellation requested for "+str(lxmessage)+", removing from outbound queue", RNS.LOG_DEBUG)
+                self.pending_outbound.remove(lxmessage)
+                if lxmessage.failed_callback != None and callable(lxmessage.failed_callback):
+                    lxmessage.failed_callback(lxmessage)
+
+            elif lxmessage.state == LXMessage.REJECTED:
+                RNS.log("Receiver rejected "+str(lxmessage)+", removing from outbound queue", RNS.LOG_DEBUG)
                 self.pending_outbound.remove(lxmessage)
                 if lxmessage.failed_callback != None and callable(lxmessage.failed_callback):
                     lxmessage.failed_callback(lxmessage)
