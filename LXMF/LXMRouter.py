@@ -16,6 +16,8 @@ from .LXMessage import LXMessage
 from .Handlers import LXMFDeliveryAnnounceHandler
 from .Handlers import LXMFPropagationAnnounceHandler
 
+import LXMF.LXStamper as LXStamper
+
 class LXMRouter:
     MAX_DELIVERY_ATTEMPTS = 5
     PROCESSING_INTERVAL   = 4
@@ -1236,13 +1238,16 @@ class LXMRouter:
     
     def cancel_outbound(self, message_id):
         try:
+            if message_id in self.pending_deferred_stamps:
+                lxm = self.pending_deferred_stamps[message_id]
+                RNS.log(f"Cancelling deferred stamp generation for {lxm}", RNS.LOG_DEBUG)
+                lxm.state = LXMessage.CANCELLED
+                LXStamper.cancel_work(message_id)
+
             lxmessage = None
             for lxm in self.pending_outbound:
                 if lxm.message_id == message_id:
                     lxmessage = lxm
-
-            if message_id in self.pending_deferred_stamps:
-                RNS.log(f"Cancelling deferred stamp generation for {lxmessage}", RNS.LOG_DEBUG)
 
             if lxmessage != None:
                 lxmessage.state = LXMessage.CANCELLED
@@ -1793,6 +1798,15 @@ class LXMRouter:
                             selected_message_id = message_id
 
                     if selected_lxm != None:
+                        if selected_lxm.state == LXMessage.CANCELLED:
+                            RNS.log(f"Message cancelled during deferred stamp generation for {selected_lxm}.", RNS.LOG_DEBUG)
+                            selected_lxm.stamp_generation_failed = True
+                            self.pending_deferred_stamps.pop(selected_message_id)
+                            if selected_lxm.failed_callback != None and callable(selected_lxm.failed_callback):
+                                selected_lxm.failed_callback(lxmessage)
+                            
+                            return
+
                         RNS.log(f"Starting stamp generation for {selected_lxm}...", RNS.LOG_DEBUG)
                         generated_stamp = selected_lxm.get_stamp()
                         if generated_stamp:
@@ -1805,9 +1819,11 @@ class LXMRouter:
                             RNS.log(f"Stamp generation completed for {selected_lxm}", RNS.LOG_DEBUG)
                         else:
                             if selected_lxm.state == LXMessage.CANCELLED:
-                                RNS.log(f"Message cancelled during deferred stamp generation for {selected_lxm}.", RNS.LOG_ERROR)
+                                RNS.log(f"Message cancelled during deferred stamp generation for {selected_lxm}.", RNS.LOG_DEBUG)
                                 selected_lxm.stamp_generation_failed = True
                                 self.pending_deferred_stamps.pop(selected_message_id)
+                                if selected_lxm.failed_callback != None and callable(selected_lxm.failed_callback):
+                                    selected_lxm.failed_callback(lxmessage)
                             else:
                                 RNS.log(f"Deferred stamp generation did not succeed. Failing {selected_lxm}.", RNS.LOG_ERROR)
                                 selected_lxm.stamp_generation_failed = True
