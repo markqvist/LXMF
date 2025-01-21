@@ -38,11 +38,16 @@ class LXMPeer:
     @staticmethod
     def from_bytes(peer_bytes, router):
         dictionary = msgpack.unpackb(peer_bytes)
+        peer_destination_hash = dictionary["destination_hash"]
+        peer_peering_timebase = dictionary["peering_timebase"]
+        peer_alive = dictionary["alive"]
+        peer_last_heard = dictionary["last_heard"]
 
-        peer = LXMPeer(router, dictionary["destination_hash"])
-        peer.peering_timebase = dictionary["peering_timebase"]
-        peer.alive = dictionary["alive"]
-        peer.last_heard = dictionary["last_heard"]
+        peer = LXMPeer(router, peer_destination_hash)
+        peer.peering_timebase = peer_peering_timebase
+        peer.alive = peer_alive
+        peer.last_heard = peer_last_heard
+
         if "link_establishment_rate" in dictionary:
             peer.link_establishment_rate = dictionary["link_establishment_rate"]
         else:
@@ -61,13 +66,22 @@ class LXMPeer:
         else:
             peer.propagation_transfer_limit = None
 
+        hm_count = 0
         for transient_id in dictionary["handled_ids"]:
             if transient_id in router.propagation_entries:
-                peer.handled_messages.append(transient_id)
+                peer.add_handled_message(transient_id)
+                hm_count += 1
 
+        um_count = 0
         for transient_id in dictionary["unhandled_ids"]:
             if transient_id in router.propagation_entries:
-                peer.unhandled_messages.append(transient_id)
+                peer.add_unhandled_message(transient_id)
+                um_count += 1
+
+        peer._hm_count = hm_count
+        peer._um_count = um_count
+        peer._hm_counts_synced = True
+        peer._um_counts_synced = True
 
         del dictionary
         return peer
@@ -93,7 +107,10 @@ class LXMPeer:
         dictionary["handled_ids"] = handled_ids
         dictionary["unhandled_ids"] = unhandled_ids
 
-        return msgpack.packb(dictionary)
+        peer_bytes = msgpack.packb(dictionary)
+        del dictionary
+
+        return peer_bytes
 
     def __init__(self, router, destination_hash):
         self.alive = False
@@ -106,11 +123,14 @@ class LXMPeer:
         self.sync_transfer_rate = 0
         self.propagation_transfer_limit = None
 
+        self._hm_count = 0
+        self._um_count = 0
+        self._hm_counts_synced = False
+        self._um_counts_synced = False
+
         self.link = None
         self.state = LXMPeer.IDLE
 
-        self.unhandled_messages = []
-        self.handled_messages = []
         self.last_offer = []
         
         self.router = router
@@ -173,7 +193,7 @@ class LXMPeer:
 
                                 for transient_id in purged_ids:
                                     RNS.log("Dropping unhandled message "+RNS.prettyhexrep(transient_id)+" for peer "+RNS.prettyhexrep(self.destination_hash)+" since it no longer exists in the message store.", RNS.LOG_DEBUG)
-                                    self.unhandled_messages.remove(transient_id)
+                                    self.remove_unhandled_message(transient_id)
 
                                 unhandled_entries.sort(key=lambda e: e[1], reverse=False)
                                 per_message_overhead = 16 # Really only 2 bytes, but set a bit higher for now
@@ -228,8 +248,8 @@ class LXMPeer:
                 # Peer already has all advertised messages
                 for transient_id in self.last_offer:
                     if transient_id in self.unhandled_messages:
-                        self.handled_messages.append(transient_id)
-                        self.unhandled_messages.remove(transient_id)
+                        self.add_handled_message(transient_id)
+                        self.remove_unhandled_message(transient_id)
                     
 
             elif response == True:
@@ -244,9 +264,8 @@ class LXMPeer:
                     # If the peer did not want the message, it has
                     # already received it from another peer.
                     if not transient_id in response:
-                        if transient_id in self.unhandled_messages:
-                            self.handled_messages.append(transient_id)
-                            self.unhandled_messages.remove(transient_id)
+                        self.add_handled_message(transient_id)
+                        self.remove_unhandled_message(transient_id)
 
                 for transient_id in response:
                     wanted_messages.append(self.router.propagation_entries[transient_id])
@@ -292,8 +311,8 @@ class LXMPeer:
     def resource_concluded(self, resource):
         if resource.status == RNS.Resource.COMPLETE:
             for transient_id in resource.transferred_messages:
-                self.handled_messages.append(transient_id)
-                self.unhandled_messages.remove(transient_id)
+                self.add_handled_message(transient_id)
+                self.remove_unhandled_message(transient_id)
             
             if self.link != None:
                 self.link.teardown()
@@ -332,9 +351,72 @@ class LXMPeer:
         self.link = None
         self.state = LXMPeer.IDLE
 
-    def handle_message(self, transient_id):
+    def new_propagation_message(self, transient_id):
         if not transient_id in self.handled_messages and not transient_id in self.unhandled_messages:
-            self.unhandled_messages.append(transient_id)
+            self.add_unhandled_message(transient_id)
+
+    @property
+    def handled_messages(self):
+        pes = self.router.propagation_entries.copy()
+        hm = list(filter(lambda tid: self.destination_hash in self.router.propagation_entries[tid][4], pes))
+        self._hm_count = len(hm); del pes
+        return hm
+
+    @property
+    def unhandled_messages(self):
+        pes = self.router.propagation_entries.copy()
+        um = list(filter(lambda tid: self.destination_hash in self.router.propagation_entries[tid][5], pes))
+        self._um_count = len(um); del pes
+        return um
+
+    @property
+    def handled_message_count(self):
+        if not self._hm_counts_synced:
+            self._update_counts()
+
+        return self._hm_count
+
+    @property
+    def unhandled_message_count(self):
+        if not self._um_counts_synced:
+            self._update_counts()
+
+        return self._um_count
+
+    def _update_counts(self):
+        if not self._hm_counts_synced:
+            RNS.log("UPDATE HM COUNTS")
+            hm = self.handled_messages; del hm
+            self._hm_counts_synced = True
+
+        if not self._um_counts_synced:
+            RNS.log("UPDATE UM COUNTS")
+            um = self.unhandled_messages; del um
+            self._um_counts_synced = True
+
+    def add_handled_message(self, transient_id):
+        if transient_id in self.router.propagation_entries:
+            if not self.destination_hash in self.router.propagation_entries[transient_id][4]:
+                self.router.propagation_entries[transient_id][4].append(self.destination_hash)
+                self._hm_counts_synced = False
+
+    def add_unhandled_message(self, transient_id):
+        if transient_id in self.router.propagation_entries:
+            if not self.destination_hash in self.router.propagation_entries[transient_id][5]:
+                self.router.propagation_entries[transient_id][5].append(self.destination_hash)
+                self._um_count += 1
+
+    def remove_handled_message(self, transient_id):
+        if transient_id in self.router.propagation_entries:
+            if self.destination_hash in self.router.propagation_entries[transient_id][4]:
+                self.router.propagation_entries[transient_id][4].remove(self.destination_hash)
+                self._hm_counts_synced = False
+
+    def remove_unhandled_message(self, transient_id):
+        if transient_id in self.router.propagation_entries:
+            if self.destination_hash in self.router.propagation_entries[transient_id][5]:
+                self.router.propagation_entries[transient_id][5].remove(self.destination_hash)
+                self._um_counts_synced = False
 
     def __str__(self):
         if self.destination_hash:
