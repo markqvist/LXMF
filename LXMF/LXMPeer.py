@@ -4,6 +4,7 @@ import time
 import RNS
 import RNS.vendor.umsgpack as msgpack
 
+from collections import deque
 from .LXMF import APP_NAME
 
 class LXMPeer:
@@ -122,6 +123,8 @@ class LXMPeer:
         self.link_establishment_rate = 0
         self.sync_transfer_rate = 0
         self.propagation_transfer_limit = None
+        self.handled_messages_queue = deque()
+        self.unhandled_messages_queue = deque()
 
         self._hm_count = 0
         self._um_count = 0
@@ -351,9 +354,38 @@ class LXMPeer:
         self.link = None
         self.state = LXMPeer.IDLE
 
-    def new_propagation_message(self, transient_id):
-        if not transient_id in self.handled_messages and not transient_id in self.unhandled_messages:
-            self.add_unhandled_message(transient_id)
+    def queued_items(self):
+        return len(self.handled_messages_queue) > 0 or len(self.unhandled_messages_queue) > 0
+
+    def queue_unhandled_message(self, transient_id):
+        self.unhandled_messages_queue.append(transient_id)
+
+    def queue_handled_message(self, transient_id):
+        self.handled_messages_queue.append(transient_id)
+
+    def process_queues(self):
+        if len(self.unhandled_messages_queue) > 0 or len(self.handled_messages_queue) > 0:
+            # TODO: Remove debug
+            # st = time.time(); lu = len(self.unhandled_messages_queue); lh = len(self.handled_messages_queue)
+            
+            handled_messages = self.handled_messages
+            unhandled_messages = self.unhandled_messages
+
+            while len(self.handled_messages_queue) > 0:
+                transient_id = self.handled_messages_queue.pop()
+                if not transient_id in handled_messages:
+                    self.add_handled_message(transient_id)
+                if transient_id in unhandled_messages:
+                    self.remove_unhandled_message(transient_id)
+
+            while len(self.unhandled_messages_queue) > 0:
+                transient_id = self.unhandled_messages_queue.pop()
+                if not transient_id in handled_messages and not transient_id in unhandled_messages:
+                    self.add_unhandled_message(transient_id)
+
+            del handled_messages, unhandled_messages
+            # TODO: Remove debug
+            # RNS.log(f"{self} processed {lh}/{lu} in {RNS.prettytime(time.time()-st)}")
 
     @property
     def handled_messages(self):
@@ -387,11 +419,9 @@ class LXMPeer:
 
     def _update_counts(self):
         if not self._hm_counts_synced:
-            RNS.log("UPDATE HM COUNTS")
             hm = self.handled_messages; del hm
 
         if not self._um_counts_synced:
-            RNS.log("UPDATE UM COUNTS")
             um = self.unhandled_messages; del um
 
     def add_handled_message(self, transient_id):
