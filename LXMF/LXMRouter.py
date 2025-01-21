@@ -656,15 +656,16 @@ class LXMRouter:
             time.sleep(LXMRouter.PROCESSING_INTERVAL)
 
     def flush_queues(self):
-        self.flush_peer_distribution_queue()
-        RNS.log("Calculating peer distribution queue mappings...", RNS.LOG_DEBUG); st = time.time()
-        for peer_id in self.peers.copy():
-            if peer_id in self.peers:
-                peer = self.peers[peer_id]
-                if peer.queued_items():
-                    peer.process_queues()
+        if len(self.peers) > 0:
+            self.flush_peer_distribution_queue()
+            RNS.log("Calculating peer distribution queue mappings...", RNS.LOG_DEBUG); st = time.time()
+            for peer_id in self.peers.copy():
+                if peer_id in self.peers:
+                    peer = self.peers[peer_id]
+                    if peer.queued_items():
+                        peer.process_queues()
 
-        RNS.log(f"Distribution queue mapping completed in {RNS.prettytime(time.time()-st)}", RNS.LOG_DEBUG)
+            RNS.log(f"Distribution queue mapping completed in {RNS.prettytime(time.time()-st)}", RNS.LOG_DEBUG)
 
     def clean_links(self):
         closed_links = []
