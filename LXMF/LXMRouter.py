@@ -1,5 +1,6 @@
 import os
 import time
+import math
 import random
 import base64
 import atexit
@@ -427,6 +428,8 @@ class LXMRouter:
                 os.makedirs(self.messagepath)
 
             self.propagation_entries = {}
+
+            st = time.time(); RNS.log("Indexing messagestore...", RNS.LOG_NOTICE)
             for filename in os.listdir(self.messagepath):
                 components = filename.split("_")
                 if len(components) == 2:
@@ -452,9 +455,13 @@ class LXMRouter:
                             except Exception as e:
                                 RNS.log("Could not read LXM from message store. The contained exception was: "+str(e), RNS.LOG_ERROR)
             
+            et = time.time(); RNS.log(f"Indexed {len(self.propagation_entries)} messages in {RNS.prettytime(et-st)}, {math.floor(len(self.propagation_entries)/(et-st))} msgs/s", RNS.LOG_NOTICE)
+            st = time.time(); RNS.log("Loading propagation node peers...", RNS.LOG_NOTICE)
+
             if os.path.isfile(self.storagepath+"/peers"):
                 peers_file = open(self.storagepath+"/peers", "rb")
                 peers_data = peers_file.read()
+                peers_file.close()
 
                 if len(peers_data) > 0:
                     serialised_peers = msgpack.unpackb(peers_data)
@@ -468,8 +475,13 @@ class LXMRouter:
                                 lim_str = ", "+RNS.prettysize(peer.propagation_transfer_limit*1000)+" transfer limit"
                             RNS.log("Loaded peer "+RNS.prettyhexrep(peer.destination_hash)+" with "+str(len(peer.unhandled_messages))+" unhandled messages"+lim_str, RNS.LOG_DEBUG)
                         else:
+                            del peer
                             RNS.log("Peer "+RNS.prettyhexrep(peer.destination_hash)+" could not be loaded, because its identity could not be recalled. Dropping peer.", RNS.LOG_DEBUG)
 
+                    del serialised_peers
+                del peers_data
+
+            RNS.log(f"Loaded {len(self.peers)} peers in {RNS.prettytime(time.time()-st)}", RNS.LOG_NOTICE)
 
             self.propagation_node = True
             self.propagation_destination.set_link_established_callback(self.propagation_link_established)
@@ -1676,7 +1688,7 @@ class LXMRouter:
                         if remote_hash != None and remote_hash in self.peers:
                             transient_id = RNS.Identity.full_hash(lxmf_data)
                             peer = self.peers[remote_hash]
-                            peer.handled_messages[transient_id] = [transient_id, remote_timebase, lxmf_data]
+                            peer.handled_messages.append(transient_id)
 
                         self.lxmf_propagation(lxmf_data)
                 else:
