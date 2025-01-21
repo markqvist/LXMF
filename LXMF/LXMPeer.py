@@ -360,6 +360,7 @@ class LXMPeer:
         pes = self.router.propagation_entries.copy()
         hm = list(filter(lambda tid: self.destination_hash in pes[tid][4], pes))
         self._hm_count = len(hm); del pes
+        self._hm_counts_synced = True
         return hm
 
     @property
@@ -367,6 +368,7 @@ class LXMPeer:
         pes = self.router.propagation_entries.copy()
         um = list(filter(lambda tid: self.destination_hash in pes[tid][5], pes))
         self._um_count = len(um); del pes
+        self._um_counts_synced = True
         return um
 
     @property
@@ -387,12 +389,10 @@ class LXMPeer:
         if not self._hm_counts_synced:
             RNS.log("UPDATE HM COUNTS")
             hm = self.handled_messages; del hm
-            self._hm_counts_synced = True
 
         if not self._um_counts_synced:
             RNS.log("UPDATE UM COUNTS")
             um = self.unhandled_messages; del um
-            self._um_counts_synced = True
 
     def add_handled_message(self, transient_id):
         if transient_id in self.router.propagation_entries:
