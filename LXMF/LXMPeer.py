@@ -358,14 +358,14 @@ class LXMPeer:
     @property
     def handled_messages(self):
         pes = self.router.propagation_entries.copy()
-        hm = list(filter(lambda tid: self.destination_hash in self.router.propagation_entries[tid][4], pes))
+        hm = list(filter(lambda tid: self.destination_hash in pes[tid][4], pes))
         self._hm_count = len(hm); del pes
         return hm
 
     @property
     def unhandled_messages(self):
         pes = self.router.propagation_entries.copy()
-        um = list(filter(lambda tid: self.destination_hash in self.router.propagation_entries[tid][5], pes))
+        um = list(filter(lambda tid: self.destination_hash in pes[tid][5], pes))
         self._um_count = len(um); del pes
         return um
 
