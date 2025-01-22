@@ -1839,7 +1839,12 @@ class LXMRouter:
 
                         if not remote_hash in self.peers:
                             if self.autopeer and RNS.Transport.hops_to(remote_hash) <= self.autopeer_maxdepth:
-                                self.peer(remote_hash, remote_timebase)
+                                # TODO: Query cache for an announce and get propagation
+                                # transfer limit from that. For now, initialise it to a
+                                # sane default value, and wait for an announce to arrive
+                                # that will update the peering config to the actual limit.
+                                propagation_transfer_limit = LXMRouter.PROPAGATION_LIMIT//4
+                                self.peer(remote_hash, remote_timebase, propagation_transfer_limit)
                         else:
                             remote_str = f"peer {remote_str}"
 
