@@ -51,12 +51,16 @@ class LXMFPropagationAnnounceHandler:
                             except:
                                 propagation_transfer_limit = None
 
-                        if data[0] == True:
-                            if RNS.Transport.hops_to(destination_hash) <= self.lxmrouter.autopeer_maxdepth:
-                                self.lxmrouter.peer(destination_hash, node_timebase, propagation_transfer_limit)
+                        if destination_hash in self.lxmrouter.static_peers:
+                            self.lxmrouter.peer(destination_hash, node_timebase, propagation_transfer_limit)
 
-                        elif data[0] == False:
-                            self.lxmrouter.unpeer(destination_hash, node_timebase)
+                        else:
+                            if data[0] == True:
+                                if RNS.Transport.hops_to(destination_hash) <= self.lxmrouter.autopeer_maxdepth:
+                                    self.lxmrouter.peer(destination_hash, node_timebase, propagation_transfer_limit)
+
+                            elif data[0] == False:
+                                self.lxmrouter.unpeer(destination_hash, node_timebase)
 
         except Exception as e:
             RNS.log("Error while evaluating propagation node announce, ignoring announce.", RNS.LOG_DEBUG)

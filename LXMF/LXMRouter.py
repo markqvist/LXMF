@@ -37,6 +37,7 @@ class LXMRouter:
 
     NODE_ANNOUNCE_DELAY   = 20
 
+    MAX_PEERS             = 50
     AUTOPEER              = True
     AUTOPEER_MAXDEPTH     = 4
     FASTEST_N_RANDOM_POOL = 2
@@ -67,7 +68,10 @@ class LXMRouter:
     ### Developer-facing API ##############################
     #######################################################
 
-    def __init__(self, identity = None, storagepath = None, autopeer = AUTOPEER, autopeer_maxdepth = None, propagation_limit = PROPAGATION_LIMIT, delivery_limit = DELIVERY_LIMIT, enforce_ratchets = False, enforce_stamps = False):
+    def __init__(self, identity=None, storagepath=None, autopeer=AUTOPEER, autopeer_maxdepth=None,
+                 propagation_limit=PROPAGATION_LIMIT, delivery_limit=DELIVERY_LIMIT, enforce_ratchets=False,
+                 enforce_stamps=False, static_peers = [], max_peers=None, from_static_only=False):
+
         random.seed(os.urandom(10))
 
         self.pending_inbound       = []
@@ -141,6 +145,27 @@ class LXMRouter:
             self.autopeer_maxdepth = autopeer_maxdepth
         else:
             self.autopeer_maxdepth = LXMRouter.AUTOPEER_MAXDEPTH
+
+        if max_peers == None:
+            self.max_peers = LXMRouter.MAX_PEERS
+        else:
+            if type(max_peers) == int and max_peers >= 0:
+                self.max_peers = max_peers
+            else:
+                raise ValueError(f"Invalid value for max_peers: {max_peers}")
+
+        self.from_static_only = from_static_only
+        if type(static_peers) != list:
+            raise ValueError(f"Invalid type supplied for static peer list: {type(static_peers)}")
+        else:
+            for static_peer in static_peers:
+                if type(static_peer) != bytes:
+                    raise ValueError(f"Invalid static peer destination hash: {static_peer}")
+                else:
+                    if len(static_peer) != RNS.Reticulum.TRUNCATED_HASHLENGTH//8:
+                        raise ValueError(f"Invalid static peer destination hash: {static_peer}")
+
+            self.static_peers = static_peers
 
         self.peers = {}
         self.propagation_entries = {}
@@ -245,8 +270,9 @@ class LXMRouter:
     def announce_propagation_node(self):
         def delayed_announce():
             time.sleep(LXMRouter.NODE_ANNOUNCE_DELAY)
+            node_state = self.propagation_node and not self.from_static_only
             announce_data = [
-                self.propagation_node,                  # Boolean flag signalling propagation node state
+                node_state,                             # Boolean flag signalling propagation node state
                 int(time.time()),                       # Current node timebase
                 self.propagation_per_transfer_limit,    # Per-transfer limit for message propagation in kilobytes
             ]
@@ -485,6 +511,11 @@ class LXMRouter:
                         serialised_peer = serialised_peers.pop()
                         peer = LXMPeer.from_bytes(serialised_peer, self)
                         del serialised_peer
+                        if peer.destination_hash in self.static_peers and peer.last_heard == 0:
+                            # TODO: Allow path request responses through announce handler
+                            # momentarily here, so peering config can be updated even if
+                            # the static peer is not available to directly send an announce.
+                            RNS.Transport.request_path(peer.destination_hash)
                         if peer.identity != None:
                             self.peers[peer.destination_hash] = peer
                             lim_str = ", no transfer limit"
@@ -496,6 +527,17 @@ class LXMRouter:
                             del peer
 
                     del serialised_peers
+
+            if len(self.static_peers) > 0:
+                for static_peer in self.static_peers:
+                    if not static_peer in self.peers:
+                        RNS.log(f"Activating static peering with {RNS.prettyhexrep(static_peer)}", RNS.LOG_NOTICE)
+                        self.peers[static_peer] = LXMPeer(self, static_peer)
+                        if self.peers[static_peer].last_heard == 0:
+                            # TODO: Allow path request responses through announce handler
+                            # momentarily here, so peering config can be updated even if
+                            # the static peer is not available to directly send an announce.
+                            RNS.Transport.request_path(static_peer)
 
             RNS.log(f"Rebuilt synchronisation state for {len(self.peers)} peers in {RNS.prettytime(time.time()-st)}", RNS.LOG_NOTICE)
 
@@ -642,6 +684,11 @@ class LXMRouter:
 
             if self.processing_count % LXMRouter.JOB_PEERSYNC_INTERVAL == 0:
                 self.sync_peers()
+
+    # def syncstats(self):
+    #     for peer_id in self.peers:
+    #         p = self.peers[peer_id]
+    #         RNS.log(f"{RNS.prettyhexrep(peer_id)} O={p.offered} S={p.outgoing} I={p.incoming} TX={RNS.prettysize(p.tx_bytes)} RX={RNS.prettysize(p.rx_bytes)}")
 
     def jobloop(self):
         while (True):
@@ -1070,7 +1117,7 @@ class LXMRouter:
         self.flush_queues()
         if self.propagation_node:
             try:
-                st = time.time(); RNS.log("Saving peer synchronisation states to storage...", RNS.LOG_NOTICE)
+                st = time.time(); RNS.log(f"Saving {len(self.peers)} peer synchronisation states to storage...", RNS.LOG_NOTICE)
                 serialised_peers = []
                 peer_dict = self.peers.copy()
                 for peer_id in peer_dict:
@@ -1081,7 +1128,7 @@ class LXMRouter:
                 peers_file.write(msgpack.packb(serialised_peers))
                 peers_file.close()
 
-                RNS.log(f"Saved {len(serialised_peers)} peers to storage in {RNS.prettytime(time.time()-st)}", RNS.LOG_NOTICE)
+                RNS.log(f"Saved {len(serialised_peers)} peers to storage in {RNS.prettyshorttime(time.time()-st)}", RNS.LOG_NOTICE)
 
             except Exception as e:
                 RNS.log("Could not save propagation node peers to storage. The contained exception was: "+str(e), RNS.LOG_ERROR)
@@ -1605,14 +1652,18 @@ class LXMRouter:
                 peer.peering_timebase = timestamp
                 peer.last_heard = time.time()
                 peer.propagation_transfer_limit = propagation_transfer_limit
+                RNS.log(f"Peering config updated for {RNS.prettyhexrep(destination_hash)}", RNS.LOG_VERBOSE)
             
         else:
-            peer = LXMPeer(self, destination_hash)
-            peer.alive = True
-            peer.last_heard = time.time()
-            peer.propagation_transfer_limit = propagation_transfer_limit
-            self.peers[destination_hash] = peer
-            RNS.log("Peered with "+str(peer.destination))
+            if len(self.peers) < self.max_peers:
+                peer = LXMPeer(self, destination_hash)
+                peer.alive = True
+                peer.last_heard = time.time()
+                peer.propagation_transfer_limit = propagation_transfer_limit
+                self.peers[destination_hash] = peer
+                RNS.log(f"Peered with {RNS.prettyhexrep(destination_hash)}", RNS.LOG_NOTICE)
+            else:
+                RNS.log(f"Max peers reached, not peering with {RNS.prettyhexrep(destination_hash)}", RNS.LOG_DEBUG)
 
     def unpeer(self, destination_hash, timestamp = None):
         if timestamp == None:
@@ -1633,7 +1684,8 @@ class LXMRouter:
         for peer_id in peers:
             peer = peers[peer_id]
             if time.time() > peer.last_heard + LXMPeer.MAX_UNREACHABLE:
-                culled_peers.append(peer_id)
+                if not peer_id in self.static_peers:
+                    culled_peers.append(peer_id)
             else:
                 if peer.state == LXMPeer.IDLE and len(peer.unhandled_messages) > 0:
                     if peer.alive:
@@ -1693,10 +1745,23 @@ class LXMRouter:
         self.active_propagation_links.append(link)
 
     def propagation_resource_advertised(self, resource):
+        if self.from_static_only:
+            remote_identity = resource.link.get_remote_identity()
+            if remote_identity == None:
+                RNS.log(f"Rejecting propagation resource from unidentified peer", RNS.LOG_DEBUG)
+                return False
+            else:
+                remote_destination = RNS.Destination(remote_identity, RNS.Destination.OUT, RNS.Destination.SINGLE, APP_NAME, "propagation")
+                remote_hash = remote_destination.hash
+                remote_str  = RNS.prettyhexrep(remote_hash)
+                if not remote_hash in self.static_peers:
+                    RNS.log(f"Rejecting propagation resource from {remote_str} not in static peers list", RNS.LOG_DEBUG)
+                    return False
+
         size = resource.get_data_size()
         limit = self.propagation_per_transfer_limit*1000
         if limit != None and size > limit:
-            RNS.log("Rejecting "+RNS.prettysize(size)+" incoming LXMF propagation resource, since it exceeds the limit of "+RNS.prettysize(limit), RNS.LOG_DEBUG)
+            RNS.log(f"Rejecting {RNS.prettysize(size)} incoming propagation resource, since it exceeds the limit of {RNS.prettysize(limit)}", RNS.LOG_DEBUG)
             return False
         else:
             return True
@@ -1723,6 +1788,14 @@ class LXMRouter:
         if remote_identity == None:
             return LXMPeer.ERROR_NO_IDENTITY
         else:
+            if self.from_static_only:
+                remote_destination = RNS.Destination(remote_identity, RNS.Destination.OUT, RNS.Destination.SINGLE, APP_NAME, "propagation")
+                remote_hash = remote_destination.hash
+                remote_str  = RNS.prettyhexrep(remote_hash)
+                if not remote_hash in self.static_peers:
+                    RNS.log(f"Rejecting propagation request from {remote_str} not in static peers list", RNS.LOG_DEBUG)
+                    return LXMPeer.ERROR_NO_ACCESS
+
             try:
                 transient_ids = data
                 wanted_ids = []
@@ -1745,7 +1818,6 @@ class LXMRouter:
                 return None
 
     def propagation_resource_concluded(self, resource):
-        RNS.log("Transfer concluded for incoming propagation resource "+str(resource), RNS.LOG_DEBUG)
         if resource.status == RNS.Resource.COMPLETE:
             # TODO: The peer this was received from should
             # have the transient id added to its list of
@@ -1757,22 +1829,29 @@ class LXMRouter:
                     # This is a series of propagation messages from a peer or originator
                     remote_timebase = data[0]
                     remote_hash = None
+                    remote_str  = "unknown peer"
                     remote_identity = resource.link.get_remote_identity()
 
                     if remote_identity != None:
                         remote_destination = RNS.Destination(remote_identity, RNS.Destination.OUT, RNS.Destination.SINGLE, APP_NAME, "propagation")
                         remote_hash = remote_destination.hash
+                        remote_str  = RNS.prettyhexrep(remote_hash)
 
                         if not remote_hash in self.peers:
                             if self.autopeer and RNS.Transport.hops_to(remote_hash) <= self.autopeer_maxdepth:
                                 self.peer(remote_hash, remote_timebase)
+                        else:
+                            remote_str = f"peer {remote_str}"
 
                     messages = data[1]
+                    RNS.log(f"Received {len(messages)} messages from {remote_str}", RNS.LOG_VERBOSE)
                     for lxmf_data in messages:
                         peer = None
                         transient_id = RNS.Identity.full_hash(lxmf_data)
                         if remote_hash != None and remote_hash in self.peers:
                             peer = self.peers[remote_hash]
+                            peer.incoming += 1
+                            peer.rx_bytes += len(lxmf_data)
 
                         self.lxmf_propagation(lxmf_data, from_peer=peer)
                         if peer != None:
@@ -1837,7 +1916,7 @@ class LXMRouter:
                             msg_file.write(lxmf_data)
                             msg_file.close()
 
-                            RNS.log("Received propagated LXMF message "+RNS.prettyhexrep(transient_id)+", adding to peer distribution queues...", RNS.LOG_DEBUG)
+                            RNS.log("Received propagated LXMF message "+RNS.prettyhexrep(transient_id)+", adding to peer distribution queues...", RNS.LOG_EXTREME)
                             self.propagation_entries[transient_id] = [destination_hash, file_path, time.time(), len(lxmf_data), [], []]
                             self.enqueue_peer_distribution(transient_id, from_peer)
 

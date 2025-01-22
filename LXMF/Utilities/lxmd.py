@@ -140,6 +140,24 @@ def apply_config():
         else:
             active_configuration["prioritised_lxmf_destinations"] = []
 
+        if "propagation" in lxmd_config and "static_peers" in lxmd_config["propagation"]:
+            static_peers = lxmd_config["propagation"].as_list("static_peers")
+            active_configuration["static_peers"] = []
+            for static_peer in static_peers:
+                active_configuration["static_peers"].append(bytes.fromhex(static_peer))
+        else:
+            active_configuration["static_peers"] = []
+
+        if "propagation" in lxmd_config and "max_peers" in lxmd_config["propagation"]:
+            active_configuration["max_peers"] = lxmd_config["propagation"].as_int("max_peers")
+        else:
+            active_configuration["max_peers"] = None
+
+        if "propagation" in lxmd_config and "from_static_only" in lxmd_config["propagation"]:
+            active_configuration["from_static_only"] = lxmd_config["propagation"].as_bool("from_static_only")
+        else:
+            active_configuration["from_static_only"] = False
+
         # Load various settings
         if "logging" in lxmd_config and "loglevel" in lxmd_config["logging"]:
             targetloglevel = lxmd_config["logging"].as_int("loglevel")
@@ -305,7 +323,10 @@ def program_setup(configdir = None, rnsconfigdir = None, run_pn = False, on_inbo
         autopeer_maxdepth = active_configuration["autopeer_maxdepth"],
         propagation_limit = active_configuration["propagation_transfer_max_accepted_size"],
         delivery_limit = active_configuration["delivery_transfer_max_accepted_size"],
-    )
+        max_peers = active_configuration["max_peers"],
+        static_peers = active_configuration["static_peers"],
+        from_static_only = active_configuration["from_static_only"])
+    
     message_router.register_delivery_callback(lxmf_delivery)
 
     for destination_hash in active_configuration["ignored_lxmf_destinations"]:
@@ -362,13 +383,13 @@ def jobs():
         try:
             if "peer_announce_interval" in active_configuration and active_configuration["peer_announce_interval"] != None:
                 if time.time() > last_peer_announce + active_configuration["peer_announce_interval"]:
-                    RNS.log("Sending announce for LXMF delivery destination", RNS.LOG_EXTREME)
+                    RNS.log("Sending announce for LXMF delivery destination", RNS.LOG_VERBOSE)
                     message_router.announce(lxmf_destination.hash)
                     last_peer_announce = time.time()
 
             if "node_announce_interval" in active_configuration and active_configuration["node_announce_interval"] != None:
                 if time.time() > last_node_announce + active_configuration["node_announce_interval"]:
-                    RNS.log("Sending announce for LXMF Propagation Node", RNS.LOG_EXTREME)
+                    RNS.log("Sending announce for LXMF Propagation Node", RNS.LOG_VERBOSE)
                     message_router.announce_propagation_node()
                     last_node_announce = time.time()
 
@@ -381,7 +402,7 @@ def deferred_start_jobs():
     global active_configuration, last_peer_announce, last_node_announce
     global message_router, lxmf_destination
     time.sleep(DEFFERED_JOBS_DELAY)
-    RNS.log("Running deferred start jobs")
+    RNS.log("Running deferred start jobs", RNS.LOG_DEBUG)
     if active_configuration["peer_announce_at_start"]:
         RNS.log("Sending announce for LXMF delivery destination", RNS.LOG_EXTREME)
         message_router.announce(lxmf_destination.hash)
