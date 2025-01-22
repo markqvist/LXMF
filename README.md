@@ -12,6 +12,7 @@ User-facing clients built on LXMF include:
 
 Community-provided tools and utilities for LXMF include:
 
+- [LXMFy](https://lxmfy.quad4.io/)
 - [LXMF-Bot](https://github.com/randogoth/lxmf-bot)
 - [LXMF Messageboard](https://github.com/chengtripp/lxmf_messageboard)
 - [LXMEvent](https://github.com/faragher/LXMEvent)
