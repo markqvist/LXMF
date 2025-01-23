@@ -127,7 +127,7 @@ def apply_config():
             if active_configuration["message_storage_limit"] < 0.005:
                 active_configuration["message_storage_limit"] = 0.005
         else:
-            active_configuration["message_storage_limit"] = 2000
+            active_configuration["message_storage_limit"] = 500
         
         if "propagation" in lxmd_config and "propagation_transfer_max_accepted_size" in lxmd_config["propagation"]:
             active_configuration["propagation_transfer_max_accepted_size"] = lxmd_config["propagation"].as_float("propagation_transfer_max_accepted_size")
@@ -679,9 +679,9 @@ propagation_transfer_max_accepted_size = 256
 # LXMF prioritises keeping messages that are
 # new and small. Large and old messages will
 # be removed first. This setting is optional
-# and defaults to 2 gigabytes.
+# and defaults to 500 megabytes.
 
-# message_storage_limit = 2000
+# message_storage_limit = 500
 
 # You can tell the LXMF message router to
 # prioritise storage for one or more
