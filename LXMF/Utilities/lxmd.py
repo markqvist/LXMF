@@ -35,6 +35,7 @@ import time
 import os
 
 from LXMF._version import __version__
+from LXMF import APP_NAME
 
 from RNS.vendor.configobj import ConfigObj
 
@@ -415,6 +416,75 @@ def deferred_start_jobs():
     last_node_announce = time.time()
     threading.Thread(target=jobs, daemon=True).start()
 
+def get_status(configdir = None, rnsconfigdir = None, verbosity = 0, quietness = 0, timeout=5):
+    global configpath, identitypath, storagedir, lxmdir
+    global lxmd_config, active_configuration, targetloglevel
+    targetlogdest  = RNS.LOG_STDOUT
+
+    if configdir == None:
+        if os.path.isdir("/etc/lxmd") and os.path.isfile("/etc/lxmd/config"):
+            configdir = "/etc/lxmd"
+        elif os.path.isdir(RNS.Reticulum.userdir+"/.config/lxmd") and os.path.isfile(Reticulum.userdir+"/.config/lxmd/config"):
+            configdir = RNS.Reticulum.userdir+"/.config/lxmd"
+        else:
+            configdir = RNS.Reticulum.userdir+"/.lxmd"
+
+    configpath   = configdir+"/config"
+    identitypath = configdir+"/identity"
+    identity = None
+
+    if not os.path.isdir(configdir):
+        RNS.log("Specified configuration directory does not exist, exiting now", RNS.LOG_ERROR)
+        exit(201)
+    if not os.path.isfile(identitypath):
+        RNS.log("Identity file not found in specified configuration directory, exiting now", RNS.LOG_ERROR)
+        exit(202)
+    else:
+        identity = RNS.Identity.from_file(identitypath)
+        if identity == None:
+            RNS.log("Could not load the Primary Identity from "+identitypath, RNS.LOG_ERROR)
+            exit(4)
+
+    if targetloglevel == None:
+        targetloglevel = 3
+    if verbosity != 0 or quietness != 0:
+        targetloglevel = targetloglevel+verbosity-quietness
+    
+    reticulum = RNS.Reticulum(configdir=rnsconfigdir, loglevel=targetloglevel, logdest=targetlogdest)
+    control_destination = RNS.Destination(identity, RNS.Destination.OUT, RNS.Destination.SINGLE, APP_NAME, "propagation", "control")
+
+    timeout = time.time()+timeout
+    def check_timeout():
+        if time.time() > timeout:
+            RNS.log("Getting lxmd statistics timed out, exiting now", RNS.LOG_ERROR)
+            exit(200)
+        else:
+            time.sleep(0.1)
+
+    if not RNS.Transport.has_path(control_destination.hash):
+        RNS.Transport.request_path(control_destination.hash)
+        while not RNS.Transport.has_path(control_destination.hash):
+            check_timeout()
+
+    link = RNS.Link(control_destination)
+    while not link.status == RNS.Link.ACTIVE:
+        check_timeout()
+
+    link.identify(identity)
+    request_receipt = link.request(LXMF.LXMRouter.STATS_GET_PATH, data=None, response_callback=None, failed_callback=None)
+    while not request_receipt.get_status() == RNS.RequestReceipt.READY:
+        check_timeout()
+
+    response = request_receipt.get_response()
+    if response == LXMF.LXMPeer.LXMPeer.ERROR_NO_IDENTITY:
+        RNS.log("Remote received no identity")
+        exit(203)
+    if response == LXMF.LXMPeer.LXMPeer.ERROR_NO_ACCESS:
+        RNS.log("Access denied")
+        exit(204)
+    else:
+        # TODO: Output stats
+
 def main():
     try:
         parser = argparse.ArgumentParser(description="Lightweight Extensible Messaging Daemon")
@@ -425,6 +495,8 @@ def main():
         parser.add_argument("-v", "--verbose", action="count", default=0)
         parser.add_argument("-q", "--quiet", action="count", default=0)
         parser.add_argument("-s", "--service", action="store_true", default=False, help="lxmd is running as a service and should log to file")
+        parser.add_argument("--status", action="store_true", default=False, help="display node status")
+        parser.add_argument("--timeout", action="store", default=5, help="timeout in seconds for query operations", type=float)
         parser.add_argument("--exampleconfig", action="store_true", default=False, help="print verbose configuration example to stdout and exit")
         parser.add_argument("--version", action="version", version="lxmd {version}".format(version=__version__))
         
@@ -434,15 +506,21 @@ def main():
             print(__default_lxmd_config__)
             exit()
 
-        program_setup(
-            configdir = args.config,
-            rnsconfigdir=args.rnsconfig,
-            run_pn=args.propagation_node,
-            on_inbound=args.on_inbound,
-            verbosity=args.verbose,
-            quietness=args.quiet,
-            service=args.service
-        )
+        if args.status:
+            get_status(configdir = args.config,
+                      rnsconfigdir=args.rnsconfig,
+                      verbosity=args.verbose,
+                      quietness=args.quiet,
+                      timeout=args.timeout)
+            exit()
+
+        program_setup(configdir = args.config,
+                      rnsconfigdir=args.rnsconfig,
+                      run_pn=args.propagation_node,
+                      on_inbound=args.on_inbound,
+                      verbosity=args.verbose,
+                      quietness=args.quiet,
+                      service=args.service)
 
     except KeyboardInterrupt:
         print("")
