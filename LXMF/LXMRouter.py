@@ -777,13 +777,16 @@ class LXMRouter:
                 self.clean_transient_id_caches()
 
             if self.processing_count % LXMRouter.JOB_STORE_INTERVAL == 0:
-                self.clean_message_store()
+                if self.propagation_node == True:
+                    self.clean_message_store()
 
             if self.processing_count % LXMRouter.JOB_PEERINGEST_INTERVAL == 0:
-                self.flush_queues()
+                if self.propagation_node == True:
+                    self.flush_queues()
 
             if self.processing_count % LXMRouter.JOB_PEERSYNC_INTERVAL == 0:
-                self.sync_peers()
+                if self.propagation_node == True:
+                    self.sync_peers()
 
     # def syncstats(self):
     #     for peer_id in self.peers:
@@ -986,12 +989,12 @@ class LXMRouter:
         lxm_size = self.propagation_entries[transient_id][3]
         return lxm_size
 
-
     def clean_message_store(self):
+        RNS.log("Cleaning message store", RNS.LOG_VERBOSE)
         # Check and remove expired messages
         now = time.time()
         removed_entries = {}
-        for transient_id in self.propagation_entries:
+        for transient_id in self.propagation_entries.copy():
             entry = self.propagation_entries[transient_id]
             filepath = entry[1]
             components = filepath.split("_")
@@ -999,7 +1002,7 @@ class LXMRouter:
             if len(components) == 2 and float(components[1]) > 0 and len(os.path.split(components[0])[1]) == (RNS.Identity.HASHLENGTH//8)*2:
                 timestamp = float(components[1])
                 if now > timestamp+LXMRouter.MESSAGE_EXPIRY:
-                    RNS.log("Purging message "+RNS.prettyhexrep(transient_id)+" due to expiry", RNS.LOG_DEBUG)
+                    RNS.log("Purging message "+RNS.prettyhexrep(transient_id)+" due to expiry", RNS.LOG_EXTREME)
                     removed_entries[transient_id] = filepath
             else:
                 RNS.log("Purging message "+RNS.prettyhexrep(transient_id)+" due to invalid file path", RNS.LOG_WARNING)
@@ -1017,7 +1020,7 @@ class LXMRouter:
                 RNS.log("Could not remove "+RNS.prettyhexrep(transient_id)+" from message store. The contained exception was: "+str(e), RNS.LOG_ERROR)
 
         if removed_count > 0:
-            RNS.log("Cleaned "+str(removed_count)+" entries from the message store", RNS.LOG_DEBUG)
+            RNS.log("Cleaned "+str(removed_count)+" entries from the message store", RNS.LOG_VERBOSE)
 
         # Check size of message store and cull if needed
         try:
@@ -1029,7 +1032,7 @@ class LXMRouter:
                     bytes_cleaned = 0
 
                     weighted_entries = []
-                    for transient_id in self.propagation_entries:
+                    for transient_id in self.propagation_entries.copy():
                         weighted_entries.append([
                             self.propagation_entries[transient_id],
                             self.get_weight(transient_id),
