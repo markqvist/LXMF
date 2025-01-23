@@ -484,6 +484,7 @@ def get_status(configdir = None, rnsconfigdir = None, verbosity = 0, quietness =
         exit(204)
     else:
         # TODO: Output stats
+        pass
 
 def main():
     try:
