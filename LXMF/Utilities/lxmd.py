@@ -544,8 +544,8 @@ def get_status(configdir = None, rnsconfigdir = None, verbosity = 0, quietness =
             print(f"          {peered_incoming} messages received from peered nodes ({RNS.prettysize(peered_rx_bytes)})")
             print(f"          {total_incoming} messages received in total ({RNS.prettysize(total_rx_bytes)})")
             print(f"          {peered_outgoing} messages transferred to peered nodes ({RNS.prettysize(peered_tx_bytes)})")
-            print(f"          {cprr} messages received from clients")
-            print(f"          {cprs} messages served to clients")
+            print(f"          {cprr} propagation messages received diretly from clients")
+            print(f"          {cprs} propagation messages served to clients")
             print(f"          Distribution factor is {df}")
             print(f"")
 
