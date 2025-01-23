@@ -1972,7 +1972,8 @@ class LXMRouter:
                             remote_str = f"peer {remote_str}"
 
                     messages = data[1]
-                    RNS.log(f"Received {len(messages)} message{"" if len(messages) == 1 else "s"} from {remote_str}", RNS.LOG_VERBOSE)
+                    ms = "" if len(messages) == 1 else "s"
+                    RNS.log(f"Received {len(messages)} message{ms} from {remote_str}", RNS.LOG_VERBOSE)
                     for lxmf_data in messages:
                         peer = None
                         transient_id = RNS.Identity.full_hash(lxmf_data)

@@ -495,7 +495,8 @@ def get_status(configdir = None, rnsconfigdir = None, verbosity = 0, quietness =
         exit(204)
     else:
         s = response
-        ms_util = f"{round((s["messagestore"]["bytes"]/s["messagestore"]["limit"])*100, 2)}%"
+        mutil = round((s["messagestore"]["bytes"]/s["messagestore"]["limit"])*100, 2)
+        ms_util = f"{mutil}%"
         if s["from_static_only"]:
             who_str = "static peers only"
         else:
@@ -523,22 +524,28 @@ def get_status(configdir = None, rnsconfigdir = None, verbosity = 0, quietness =
         total_rx_bytes = peered_rx_bytes+s["unpeered_propagation_rx_bytes"]
         df = round(peered_outgoing/total_incoming, 2)
 
-        print(f"\nLXMF Propagation Node running on {RNS.prettyhexrep(s["destination_hash"])}, uptime is {RNS.prettytime(s["uptime"])}")
+        dhs = RNS.prettyhexrep(s["destination_hash"]); uts = RNS.prettytime(s["uptime"])
+        print(f"\nLXMF Propagation Node running on {dhs}, uptime is {uts}")
 
         if show_status:
-            print(f"Messagestore contains {s["messagestore"]["count"]} messages, {RNS.prettysize(s["messagestore"]["bytes"])} of {RNS.prettysize(s["messagestore"]["limit"])} ({ms_util} utilised)")
-            print(f"Accepting propagated messages from {who_str}, {RNS.prettysize(s["propagation_limit"]*1000)} per-transfer limit")
+            msb = RNS.prettysize(s["messagestore"]["bytes"]); msl = RNS.prettysize(s["messagestore"]["limit"])
+            ptl = RNS.prettysize(s["propagation_limit"]*1000); uprx = RNS.prettysize(s["unpeered_propagation_rx_bytes"])
+            mscnt = s["messagestore"]["count"]; stp = s["total_peers"]; smp = s["max_peers"]; sdp = s["discovered_peers"]
+            ssp = s["static_peers"]; cprr = s["clients"]["client_propagation_messages_received"]
+            cprs = s["clients"]["client_propagation_messages_served"]; upi = s["unpeered_propagation_incoming"]
+            print(f"Messagestore contains {mscnt} messages, {msb} ({ms_util} utilised of {msl})")
+            print(f"Accepting propagated messages from {who_str}, {ptl} per-transfer limit")
             print(f"")
-            print(f"Peers   : {s["total_peers"]} total (peer limit is {s["max_peers"]})")
-            print(f"          {s["discovered_peers"]} discovered, {s["static_peers"]} static")
+            print(f"Peers   : {stp} total (peer limit is {smp})")
+            print(f"          {sdp} discovered, {ssp} static")
             print(f"          {available_peers} available, {unreachable_peers} unreachable")
             print(f"")
-            print(f"Traffic : {s["unpeered_propagation_incoming"]} messages received from unpeered nodes ({RNS.prettysize(s["unpeered_propagation_rx_bytes"])})")
+            print(f"Traffic : {upi} messages received from unpeered nodes ({uprx})")
             print(f"          {peered_incoming} messages received from peered nodes ({RNS.prettysize(peered_rx_bytes)})")
             print(f"          {total_incoming} messages received from peered nodes ({RNS.prettysize(total_rx_bytes)})")
             print(f"          {peered_outgoing} messages transferred to peered nodes ({RNS.prettysize(peered_tx_bytes)})")
-            print(f"          {s["clients"]["client_propagation_messages_received"]} messages received from clients")
-            print(f"          {s["clients"]["client_propagation_messages_served"]} messages served to clients")
+            print(f"          {cprr} messages received from clients")
+            print(f"          {cprs} messages served to clients")
             print(f"          Distribution factor is {df}")
             print(f"")
 
@@ -558,16 +565,21 @@ def get_status(configdir = None, rnsconfigdir = None, verbosity = 0, quietness =
                 hs = f"{hops} hop away" if hops == 1 else f"{hops} hops away"
                 pm = p["messages"]
                 if p["last_sync_attempt"] != 0:
-                    ls = f"last synced {RNS.prettytime(max(time.time()-p["last_sync_attempt"], 0))} ago"
+                    lsa = p["last_sync_attempt"]
+                    ls = f"last synced {RNS.prettytime(max(time.time()-lsa, 0))} ago"
                 else:
                     ls = "never synced"
 
+                sstr = RNS.prettyspeed(p["str"]); sler = RNS.prettyspeed(p["ler"]); stl = RNS.prettysize(p["transfer_limit"]*1000)
+                srxb = RNS.prettysize(p["rx_bytes"]); stxb = RNS.prettysize(p["tx_bytes"]); pmo = pm["offered"]; pmout = pm["outgoing"]
+                pmi = pm["incoming"]; pmuh = pm["unhandled"]
                 print(f"{ind}{t}{RNS.prettyhexrep(peer_id)}")
                 print(f"{ind*2}Status     : {a}, {hs}, last heard {RNS.prettytime(h)} ago")
-                print(f"{ind*2}Speeds     : {RNS.prettyspeed(p["str"])} STR, {RNS.prettyspeed(p["ler"])} LER, {RNS.prettysize(p["transfer_limit"]*1000)} transfer limit")
-                print(f"{ind*2}Messages   : {pm["offered"]} offered, {pm["outgoing"]} outgoing, {pm["incoming"]} incoming")
-                print(f"{ind*2}Traffic    : {RNS.prettysize(p["rx_bytes"])} received, {RNS.prettysize(p["tx_bytes"])} sent")
-                print(f"{ind*2}Sync state : {pm["unhandled"]} unhandled message{"" if pm["unhandled"] == 1 else "s"}, {ls}")
+                print(f"{ind*2}Speeds     : {sstr} STR, {sler} LER, {stl} transfer limit")
+                print(f"{ind*2}Messages   : {pmo} offered, {pmout} outgoing, {pmi} incoming")
+                print(f"{ind*2}Traffic    : {srxb} received, {stxb} sent")
+                ms = "" if pm["unhandled"] == 1 else "s"
+                print(f"{ind*2}Sync state : {pmuh} unhandled message{ms}, {ls}")
                 print("")
 
 
