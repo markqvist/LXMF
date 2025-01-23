@@ -742,7 +742,6 @@ class LXMRouter:
             return node_stats
 
     def stats_get_request(self, path, data, request_id, remote_identity, requested_at):
-        RNS.log("Stats request", RNS.LOG_DEBUG) # TODO: Remove debug
         if remote_identity == None:
             return LXMPeer.ERROR_NO_IDENTITY
         elif remote_identity.hash != self.identity.hash:
