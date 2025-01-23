@@ -91,6 +91,11 @@ class LXMPeer:
             peer.tx_bytes = dictionary["tx_bytes"]
         else:
             peer.tx_bytes = 0
+        
+        if "last_sync_attempt" in dictionary:
+            peer.last_sync_attempt = dictionary["last_sync_attempt"]
+        else:
+            peer.last_sync_attempt = 0
 
         hm_count = 0
         for transient_id in dictionary["handled_ids"]:
@@ -121,6 +126,7 @@ class LXMPeer:
         dictionary["link_establishment_rate"] = self.link_establishment_rate
         dictionary["sync_transfer_rate"] = self.sync_transfer_rate
         dictionary["propagation_transfer_limit"] = self.propagation_transfer_limit
+        dictionary["last_sync_attempt"] = self.last_sync_attempt
         dictionary["offered"] = self.offered
         dictionary["outgoing"] = self.outgoing
         dictionary["incoming"] = self.incoming
