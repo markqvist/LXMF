@@ -416,34 +416,45 @@ def deferred_start_jobs():
     last_node_announce = time.time()
     threading.Thread(target=jobs, daemon=True).start()
 
-def get_status(configdir = None, rnsconfigdir = None, verbosity = 0, quietness = 0, timeout=5):
+def get_status(configdir = None, rnsconfigdir = None, verbosity = 0, quietness = 0, timeout=5, show_status=False, show_peers=False, identity_path=None):
     global configpath, identitypath, storagedir, lxmdir
     global lxmd_config, active_configuration, targetloglevel
     targetlogdest  = RNS.LOG_STDOUT
 
-    if configdir == None:
-        if os.path.isdir("/etc/lxmd") and os.path.isfile("/etc/lxmd/config"):
-            configdir = "/etc/lxmd"
-        elif os.path.isdir(RNS.Reticulum.userdir+"/.config/lxmd") and os.path.isfile(Reticulum.userdir+"/.config/lxmd/config"):
-            configdir = RNS.Reticulum.userdir+"/.config/lxmd"
+    if identity_path == None:
+        if configdir == None:
+            if os.path.isdir("/etc/lxmd") and os.path.isfile("/etc/lxmd/config"):
+                configdir = "/etc/lxmd"
+            elif os.path.isdir(RNS.Reticulum.userdir+"/.config/lxmd") and os.path.isfile(Reticulum.userdir+"/.config/lxmd/config"):
+                configdir = RNS.Reticulum.userdir+"/.config/lxmd"
+            else:
+                configdir = RNS.Reticulum.userdir+"/.lxmd"
+
+        configpath   = configdir+"/config"
+        identitypath = configdir+"/identity"
+        identity = None
+
+        if not os.path.isdir(configdir):
+            RNS.log("Specified configuration directory does not exist, exiting now", RNS.LOG_ERROR)
+            exit(201)
+        if not os.path.isfile(identitypath):
+            RNS.log("Identity file not found in specified configuration directory, exiting now", RNS.LOG_ERROR)
+            exit(202)
         else:
-            configdir = RNS.Reticulum.userdir+"/.lxmd"
+            identity = RNS.Identity.from_file(identitypath)
+            if identity == None:
+                RNS.log("Could not load the Primary Identity from "+identitypath, RNS.LOG_ERROR)
+                exit(4)
 
-    configpath   = configdir+"/config"
-    identitypath = configdir+"/identity"
-    identity = None
-
-    if not os.path.isdir(configdir):
-        RNS.log("Specified configuration directory does not exist, exiting now", RNS.LOG_ERROR)
-        exit(201)
-    if not os.path.isfile(identitypath):
-        RNS.log("Identity file not found in specified configuration directory, exiting now", RNS.LOG_ERROR)
-        exit(202)
     else:
-        identity = RNS.Identity.from_file(identitypath)
-        if identity == None:
-            RNS.log("Could not load the Primary Identity from "+identitypath, RNS.LOG_ERROR)
-            exit(4)
+        if not os.path.isfile(identity_path):
+            RNS.log("Identity file not found in specified configuration directory, exiting now", RNS.LOG_ERROR)
+            exit(202)
+        else:
+            identity = RNS.Identity.from_file(identity_path)
+            if identity == None:
+                RNS.log("Could not load the Primary Identity from "+identity_path, RNS.LOG_ERROR)
+                exit(4)        
 
     if targetloglevel == None:
         targetloglevel = 3
@@ -483,8 +494,82 @@ def get_status(configdir = None, rnsconfigdir = None, verbosity = 0, quietness =
         RNS.log("Access denied")
         exit(204)
     else:
-        # TODO: Output stats
-        pass
+        s = response
+        ms_util = f"{round((s["messagestore"]["bytes"]/s["messagestore"]["limit"])*100, 2)}%"
+        if s["from_static_only"]:
+            who_str = "static peers only"
+        else:
+            who_str = "all nodes"
+
+        available_peers = 0
+        unreachable_peers = 0
+        peered_incoming = 0
+        peered_outgoing = 0
+        peered_rx_bytes = 0
+        peered_tx_bytes = 0
+        for peer_id in s["peers"]:
+            p = s["peers"][peer_id]
+            pm = p["messages"]
+            peered_incoming += pm["incoming"]
+            peered_outgoing += pm["outgoing"]
+            peered_rx_bytes += p["rx_bytes"]
+            peered_tx_bytes += p["tx_bytes"]
+            if p["alive"]:
+                available_peers += 1
+            else:
+                unreachable_peers += 1
+
+        total_incoming = peered_incoming+s["unpeered_propagation_incoming"]+s["clients"]["client_propagation_messages_received"]
+        total_rx_bytes = peered_rx_bytes+s["unpeered_propagation_rx_bytes"]
+        df = round(peered_outgoing/total_incoming, 2)
+
+        print(f"\nLXMF Propagation Node running on {RNS.prettyhexrep(s["destination_hash"])}, uptime is {RNS.prettytime(s["uptime"])}")
+
+        if show_status:
+            print(f"Messagestore contains {s["messagestore"]["count"]} messages, {RNS.prettysize(s["messagestore"]["bytes"])} of {RNS.prettysize(s["messagestore"]["limit"])} ({ms_util} utilised)")
+            print(f"Accepting propagated messages from {who_str}, {RNS.prettysize(s["propagation_limit"]*1000)} per-transfer limit")
+            print(f"")
+            print(f"Peers   : {s["total_peers"]} total (peer limit is {s["max_peers"]})")
+            print(f"          {s["discovered_peers"]} discovered, {s["static_peers"]} static")
+            print(f"          {available_peers} available, {unreachable_peers} unreachable")
+            print(f"")
+            print(f"Traffic : {s["unpeered_propagation_incoming"]} messages received from unpeered nodes ({RNS.prettysize(s["unpeered_propagation_rx_bytes"])})")
+            print(f"          {peered_incoming} messages received from peered nodes ({RNS.prettysize(peered_rx_bytes)})")
+            print(f"          {total_incoming} messages received from peered nodes ({RNS.prettysize(total_rx_bytes)})")
+            print(f"          {peered_outgoing} messages transferred to peered nodes ({RNS.prettysize(peered_tx_bytes)})")
+            print(f"          {s["clients"]["client_propagation_messages_received"]} messages received from clients")
+            print(f"          {s["clients"]["client_propagation_messages_served"]} messages served to clients")
+            print(f"          Distribution factor is {df}")
+            print(f"")
+
+        if show_peers:
+            for peer_id in s["peers"]:
+                ind = "  "
+                p = s["peers"][peer_id]
+                if p["type"] == "static":
+                    t = "Static peer     "
+                elif p["type"] == "discovered":
+                    t = "Discovered peer "
+                else:
+                    t = "Unknown peer    "
+                a = "Available" if p["alive"] == True else "Unreachable"
+                h = max(time.time()-p["last_heard"], 0)
+                hops = p["network_distance"]
+                hs = f"{hops} hop away" if hops == 1 else f"{hops} hops away"
+                pm = p["messages"]
+                if p["last_sync_attempt"] != 0:
+                    ls = f"last synced {RNS.prettytime(max(time.time()-p["last_sync_attempt"], 0))} ago"
+                else:
+                    ls = "never synced"
+
+                print(f"{ind}{t}{RNS.prettyhexrep(peer_id)}")
+                print(f"{ind*2}Status     : {a}, {hs}, last heard {RNS.prettytime(h)} ago")
+                print(f"{ind*2}Speeds     : {RNS.prettyspeed(p["str"])} STR, {RNS.prettyspeed(p["ler"])} LER, {RNS.prettysize(p["transfer_limit"]*1000)} transfer limit")
+                print(f"{ind*2}Messages   : {pm["offered"]} offered, {pm["outgoing"]} outgoing, {pm["incoming"]} incoming")
+                print(f"{ind*2}Traffic    : {RNS.prettysize(p["rx_bytes"])} received, {RNS.prettysize(p["tx_bytes"])} sent")
+                print(f"{ind*2}Sync state : {pm["unhandled"]} unhandled message{"" if pm["unhandled"] == 1 else "s"}, {ls}")
+                print("")
+
 
 def main():
     try:
@@ -497,7 +582,9 @@ def main():
         parser.add_argument("-q", "--quiet", action="count", default=0)
         parser.add_argument("-s", "--service", action="store_true", default=False, help="lxmd is running as a service and should log to file")
         parser.add_argument("--status", action="store_true", default=False, help="display node status")
+        parser.add_argument("--peers", action="store_true", default=False, help="display peered nodes")
         parser.add_argument("--timeout", action="store", default=5, help="timeout in seconds for query operations", type=float)
+        parser.add_argument("--identity", action="store", default=None, help="path to identity used for query request", type=str)
         parser.add_argument("--exampleconfig", action="store_true", default=False, help="print verbose configuration example to stdout and exit")
         parser.add_argument("--version", action="version", version="lxmd {version}".format(version=__version__))
         
@@ -507,12 +594,15 @@ def main():
             print(__default_lxmd_config__)
             exit()
 
-        if args.status:
+        if args.status or args.peers:
             get_status(configdir = args.config,
                       rnsconfigdir=args.rnsconfig,
                       verbosity=args.verbose,
                       quietness=args.quiet,
-                      timeout=args.timeout)
+                      timeout=args.timeout,
+                      show_status=args.status,
+                      show_peers=args.peers,
+                      identity_path=args.identity)
             exit()
 
         program_setup(configdir = args.config,
