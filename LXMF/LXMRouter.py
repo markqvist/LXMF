@@ -709,6 +709,7 @@ class LXMRouter:
                         "offered": peer.offered,
                         "outgoing": peer.outgoing,
                         "incoming": peer.incoming,
+                        "unhandled": peer.unhandled_message_count
                     },
                 }
 
