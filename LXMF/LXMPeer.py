@@ -20,6 +20,7 @@ class LXMPeer:
 
     ERROR_NO_IDENTITY = 0xf0
     ERROR_NO_ACCESS   = 0xf1
+    ERROR_TIMEOUT     = 0xfe
 
     # Maximum amount of time a peer can
     # be unreachable before it is removed

@@ -416,6 +416,36 @@ def deferred_start_jobs():
     last_node_announce = time.time()
     threading.Thread(target=jobs, daemon=True).start()
 
+def query_status(identity, timeout=5, exit_on_fail=False):
+    control_destination = RNS.Destination(identity, RNS.Destination.OUT, RNS.Destination.SINGLE, APP_NAME, "propagation", "control")
+
+    timeout = time.time()+timeout
+    def check_timeout():
+        if time.time() > timeout:
+            RNS.log("Getting lxmd statistics timed out, exiting now", RNS.LOG_ERROR)
+            if exit_on_fail:
+                exit(200)
+            else:
+                return LXMF.LXMPeer.LXMPeer.ERROR_TIMEOUT
+        else:
+            time.sleep(0.1)
+
+    if not RNS.Transport.has_path(control_destination.hash):
+        RNS.Transport.request_path(control_destination.hash)
+        while not RNS.Transport.has_path(control_destination.hash):
+            check_timeout()
+
+    link = RNS.Link(control_destination)
+    while not link.status == RNS.Link.ACTIVE:
+        check_timeout()
+
+    link.identify(identity)
+    request_receipt = link.request(LXMF.LXMRouter.STATS_GET_PATH, data=None, response_callback=None, failed_callback=None)
+    while not request_receipt.get_status() == RNS.RequestReceipt.READY:
+        check_timeout()
+
+    return request_receipt.get_response()
+
 def get_status(configdir = None, rnsconfigdir = None, verbosity = 0, quietness = 0, timeout=5, show_status=False, show_peers=False, identity_path=None):
     global configpath, identitypath, storagedir, lxmdir
     global lxmd_config, active_configuration, targetloglevel
@@ -462,31 +492,8 @@ def get_status(configdir = None, rnsconfigdir = None, verbosity = 0, quietness =
         targetloglevel = targetloglevel+verbosity-quietness
     
     reticulum = RNS.Reticulum(configdir=rnsconfigdir, loglevel=targetloglevel, logdest=targetlogdest)
-    control_destination = RNS.Destination(identity, RNS.Destination.OUT, RNS.Destination.SINGLE, APP_NAME, "propagation", "control")
+    response = query_status(identity, timeout=timeout, exit_on_fail=True)
 
-    timeout = time.time()+timeout
-    def check_timeout():
-        if time.time() > timeout:
-            RNS.log("Getting lxmd statistics timed out, exiting now", RNS.LOG_ERROR)
-            exit(200)
-        else:
-            time.sleep(0.1)
-
-    if not RNS.Transport.has_path(control_destination.hash):
-        RNS.Transport.request_path(control_destination.hash)
-        while not RNS.Transport.has_path(control_destination.hash):
-            check_timeout()
-
-    link = RNS.Link(control_destination)
-    while not link.status == RNS.Link.ACTIVE:
-        check_timeout()
-
-    link.identify(identity)
-    request_receipt = link.request(LXMF.LXMRouter.STATS_GET_PATH, data=None, response_callback=None, failed_callback=None)
-    while not request_receipt.get_status() == RNS.RequestReceipt.READY:
-        check_timeout()
-
-    response = request_receipt.get_response()
     if response == LXMF.LXMPeer.LXMPeer.ERROR_NO_IDENTITY:
         RNS.log("Remote received no identity")
         exit(203)
@@ -550,6 +557,9 @@ def get_status(configdir = None, rnsconfigdir = None, verbosity = 0, quietness =
             print(f"")
 
         if show_peers:
+            if not show_status:
+                print("")
+
             for peer_id in s["peers"]:
                 ind = "  "
                 p = s["peers"][peer_id]
@@ -562,7 +572,7 @@ def get_status(configdir = None, rnsconfigdir = None, verbosity = 0, quietness =
                 a = "Available" if p["alive"] == True else "Unreachable"
                 h = max(time.time()-p["last_heard"], 0)
                 hops = p["network_distance"]
-                hs = f"{hops} hop away" if hops == 1 else f"{hops} hops away"
+                hs = "hops unknown" if hops == RNS.Transport.PATHFINDER_M else f"{hops} hop away" if hops == 1 else f"{hops} hops away"
                 pm = p["messages"]
                 if p["last_sync_attempt"] != 0:
                     lsa = p["last_sync_attempt"]

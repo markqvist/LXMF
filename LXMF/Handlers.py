@@ -45,6 +45,7 @@ class LXMFPropagationAnnounceHandler:
                     if pn_announce_data_is_valid(data):
                         node_timebase = data[1]
                         propagation_transfer_limit = None
+                        wanted_inbound_peers = None
                         if len(data) >= 4:
                             try:
                                 wanted_inbound_peers = int(data[3])
