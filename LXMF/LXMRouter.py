@@ -283,6 +283,7 @@ class LXMRouter:
                 node_state,                             # Boolean flag signalling propagation node state
                 int(time.time()),                       # Current node timebase
                 self.propagation_per_transfer_limit,    # Per-transfer limit for message propagation in kilobytes
+                self.get_wanted_inbound_peers(),        # How many more inbound peers this node wants
             ]
 
             data = msgpack.packb(announce_data)
@@ -887,6 +888,10 @@ class LXMRouter:
         def job():
             self.save_outbound_stamp_costs()
         threading.Thread(target=self.save_outbound_stamp_costs, daemon=True).start()
+
+    def get_wanted_inbound_peers(self):
+        # TODO: Implement
+        return None
 
     def get_announce_app_data(self, destination_hash):
         if destination_hash in self.delivery_destinations:
@@ -1766,7 +1771,7 @@ class LXMRouter:
     ### Peer Sync & Propagation ###########################
     #######################################################
 
-    def peer(self, destination_hash, timestamp, propagation_transfer_limit):
+    def peer(self, destination_hash, timestamp, propagation_transfer_limit, wanted_inbound_peers = None):
         if destination_hash in self.peers:
             peer = self.peers[destination_hash]
             if timestamp > peer.peering_timebase:
@@ -1969,7 +1974,8 @@ class LXMRouter:
                                 # sane default value, and wait for an announce to arrive
                                 # that will update the peering config to the actual limit.
                                 propagation_transfer_limit = LXMRouter.PROPAGATION_LIMIT//4
-                                self.peer(remote_hash, remote_timebase, propagation_transfer_limit)
+                                wanted_inbound_peers = None
+                                self.peer(remote_hash, remote_timebase, propagation_transfer_limit, wanted_inbound_peers)
                         else:
                             remote_str = f"peer {remote_str}"
 

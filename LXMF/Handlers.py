@@ -45,6 +45,11 @@ class LXMFPropagationAnnounceHandler:
                     if pn_announce_data_is_valid(data):
                         node_timebase = data[1]
                         propagation_transfer_limit = None
+                        if len(data) >= 4:
+                            try:
+                                wanted_inbound_peers = int(data[3])
+                            except:
+                                wanted_inbound_peers = None
                         if len(data) >= 3:
                             try:
                                 propagation_transfer_limit = float(data[2])
@@ -52,12 +57,12 @@ class LXMFPropagationAnnounceHandler:
                                 propagation_transfer_limit = None
 
                         if destination_hash in self.lxmrouter.static_peers:
-                            self.lxmrouter.peer(destination_hash, node_timebase, propagation_transfer_limit)
+                            self.lxmrouter.peer(destination_hash, node_timebase, propagation_transfer_limit, wanted_inbound_peers)
 
                         else:
                             if data[0] == True:
                                 if RNS.Transport.hops_to(destination_hash) <= self.lxmrouter.autopeer_maxdepth:
-                                    self.lxmrouter.peer(destination_hash, node_timebase, propagation_transfer_limit)
+                                    self.lxmrouter.peer(destination_hash, node_timebase, propagation_transfer_limit, wanted_inbound_peers)
 
                             elif data[0] == False:
                                 self.lxmrouter.unpeer(destination_hash, node_timebase)
