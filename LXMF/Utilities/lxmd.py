@@ -422,8 +422,8 @@ def query_status(identity, timeout=5, exit_on_fail=False):
     timeout = time.time()+timeout
     def check_timeout():
         if time.time() > timeout:
-            RNS.log("Getting lxmd statistics timed out, exiting now", RNS.LOG_ERROR)
             if exit_on_fail:
+                RNS.log("Getting lxmd statistics timed out, exiting now", RNS.LOG_ERROR)
                 exit(200)
             else:
                 return LXMF.LXMPeer.LXMPeer.ERROR_TIMEOUT
@@ -433,16 +433,22 @@ def query_status(identity, timeout=5, exit_on_fail=False):
     if not RNS.Transport.has_path(control_destination.hash):
         RNS.Transport.request_path(control_destination.hash)
         while not RNS.Transport.has_path(control_destination.hash):
-            check_timeout()
+            tc = check_timeout()
+            if tc:
+                return tc
 
     link = RNS.Link(control_destination)
     while not link.status == RNS.Link.ACTIVE:
-        check_timeout()
+        tc = check_timeout()
+        if tc:
+            return tc
 
     link.identify(identity)
     request_receipt = link.request(LXMF.LXMRouter.STATS_GET_PATH, data=None, response_callback=None, failed_callback=None)
     while not request_receipt.get_status() == RNS.RequestReceipt.READY:
-        check_timeout()
+        tc = check_timeout()
+        if tc:
+            return tc
 
     return request_receipt.get_response()
 
