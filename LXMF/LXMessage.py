@@ -380,7 +380,7 @@ class LXMessage:
             if self.desired_method == LXMessage.OPPORTUNISTIC:
                 if self.__destination.type == RNS.Destination.SINGLE:
                     if content_size > LXMessage.ENCRYPTED_PACKET_MAX_CONTENT:
-                        RNS.log(f"Opportunistic delivery was requested for {self}, but content exceeds packet size limit. Falling back to link-based delivery.", RNS.LOG_DEBUG)
+                        RNS.log(f"Opportunistic delivery was requested for {self}, but content of length {content_size} exceeds packet size limit. Falling back to link-based delivery.", RNS.LOG_DEBUG)
                         self.desired_method = LXMessage.DIRECT
 
             # Set delivery parameters according to delivery method
