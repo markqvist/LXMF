@@ -450,6 +450,7 @@ def query_status(identity, timeout=5, exit_on_fail=False):
         if tc:
             return tc
 
+    link.teardown()
     return request_receipt.get_response()
 
 def get_status(configdir = None, rnsconfigdir = None, verbosity = 0, quietness = 0, timeout=5, show_status=False, show_peers=False, identity_path=None):
