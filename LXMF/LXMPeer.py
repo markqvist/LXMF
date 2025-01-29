@@ -469,6 +469,10 @@ class LXMPeer:
 
         return self._um_count
 
+    @property
+    def acceptance_rate(self):
+        return 0 if self.offered == 0 else (self.outgoing/self.offered)
+
     def _update_counts(self):
         if not self._hm_counts_synced:
             hm = self.handled_messages; del hm
