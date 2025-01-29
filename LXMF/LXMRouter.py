@@ -42,6 +42,7 @@ class LXMRouter:
     AUTOPEER_MAXDEPTH     = 4
     FASTEST_N_RANDOM_POOL = 2
     ROTATION_HEADROOM_PCT = 10
+    ROTATION_AR_MAX       = 0.5
 
     PROPAGATION_LIMIT     = 256
     DELIVERY_LIMIT        = 1000
@@ -1867,13 +1868,16 @@ class LXMRouter:
                         reverse=False
                     )[0:drop_count]
 
-                    ms = "" if len(low_acceptance_rate_peers) == 1 else "s"
-                    RNS.log(f"Dropping {len(low_acceptance_rate_peers)} lowest acceptance rate peer{ms} to increase peering headroom", RNS.LOG_DEBUG)
+                    dropped_peers = 0
                     for peer in low_acceptance_rate_peers:
                         ar = 0 if peer.offered == 0 else round((peer.outgoing/peer.offered)*100, 2)
-                        reachable_str = "reachable" if peer.alive else "unreachable"
-                        RNS.log(f"Acceptance rate for {reachable_str} peer {RNS.prettyhexrep(peer.destination_hash)} was: {ar}% ({peer.outgoing}/{peer.offered}, {peer.unhandled_message_count} unhandled messages)", RNS.LOG_DEBUG)
-                        self.unpeer(peer.destination_hash)
+                        if ar < LXMRouter.ROTATION_AR_MAX*100:
+                            reachable_str = "reachable" if peer.alive else "unreachable"
+                            RNS.log(f"Acceptance rate for {reachable_str} peer {RNS.prettyhexrep(peer.destination_hash)} was: {ar}% ({peer.outgoing}/{peer.offered}, {peer.unhandled_message_count} unhandled messages)", RNS.LOG_DEBUG)
+                            self.unpeer(peer.destination_hash)
+
+                    ms = "" if dropped_peers == 1 else "s"
+                    RNS.log(f"Dropped {dropped_peers} low acceptance rate peer{ms} to increase peering headroom", RNS.LOG_DEBUG)
 
         except Exception as e:
             RNS.log(f"An error occurred during peer rotation: {e}", RNS.LOG_ERROR)
