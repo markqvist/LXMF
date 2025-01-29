@@ -507,8 +507,10 @@ class LXMRouter:
                             except Exception as e:
                                 RNS.log("Could not read LXM from message store. The contained exception was: "+str(e), RNS.LOG_ERROR)
             
-            et = time.time(); RNS.log(f"Indexed {len(self.propagation_entries)} messages in {RNS.prettytime(et-st)}, {math.floor(len(self.propagation_entries)/(et-st))} msgs/s", RNS.LOG_NOTICE)
-            st = time.time(); RNS.log("Rebuilding peer synchronisation states...", RNS.LOG_NOTICE)
+            et = time.time(); mps = 0 if et-st == 0 else math.floor(len(self.propagation_entries)/(et-st))
+            RNS.log(f"Indexed {len(self.propagation_entries)} messages in {RNS.prettytime(et-st)}, {mps} msgs/s", RNS.LOG_NOTICE)
+            RNS.log("Rebuilding peer synchronisation states...", RNS.LOG_NOTICE)
+            st = time.time();
 
             if os.path.isfile(self.storagepath+"/peers"):
                 peers_file = open(self.storagepath+"/peers", "rb")
@@ -1875,6 +1877,7 @@ class LXMRouter:
                             reachable_str = "reachable" if peer.alive else "unreachable"
                             RNS.log(f"Acceptance rate for {reachable_str} peer {RNS.prettyhexrep(peer.destination_hash)} was: {ar}% ({peer.outgoing}/{peer.offered}, {peer.unhandled_message_count} unhandled messages)", RNS.LOG_DEBUG)
                             self.unpeer(peer.destination_hash)
+                            dropped_peers += 1
 
                     ms = "" if dropped_peers == 1 else "s"
                     RNS.log(f"Dropped {dropped_peers} low acceptance rate peer{ms} to increase peering headroom", RNS.LOG_DEBUG)
