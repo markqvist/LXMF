@@ -763,6 +763,7 @@ class LXMRouter:
     JOB_STORE_INTERVAL     = 120
     JOB_PEERSYNC_INTERVAL  = 12
     JOB_PEERINGEST_INTERVAL= JOB_PEERSYNC_INTERVAL
+    JOB_ROTATE_INTERVAL    = 675
     def jobs(self):
         if not self.exit_handler_running:
             self.processing_count += 1
@@ -785,8 +786,11 @@ class LXMRouter:
 
             if self.processing_count % LXMRouter.JOB_PEERINGEST_INTERVAL == 0:
                 if self.propagation_node == True:
-                    self.rotate_peers()
                     self.flush_queues()
+
+            if self.processing_count % LXMRouter.JOB_ROTATE_INTERVAL == 0:
+                if self.propagation_node == True:
+                    self.rotate_peers()
 
             if self.processing_count % LXMRouter.JOB_PEERSYNC_INTERVAL == 0:
                 if self.propagation_node == True:
@@ -1819,6 +1823,17 @@ class LXMRouter:
                     RNS.log("Newly added peer threshold reached, postponing peer rotation", RNS.LOG_DEBUG)
                     return
                 
+                fully_synced_peers = {}
+                for peer_id in peers:
+                    peer = peers[peer_id]
+                    if peer.unhandled_message_count == 0:
+                        fully_synced_peers[peer_id] = peer
+
+                if len(fully_synced_peers) > 0:
+                    peers = fully_synced_peers
+                    ms = "" if len(fully_synced_peers) == 1 else "s"
+                    RNS.log(f"Found {len(fully_synced_peers)} fully synced peer{ms}, using as peer rotation pool basis", RNS.LOG_DEBUG)
+
                 culled_peers  = []
                 waiting_peers = []
                 unresponsive_peers = []
@@ -1856,7 +1871,8 @@ class LXMRouter:
                     RNS.log(f"Dropping {len(low_acceptance_rate_peers)} lowest acceptance rate peer{ms} to increase peering headroom", RNS.LOG_DEBUG)
                     for peer in low_acceptance_rate_peers:
                         ar = 0 if peer.offered == 0 else round((peer.outgoing/peer.offered)*100, 2)
-                        RNS.log(f"Acceptance rate for {RNS.prettyhexrep(peer.destination_hash)} was: {ar}% ({peer.outgoing} / {peer.offered})", RNS.LOG_DEBUG)
+                        reachable_str = "reachable" if peer.alive else "unreachable"
+                        RNS.log(f"Acceptance rate for {reachable_str} peer {RNS.prettyhexrep(peer.destination_hash)} was: {ar}% ({peer.outgoing}/{peer.offered}, {peer.unhandled_message_count} unhandled messages)", RNS.LOG_DEBUG)
                         self.unpeer(peer.destination_hash)
 
         except Exception as e:
