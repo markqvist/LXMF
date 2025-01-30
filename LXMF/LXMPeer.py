@@ -251,9 +251,9 @@ class LXMPeer:
                                     next_size = cumulative_size + (lxm_size+per_message_overhead)
                                     if self.propagation_transfer_limit != None and next_size > (self.propagation_transfer_limit*1000):
                                         if lxm_size+per_message_overhead > (self.propagation_transfer_limit*1000):
-                                            RNS.log(f"Message {RNS.prettyhexrep(transient_id)} exceeds transfer limit for {self}, considering handled", RNS.LOG_DEBUG)
                                             self.remove_unhandled_message(transient_id)
                                             self.add_handled_message(transient_id)
+                                            RNS.log(f"Message {RNS.prettyhexrep(transient_id)} exceeds transfer limit for {self}, considering handled", RNS.LOG_DEBUG)
                                     else:
                                         cumulative_size += (lxm_size+per_message_overhead)
                                         unhandled_ids.append(transient_id)
