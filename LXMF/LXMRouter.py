@@ -766,7 +766,7 @@ class LXMRouter:
     JOB_STORE_INTERVAL     = 120
     JOB_PEERSYNC_INTERVAL  = 12
     JOB_PEERINGEST_INTERVAL= JOB_PEERSYNC_INTERVAL
-    JOB_ROTATE_INTERVAL    = 675
+    JOB_ROTATE_INTERVAL    = 56*JOB_PEERINGEST_INTERVAL
     def jobs(self):
         if not self.exit_handler_running:
             self.processing_count += 1
