@@ -52,6 +52,7 @@ class LXMFPropagationAnnounceHandler:
                             #     wanted_inbound_peers = int(data[3])
                             # except:
                             #     wanted_inbound_peers = None
+                            pass
 
                         if len(data) >= 3:
                             try:
