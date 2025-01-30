@@ -286,7 +286,7 @@ class LXMRouter:
                 node_state,                             # Boolean flag signalling propagation node state
                 int(time.time()),                       # Current node timebase
                 self.propagation_per_transfer_limit,    # Per-transfer limit for message propagation in kilobytes
-                self.get_wanted_inbound_peers(),        # How many more inbound peers this node wants
+                None,                                   # How many more inbound peers this node wants
             ]
 
             data = msgpack.packb(announce_data)
@@ -895,7 +895,8 @@ class LXMRouter:
         threading.Thread(target=self.save_outbound_stamp_costs, daemon=True).start()
 
     def get_wanted_inbound_peers(self):
-        # TODO: Implement
+        # TODO: Implement/rethink.
+        # Probably not necessary anymore.
         return None
 
     def get_announce_app_data(self, destination_hash):

@@ -47,10 +47,12 @@ class LXMFPropagationAnnounceHandler:
                         propagation_transfer_limit = None
                         wanted_inbound_peers = None
                         if len(data) >= 4:
-                            try:
-                                wanted_inbound_peers = int(data[3])
-                            except:
-                                wanted_inbound_peers = None
+                            # TODO: Rethink, probably not necessary anymore
+                            # try:
+                            #     wanted_inbound_peers = int(data[3])
+                            # except:
+                            #     wanted_inbound_peers = None
+
                         if len(data) >= 3:
                             try:
                                 propagation_transfer_limit = float(data[2])
