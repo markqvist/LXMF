@@ -1,3 +1,2 @@
-qrcode==7.4.2
-rns==0.7.8
-setuptools==70.0.0
+qrcode>=7.4.2
+rns>=0.9.1

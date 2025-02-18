@@ -2119,7 +2119,6 @@ class LXMRouter:
                 if (not transient_id in self.propagation_entries and not transient_id in self.locally_processed_transient_ids) or allow_duplicate == True:
                     received = time.time()
                     destination_hash  = lxmf_data[:LXMessage.DESTINATION_LENGTH]
-                    RNS.log("GOT MESSAGE FOR "+RNS.prettyhexrep(destination_hash))
 
                     self.locally_processed_transient_ids[transient_id] = received
 
