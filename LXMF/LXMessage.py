@@ -757,8 +757,16 @@ class LXMessage:
         message.timestamp   = timestamp
         message.packed      = lxmf_bytes
         message.packed_size = len(lxmf_bytes)
-        message.set_title_from_bytes(title_bytes)
-        message.set_content_from_bytes(content_bytes)
+
+        if type(title_bytes) is bytes:
+            message.set_title_from_bytes(title_bytes)
+        elif type(title_bytes) is str:
+            message.set_title_from_string(title_bytes)
+
+        if type(content_bytes) is bytes:
+            message.set_content_from_bytes(content_bytes)
+        elif type(content_bytes) is str:
+            message.set_content_from_string(content_bytes)
 
         try:
             if source:
