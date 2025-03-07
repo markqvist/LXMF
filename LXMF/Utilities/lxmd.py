@@ -710,6 +710,25 @@ propagation_transfer_max_accepted_size = 256
 
 # prioritise_destinations = 41d20c727598a3fbbdf9106133a3a0ed, d924b81822ca24e68e2effea99bcb8cf
 
+# You can configure the maximum number of other
+# propagation nodes that this node will peer
+# with automatically. The default is 50.
+
+# max_peers = 25
+
+# You can configure a list of static propagation
+# node peers, that this node will always be
+# peered with, by specifying a list of
+# destination hashes.
+
+# static_peers = e17f833c4ddf8890dd3a79a6fea8161d, 5a2d0029b6e5ec87020abaea0d746da4
+
+# You can configure the propagation node to
+# only accept incoming propagation messages
+# from configured static peers.
+
+# from_static_only = True
+
 # By default, any destination is allowed to
 # connect and download messages, but you can
 # optionally restrict this. If you enable
