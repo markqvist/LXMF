@@ -2301,8 +2301,7 @@ class LXMRouter:
             else:
                 RNS.log("Outbound processing for "+str(lxmessage)+" to "+RNS.prettyhexrep(lxmessage.get_destination().hash), RNS.LOG_DEBUG)
 
-                if lxmessage.progress == None or lxmessage.progress < 0.01:
-                    lxmessage.progress = 0.01
+                if lxmessage.progress == None or lxmessage.progress < 0.01: lxmessage.progress = 0.01
 
                 # Outbound handling for opportunistic messages
                 if lxmessage.method == LXMessage.OPPORTUNISTIC:
