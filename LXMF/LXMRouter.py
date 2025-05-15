@@ -827,7 +827,7 @@ class LXMRouter:
         closed_links = []
         for link_hash in self.direct_links:
             link = self.direct_links[link_hash]
-            inactive_time = link.inactive_for()
+            inactive_time = link.no_data_for()
 
             if inactive_time > LXMRouter.LINK_MAX_INACTIVITY:
                 link.teardown()
