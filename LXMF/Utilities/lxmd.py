@@ -78,7 +78,7 @@ def apply_config():
             active_configuration["peer_announce_interval"] = lxmd_config["lxmf"].as_int("announce_interval")*60
         else:
             active_configuration["peer_announce_interval"] = None
-        
+
         if "lxmf" in lxmd_config and "delivery_transfer_max_accepted_size" in lxmd_config["lxmf"]:
             active_configuration["delivery_transfer_max_accepted_size"] = lxmd_config["lxmf"].as_float("delivery_transfer_max_accepted_size")
             if active_configuration["delivery_transfer_max_accepted_size"] < 0.38:
@@ -101,6 +101,27 @@ def apply_config():
             active_configuration["auth_required"] = lxmd_config["propagation"].as_bool("auth_required")
         else:
             active_configuration["auth_required"] = False
+
+        if "propagation" in lxmd_config \
+                and "remote_management_enabled" in lxmd_config["propagation"] \
+                and "remote_management_identities" in lxmd_config["propagation"] \
+                and lxmd_config["propagation"].as_bool("remote_management_enabled"):
+
+            idents = lxmd_config["propagation"].as_list("remote_management_identities")
+            allowed_hashes = []
+            for hexhash in idents:
+                dest_len = (RNS.Reticulum.TRUNCATED_HASHLENGTH//8)*2
+                if len(hexhash) != dest_len:
+                    raise ValueError(f"Identity hash length for remote management ACL {hexhash} is invalid, must be {dest_len} hexadecimal characters ({dest_len//2} bytes).")
+                try:
+                    ident_hash = bytes.fromhex(hexhash)
+                except Exception as e:
+                    raise ValueError(f"Invalid identity hash for remote management ACL: {hexhash}")
+                allowed_hashes.append(ident_hash)
+            active_configuration["remote_management_identities"] = allowed_hashes
+
+        else:
+            active_configuration["remote_management_identities"] = []
 
         if "propagation" in lxmd_config and "announce_at_start" in lxmd_config["propagation"]:
             active_configuration["node_announce_at_start"] = lxmd_config["propagation"].as_bool("announce_at_start")
@@ -128,14 +149,14 @@ def apply_config():
                 active_configuration["message_storage_limit"] = 0.005
         else:
             active_configuration["message_storage_limit"] = 500
-        
+
         if "propagation" in lxmd_config and "propagation_transfer_max_accepted_size" in lxmd_config["propagation"]:
             active_configuration["propagation_transfer_max_accepted_size"] = lxmd_config["propagation"].as_float("propagation_transfer_max_accepted_size")
             if active_configuration["propagation_transfer_max_accepted_size"] < 0.38:
                 active_configuration["propagation_transfer_max_accepted_size"] = 0.38
         else:
             active_configuration["propagation_transfer_max_accepted_size"] = 256
-        
+
         if "propagation" in lxmd_config and "prioritise_destinations" in lxmd_config["propagation"]:
             active_configuration["prioritised_lxmf_destinations"] = lxmd_config["propagation"].as_list("prioritise_destinations")
         else:
@@ -278,7 +299,7 @@ def program_setup(configdir = None, rnsconfigdir = None, run_pn = False, on_inbo
             RNS.log("Could not parse the configuration at "+configpath, RNS.LOG_ERROR)
             RNS.log("Check your configuration file for errors!", RNS.LOG_ERROR)
             RNS.panic()
-    
+
     apply_config()
     RNS.log("Configuration loaded from "+configpath, RNS.LOG_VERBOSE)
 
@@ -287,7 +308,7 @@ def program_setup(configdir = None, rnsconfigdir = None, run_pn = False, on_inbo
 
     if verbosity != 0 or quietness != 0:
         targetloglevel = targetloglevel+verbosity-quietness
-    
+
     # Start Reticulum
     RNS.log("Substantiating Reticulum...")
     reticulum = RNS.Reticulum(configdir=rnsconfigdir, loglevel=targetloglevel, logdest=targetlogdest)
@@ -315,7 +336,7 @@ def program_setup(configdir = None, rnsconfigdir = None, run_pn = False, on_inbo
             RNS.log("Could not create and save a new Primary Identity", RNS.LOG_ERROR)
             RNS.log("The contained exception was: %s" % (str(e)), RNS.LOG_ERROR)
             exit(2)
-        
+
     # Start LXMF
     message_router = LXMF.LXMRouter(
         identity = identity,
@@ -326,8 +347,9 @@ def program_setup(configdir = None, rnsconfigdir = None, run_pn = False, on_inbo
         delivery_limit = active_configuration["delivery_transfer_max_accepted_size"],
         max_peers = active_configuration["max_peers"],
         static_peers = active_configuration["static_peers"],
-        from_static_only = active_configuration["from_static_only"])
-    
+        from_static_only = active_configuration["from_static_only"],
+        management_identities = active_configuration["remote_management_identities"])
+
     message_router.register_delivery_callback(lxmf_delivery)
 
     for destination_hash in active_configuration["ignored_lxmf_destinations"]:
@@ -348,7 +370,7 @@ def program_setup(configdir = None, rnsconfigdir = None, run_pn = False, on_inbo
 
         if len(active_configuration["allowed_identities"]) == 0:
             RNS.log("Clint authentication was enabled, but no identity hashes could be loaded from "+str(allowedpath)+". Nobody will be able to sync messages from this propagation node.", RNS.LOG_WARNING)
-            
+
         for identity_hash in active_configuration["allowed_identities"]:
             message_router.allow(identity_hash)
 
@@ -368,7 +390,8 @@ def program_setup(configdir = None, rnsconfigdir = None, run_pn = False, on_inbo
         message_router.enable_propagation()
 
         RNS.log("LXMF Propagation Node started on "+RNS.prettyhexrep(message_router.propagation_destination.hash))
-
+        if len(message_router.management_identities) > 1:
+            RNS.log(f"Propagation Node remote management is enabled for {len(message_router.management_identities)-1} identities")
     RNS.log("Started lxmd version {version}".format(version=__version__), RNS.LOG_NOTICE)
 
     threading.Thread(target=deferred_start_jobs, daemon=True).start()
@@ -379,7 +402,7 @@ def program_setup(configdir = None, rnsconfigdir = None, run_pn = False, on_inbo
 def jobs():
     global active_configuration, last_peer_announce, last_node_announce
     global message_router, lxmf_destination
-    
+
     while True:
         try:
             if "peer_announce_interval" in active_configuration and active_configuration["peer_announce_interval"] != None:
@@ -491,13 +514,13 @@ def get_status(configdir = None, rnsconfigdir = None, verbosity = 0, quietness =
             identity = RNS.Identity.from_file(identity_path)
             if identity == None:
                 RNS.log("Could not load the Primary Identity from "+identity_path, RNS.LOG_ERROR)
-                exit(4)        
+                exit(4)
 
     if targetloglevel == None:
         targetloglevel = 3
     if verbosity != 0 or quietness != 0:
         targetloglevel = targetloglevel+verbosity-quietness
-    
+
     reticulum = RNS.Reticulum(configdir=rnsconfigdir, loglevel=targetloglevel, logdest=targetlogdest)
     response = query_status(identity, timeout=timeout, exit_on_fail=True)
 
@@ -616,7 +639,7 @@ def main():
         parser.add_argument("--identity", action="store", default=None, help="path to identity used for query request", type=str)
         parser.add_argument("--exampleconfig", action="store_true", default=False, help="print verbose configuration example to stdout and exit")
         parser.add_argument("--version", action="version", version="lxmd {version}".format(version=__version__))
-        
+
         args = parser.parse_args()
 
         if args.exampleconfig:
@@ -738,6 +761,18 @@ propagation_transfer_max_accepted_size = 256
 
 auth_required = no
 
+# It is possible to allow remote management of lxmf
+# propagation nodes using various utilities, such as
+# lxmd --status. You will need to specify a comma
+# separated list of one or more Reticulum Identity
+# hashes for authenticating the queries from client
+# programs. For this purpose, you can use existing
+# identity files, or generate new ones with the rnid utility.
+# The node's own identity is always allowed regardless
+# of these configuration parameters.
+
+# remote_management_enabled = no
+# remote_management_identities = 41d20c727598a3fbbdf9106133a3a0ed, d924b81822ca24e68e2effea99bcb8cf
 
 [lxmf]
 
