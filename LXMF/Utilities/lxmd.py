@@ -529,14 +529,14 @@ def get_status(configdir = None, rnsconfigdir = None, verbosity = 0, quietness =
             peered_outgoing += pm["outgoing"]
             peered_rx_bytes += p["rx_bytes"]
             peered_tx_bytes += p["tx_bytes"]
-            if p["alive"]:
-                available_peers += 1
-            else:
-                unreachable_peers += 1
+
+            if p["alive"]: available_peers   += 1
+            else:          unreachable_peers += 1
 
         total_incoming = peered_incoming+s["unpeered_propagation_incoming"]+s["clients"]["client_propagation_messages_received"]
         total_rx_bytes = peered_rx_bytes+s["unpeered_propagation_rx_bytes"]
-        df = round(peered_outgoing/total_incoming, 2)
+        if total_incoming != 0: df = round(peered_outgoing/total_incoming, 2)
+        else:                   df = 0
 
         dhs = RNS.prettyhexrep(s["destination_hash"]); uts = RNS.prettytime(s["uptime"])
         print(f"\nLXMF Propagation Node running on {dhs}, uptime is {uts}")
