@@ -2368,7 +2368,8 @@ class LXMRouter:
                                         RNS.log("Waiting for proof for "+str(lxmessage)+" sent as link packet", RNS.LOG_DEBUG)
                             elif direct_link.status == RNS.Link.CLOSED:
                                 if direct_link.activated_at != None:
-                                    RNS.log("The link to "+RNS.prettyhexrep(lxmessage.get_destination().hash)+" was closed", RNS.LOG_DEBUG)
+                                    RNS.log("The link to "+RNS.prettyhexrep(lxmessage.get_destination().hash)+" was closed unexpectedly, retrying path request...", RNS.LOG_DEBUG)
+                                    RNS.Transport.request_path(lxmessage.get_destination().hash)
                                 else:
                                     if not hasattr(lxmessage, "path_request_retried"):
                                         RNS.log("The link to "+RNS.prettyhexrep(lxmessage.get_destination().hash)+" was never activated, retrying path request...", RNS.LOG_DEBUG)
