@@ -45,6 +45,7 @@ class LXMRouter:
     ROTATION_AR_MAX       = 0.5
 
     PROPAGATION_LIMIT     = 256
+    SYNC_LIMIT            = PROPAGATION_LIMIT*40
     DELIVERY_LIMIT        = 1000
 
     PR_PATH_TIMEOUT       = 10
@@ -73,8 +74,9 @@ class LXMRouter:
     #######################################################
 
     def __init__(self, identity=None, storagepath=None, autopeer=AUTOPEER, autopeer_maxdepth=None,
-                 propagation_limit=PROPAGATION_LIMIT, delivery_limit=DELIVERY_LIMIT, enforce_ratchets=False,
-                 enforce_stamps=False, static_peers = [], max_peers=None, from_static_only=False):
+                 propagation_limit=PROPAGATION_LIMIT, delivery_limit=DELIVERY_LIMIT, sync_limit=SYNC_LIMIT,
+                 enforce_ratchets=False, enforce_stamps=False, static_peers = [], max_peers=None,
+                 from_static_only=False, sync_strategy=LXMPeer.STRATEGY_PERSISTENT):
 
         random.seed(os.urandom(10))
 
@@ -91,9 +93,10 @@ class LXMRouter:
         self.auth_required         = False
         self.retain_synced_on_node = False
 
-        self.processing_outbound = False
-        self.processing_inbound  = False
-        self.processing_count = 0
+        self.default_sync_strategy = sync_strategy
+        self.processing_outbound   = False
+        self.processing_inbound    = False
+        self.processing_count      = 0
 
         self.propagation_node = False
         self.propagation_node_start_time = None
@@ -107,16 +110,19 @@ class LXMRouter:
         self.outbound_propagation_node = None
         self.outbound_propagation_link = None
 
-        if delivery_limit == None:
-            delivery_limit = LXMRouter.DELIVERY_LIMIT
+        if delivery_limit == None: delivery_limit = LXMRouter.DELIVERY_LIMIT
 
         self.message_storage_limit = None
         self.information_storage_limit = None
         self.propagation_per_transfer_limit = propagation_limit
+        self.propagation_per_sync_limit = sync_limit
         self.delivery_per_transfer_limit = delivery_limit
         self.enforce_ratchets = enforce_ratchets
         self._enforce_stamps = enforce_stamps
         self.pending_deferred_stamps = {}
+
+        if sync_limit == None or self.propagation_per_sync_limit < self.propagation_per_transfer_limit:
+            self.propagation_per_sync_limit = self.propagation_per_transfer_limit
 
         self.wants_download_on_path_available_from = None
         self.wants_download_on_path_available_to = None
@@ -287,6 +293,7 @@ class LXMRouter:
                 int(time.time()),                       # Current node timebase
                 self.propagation_per_transfer_limit,    # Per-transfer limit for message propagation in kilobytes
                 None,                                   # How many more inbound peers this node wants
+                self.propagation_per_sync_limit,        # Limit for incoming propagation node syncs
             ]
 
             data = msgpack.packb(announce_data)
@@ -546,7 +553,7 @@ class LXMRouter:
                 for static_peer in self.static_peers:
                     if not static_peer in self.peers:
                         RNS.log(f"Activating static peering with {RNS.prettyhexrep(static_peer)}", RNS.LOG_NOTICE)
-                        self.peers[static_peer] = LXMPeer(self, static_peer)
+                        self.peers[static_peer] = LXMPeer(self, static_peer, sync_strategy=self.default_sync_strategy)
                         if self.peers[static_peer].last_heard == 0:
                             # TODO: Allow path request responses through announce handler
                             # momentarily here, so peering config can be updated even if
@@ -708,6 +715,7 @@ class LXMRouter:
                     "ler": int(peer.link_establishment_rate),
                     "str": int(peer.sync_transfer_rate),
                     "transfer_limit": peer.propagation_transfer_limit,
+                    "sync_limit": peer.propagation_sync_limit,
                     "network_distance": RNS.Transport.hops_to(peer_id),
                     "rx_bytes": peer.rx_bytes,
                     "tx_bytes": peer.tx_bytes,
@@ -725,6 +733,7 @@ class LXMRouter:
                 "uptime": time.time()-self.propagation_node_start_time,
                 "delivery_limit": self.delivery_per_transfer_limit,
                 "propagation_limit": self.propagation_per_transfer_limit,
+                "sync_limit": self.propagation_per_sync_limit,
                 "autopeer_maxdepth": self.autopeer_maxdepth,
                 "from_static_only": self.from_static_only,
                 "messagestore": {
@@ -1777,7 +1786,7 @@ class LXMRouter:
     ### Peer Sync & Propagation ###########################
     #######################################################
 
-    def peer(self, destination_hash, timestamp, propagation_transfer_limit, wanted_inbound_peers = None):
+    def peer(self, destination_hash, timestamp, propagation_transfer_limit, propagation_sync_limit, wanted_inbound_peers = None):
         if destination_hash in self.peers:
             peer = self.peers[destination_hash]
             if timestamp > peer.peering_timebase:
@@ -1787,16 +1796,23 @@ class LXMRouter:
                 peer.peering_timebase = timestamp
                 peer.last_heard = time.time()
                 peer.propagation_transfer_limit = propagation_transfer_limit
+                if propagation_sync_limit != None: peer.propagation_sync_limit = propagation_sync_limit
+                else:                              peer.propagation_sync_limit = propagation_transfer_limit
+                
                 RNS.log(f"Peering config updated for {RNS.prettyhexrep(destination_hash)}", RNS.LOG_VERBOSE)
             
         else:
             if len(self.peers) < self.max_peers:
-                peer = LXMPeer(self, destination_hash)
+                peer = LXMPeer(self, destination_hash, sync_strategy=self.default_sync_strategy)
                 peer.alive = True
                 peer.last_heard = time.time()
                 peer.propagation_transfer_limit = propagation_transfer_limit
+                if propagation_sync_limit != None: peer.propagation_sync_limit = propagation_sync_limit
+                else:                              peer.propagation_sync_limit = propagation_transfer_limit
+                
                 self.peers[destination_hash] = peer
                 RNS.log(f"Peered with {RNS.prettyhexrep(destination_hash)}", RNS.LOG_NOTICE)
+
             else:
                 RNS.log(f"Max peers reached, not peering with {RNS.prettyhexrep(destination_hash)}", RNS.LOG_DEBUG)
 
@@ -1895,18 +1911,14 @@ class LXMRouter:
         for peer_id in peers:
             peer = peers[peer_id]
             if time.time() > peer.last_heard + LXMPeer.MAX_UNREACHABLE:
-                if not peer_id in self.static_peers:
-                    culled_peers.append(peer_id)
+                if not peer_id in self.static_peers: culled_peers.append(peer_id)
+            
             else:
                 if peer.state == LXMPeer.IDLE and len(peer.unhandled_messages) > 0:
-                    if peer.alive:
-                        waiting_peers.append(peer)
+                    if peer.alive: waiting_peers.append(peer)
                     else:
-                        if hasattr(peer, "next_sync_attempt") and time.time() > peer.next_sync_attempt:
-                            unresponsive_peers.append(peer)
-                        else:
-                            pass
-                            # RNS.log("Not adding peer "+str(peer)+" since it is in sync backoff", RNS.LOG_DEBUG)
+                        if hasattr(peer, "next_sync_attempt") and time.time() > peer.next_sync_attempt: unresponsive_peers.append(peer)
+                        else: pass # RNS.log("Not adding peer "+str(peer)+" since it is in sync backoff", RNS.LOG_DEBUG)
 
         peer_pool = []
         if len(waiting_peers) > 0:
@@ -1970,7 +1982,7 @@ class LXMRouter:
                     return False
 
         size = resource.get_data_size()
-        limit = self.propagation_per_transfer_limit*1000
+        limit = self.propagation_per_sync_limit*1000
         if limit != None and size > limit:
             RNS.log(f"Rejecting {RNS.prettysize(size)} incoming propagation resource, since it exceeds the limit of {RNS.prettysize(limit)}", RNS.LOG_DEBUG)
             return False

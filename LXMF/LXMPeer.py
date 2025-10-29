@@ -11,16 +11,20 @@ class LXMPeer:
     OFFER_REQUEST_PATH = "/offer"
     MESSAGE_GET_PATH   = "/get"
 
-    IDLE              = 0x00
-    LINK_ESTABLISHING = 0x01
-    LINK_READY        = 0x02
-    REQUEST_SENT      = 0x03
-    RESPONSE_RECEIVED = 0x04
+    IDLE                  = 0x00
+    LINK_ESTABLISHING     = 0x01
+    LINK_READY            = 0x02
+    REQUEST_SENT          = 0x03
+    RESPONSE_RECEIVED     = 0x04
     RESOURCE_TRANSFERRING = 0x05
 
-    ERROR_NO_IDENTITY = 0xf0
-    ERROR_NO_ACCESS   = 0xf1
-    ERROR_TIMEOUT     = 0xfe
+    ERROR_NO_IDENTITY     = 0xf0
+    ERROR_NO_ACCESS       = 0xf1
+    ERROR_TIMEOUT         = 0xfe
+
+    STRATEGY_LAZY         = 0x01
+    STRATEGY_PERSISTENT   = 0x02
+    DEFAULT_SYNC_STRATEGY = STRATEGY_PERSISTENT
 
     # Maximum amount of time a peer can
     # be unreachable before it is removed
@@ -67,6 +71,16 @@ class LXMPeer:
                 peer.propagation_transfer_limit = None
         else:
             peer.propagation_transfer_limit = None
+
+        if "propagation_sync_limit" in dictionary:
+            try: peer.propagation_sync_limit = int(dictionary["propagation_sync_limit"])
+            except: peer.propagation_sync_limit = peer.propagation_transfer_limit
+        else: peer.propagation_sync_limit = peer.propagation_transfer_limit
+
+        if "sync_strategy" in dictionary:
+            try: peer.sync_strategy = int(dictionary["sync_strategy"])
+            except: peer.sync_strategy = LXMPeer.DEFAULT_SYNC_STRATEGY
+        else: peer.sync_strategy = LXMPeer.DEFAULT_SYNC_STRATEGY
         
         if "offered" in dictionary:
             peer.offered = dictionary["offered"]
@@ -127,6 +141,8 @@ class LXMPeer:
         dictionary["link_establishment_rate"] = self.link_establishment_rate
         dictionary["sync_transfer_rate"] = self.sync_transfer_rate
         dictionary["propagation_transfer_limit"] = self.propagation_transfer_limit
+        dictionary["propagation_sync_limit"] = self.propagation_sync_limit
+        dictionary["sync_strategy"] = self.sync_strategy
         dictionary["last_sync_attempt"] = self.last_sync_attempt
         dictionary["offered"] = self.offered
         dictionary["outgoing"] = self.outgoing
@@ -150,9 +166,11 @@ class LXMPeer:
 
         return peer_bytes
 
-    def __init__(self, router, destination_hash):
+    def __init__(self, router, destination_hash, sync_strategy=DEFAULT_SYNC_STRATEGY):
         self.alive = False
         self.last_heard = 0
+        self.sync_strategy = sync_strategy
+
         self.next_sync_attempt = 0
         self.last_sync_attempt = 0
         self.sync_backoff = 0
@@ -160,6 +178,8 @@ class LXMPeer:
         self.link_establishment_rate = 0
         self.sync_transfer_rate = 0
         self.propagation_transfer_limit = None
+        self.propagation_sync_limit = None
+        self.currently_transferring_messages = None
         self.handled_messages_queue = deque()
         self.unhandled_messages_queue = deque()
 
@@ -209,6 +229,10 @@ class LXMPeer:
 
                 if self.destination != None:
                     if len(self.unhandled_messages) > 0:
+                        if self.currently_transferring_messages != None:
+                            RNS.log(f"Sync requested for {self}, but current message transfer index was not clear. Aborting.", RNS.LOG_ERROR)
+                            return
+
                         if self.state == LXMPeer.IDLE:
                             RNS.log("Establishing link for sync to peer "+RNS.prettyhexrep(self.destination_hash)+"...", RNS.LOG_DEBUG)
                             self.sync_backoff += LXMPeer.SYNC_BACKOFF_STEP
@@ -244,21 +268,26 @@ class LXMPeer:
                                 unhandled_entries.sort(key=lambda e: e[1], reverse=False)
                                 per_message_overhead = 16 # Really only 2 bytes, but set a bit higher for now
                                 cumulative_size = 24 # Initialised to highest reasonable binary structure overhead
+                                RNS.log(f"Syncing to peer with per-message limit {RNS.prettysize(self.propagation_transfer_limit*1000)} and sync limit {RNS.prettysize(self.propagation_sync_limit*1000)}")  # TODO: Remove debug
                                 for unhandled_entry in unhandled_entries:
                                     transient_id = unhandled_entry[0]
                                     weight = unhandled_entry[1]
                                     lxm_size = unhandled_entry[2]
-                                    next_size = cumulative_size + (lxm_size+per_message_overhead)
-                                    if self.propagation_transfer_limit != None and next_size > (self.propagation_transfer_limit*1000):
-                                        if lxm_size+per_message_overhead > (self.propagation_transfer_limit*1000):
-                                            self.remove_unhandled_message(transient_id)
-                                            self.add_handled_message(transient_id)
-                                            RNS.log(f"Message {RNS.prettyhexrep(transient_id)} exceeds transfer limit for {self}, considering handled", RNS.LOG_DEBUG)
-                                    else:
-                                        cumulative_size += (lxm_size+per_message_overhead)
-                                        unhandled_ids.append(transient_id)
+                                    lxm_transfer_size = lxm_size+per_message_overhead
+                                    next_size = cumulative_size + lxm_transfer_size
 
-                                RNS.log(f"Offering {len(unhandled_ids)} messages to peer {RNS.prettyhexrep(self.destination.hash)}", RNS.LOG_VERBOSE)
+                                    if self.propagation_transfer_limit != None and lxm_transfer_size > (self.propagation_transfer_limit*1000):
+                                        self.remove_unhandled_message(transient_id)
+                                        self.add_handled_message(transient_id)
+                                        continue
+
+                                    if self.propagation_sync_limit != None and next_size >= (self.propagation_sync_limit*1000):
+                                        continue
+
+                                    cumulative_size += lxm_transfer_size
+                                    unhandled_ids.append(transient_id)
+
+                                RNS.log(f"Offering {len(unhandled_ids)} messages to peer {RNS.prettyhexrep(self.destination.hash)} ({RNS.prettysize(len(msgpack.packb(unhandled_ids)))})", RNS.LOG_VERBOSE)
                                 self.last_offer = unhandled_ids
                                 self.link.request(LXMPeer.OFFER_REQUEST_PATH, unhandled_ids, response_callback=self.offer_response, failed_callback=self.request_failed)
                                 self.state = LXMPeer.REQUEST_SENT
@@ -327,7 +356,7 @@ class LXMPeer:
                     wanted_message_ids.append(transient_id)
 
             if len(wanted_messages) > 0:
-                RNS.log("Peer wanted "+str(len(wanted_messages))+" of the available messages", RNS.LOG_VERBOSE)
+                RNS.log(f"Peer {RNS.prettyhexrep(self.destination_hash)} wanted {str(len(wanted_messages))} of the available messages", RNS.LOG_VERBOSE)
 
                 lxm_list = []
                 for message_entry in wanted_messages:
@@ -339,13 +368,14 @@ class LXMPeer:
                         lxm_list.append(lxmf_data)
 
                 data = msgpack.packb([time.time(), lxm_list])
+                RNS.log(f"Total transfer size for this sync is {RNS.prettysize(len(data))}", RNS.LOG_VERBOSE)
                 resource = RNS.Resource(data, self.link, callback = self.resource_concluded)
-                resource.transferred_messages = wanted_message_ids
-                resource.sync_transfer_started = time.time()
+                self.currently_transferring_messages = wanted_message_ids
+                self.current_sync_transfer_started = time.time()
                 self.state = LXMPeer.RESOURCE_TRANSFERRING
 
             else:
-                RNS.log("Peer "+RNS.prettyhexrep(self.destination_hash)+" did not request any of the available messages, sync completed", RNS.LOG_VERBOSE)
+                RNS.log(f"Peer {RNS.prettyhexrep(self.destination_hash)} did not request any of the available messages, sync completed", RNS.LOG_VERBOSE)
                 self.offered += len(self.last_offer)
                 if self.link != None:
                     self.link.teardown()
@@ -365,7 +395,13 @@ class LXMPeer:
 
     def resource_concluded(self, resource):
         if resource.status == RNS.Resource.COMPLETE:
-            for transient_id in resource.transferred_messages:
+            if self.currently_transferring_messages == None:
+                RNS.log(f"Sync transfer completed on {self}, but transferred message index was unavailable. Aborting.", RNS.LOG_ERROR)
+                if self.link != None: self.link.teardown()
+                self.link = None
+                self.state = LXMPeer.IDLE
+
+            for transient_id in self.currently_transferring_messages:
                 self.add_handled_message(transient_id)
                 self.remove_unhandled_message(transient_id)
             
@@ -376,24 +412,30 @@ class LXMPeer:
             self.state = LXMPeer.IDLE
 
             rate_str = ""
-            if hasattr(resource, "sync_transfer_started") and resource.sync_transfer_started:
-                self.sync_transfer_rate = (resource.get_transfer_size()*8)/(time.time()-resource.sync_transfer_started)
+            if self.current_sync_transfer_started != None:
+                self.sync_transfer_rate = (resource.get_transfer_size()*8)/(time.time()-self.current_sync_transfer_started)
                 rate_str = f" at {RNS.prettyspeed(self.sync_transfer_rate)}"
 
-            RNS.log(f"Syncing {len(resource.transferred_messages)} messages to peer {RNS.prettyhexrep(self.destination_hash)} completed{rate_str}", RNS.LOG_VERBOSE)
+            RNS.log(f"Syncing {len(self.currently_transferring_messages)} messages to peer {RNS.prettyhexrep(self.destination_hash)} completed{rate_str}", RNS.LOG_VERBOSE)
             self.alive = True
             self.last_heard = time.time()
             self.offered   += len(self.last_offer)
-            self.outgoing  += len(resource.transferred_messages)
+            self.outgoing  += len(self.currently_transferring_messages)
             self.tx_bytes  += resource.get_data_size()
+
+            self.currently_transferring_messages = None
+            self.current_sync_transfer_started = None
+
+            if self.sync_strategy == self.STRATEGY_PERSISTENT:
+                if self.unhandled_message_count > 0: self.sync()
         
         else:
             RNS.log("Resource transfer for LXMF peer sync failed to "+str(self.destination), RNS.LOG_VERBOSE)
-            if self.link != None:
-                self.link.teardown()
-
+            if self.link != None: self.link.teardown()
             self.link = None
             self.state = LXMPeer.IDLE
+            self.currently_transferring_messages = None
+            self.current_sync_transfer_started = None
 
     def link_established(self, link):
         self.link.identify(self.router.identity)
