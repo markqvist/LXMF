@@ -901,8 +901,7 @@ class LXMRouter:
         RNS.log(f"Updating outbound stamp cost for {RNS.prettyhexrep(destination_hash)} to {stamp_cost}", RNS.LOG_DEBUG)
         self.outbound_stamp_costs[destination_hash] = [time.time(), stamp_cost]
         
-        def job():
-            self.save_outbound_stamp_costs()
+        def job(): self.save_outbound_stamp_costs()
         threading.Thread(target=self.save_outbound_stamp_costs, daemon=True).start()
 
     def get_announce_app_data(self, destination_hash):
