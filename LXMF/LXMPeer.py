@@ -70,6 +70,16 @@ class LXMPeer:
             except: peer.propagation_sync_limit = peer.propagation_transfer_limit
         else:       peer.propagation_sync_limit = peer.propagation_transfer_limit
 
+        if "propagation_stamp_cost" in dictionary:
+            try:    peer.propagation_stamp_cost = int(dictionary["propagation_stamp_cost"])
+            except: peer.propagation_stamp_cost = None
+        else:       peer.propagation_stamp_cost = None
+
+        if "propagation_stamp_cost_flexibility" in dictionary:
+            try:    peer.propagation_stamp_cost_flexibility = int(dictionary["propagation_stamp_cost_flexibility"])
+            except: peer.propagation_stamp_cost_flexibility = None
+        else:       peer.propagation_stamp_cost_flexibility = None
+
         if "sync_strategy" in dictionary:
             try: peer.sync_strategy = int(dictionary["sync_strategy"])
             except: peer.sync_strategy = LXMPeer.DEFAULT_SYNC_STRATEGY
@@ -118,9 +128,11 @@ class LXMPeer:
         dictionary["sync_transfer_rate"] = self.sync_transfer_rate
         dictionary["propagation_transfer_limit"] = self.propagation_transfer_limit
         dictionary["propagation_sync_limit"] = self.propagation_sync_limit
+        dictionary["propagation_stamp_cost"] = self.propagation_stamp_cost
+        dictionary["propagation_stamp_cost_flexibility"] = self.propagation_stamp_cost_flexibility
         dictionary["sync_strategy"] = self.sync_strategy
         dictionary["last_sync_attempt"] = self.last_sync_attempt
-        dictionary["offered"] = self.offered
+        dictionary["offered"]  = self.offered
         dictionary["outgoing"] = self.outgoing
         dictionary["incoming"] = self.incoming
         dictionary["rx_bytes"] = self.rx_bytes
@@ -153,11 +165,14 @@ class LXMPeer:
         self.peering_timebase = 0
         self.link_establishment_rate = 0
         self.sync_transfer_rate = 0
-        self.propagation_transfer_limit = None
-        self.propagation_sync_limit = None
-        self.currently_transferring_messages = None
-        self.handled_messages_queue = deque()
-        self.unhandled_messages_queue = deque()
+
+        self.propagation_transfer_limit         = None
+        self.propagation_sync_limit             = None
+        self.propagation_stamp_cost             = None
+        self.propagation_stamp_cost_flexibility = None
+        self.currently_transferring_messages    = None
+        self.handled_messages_queue             = deque()
+        self.unhandled_messages_queue           = deque()
 
         self.offered  = 0   # Messages offered to this peer
         self.outgoing = 0   # Messages transferred to this peer

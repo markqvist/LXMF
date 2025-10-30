@@ -150,6 +150,20 @@ def apply_config():
         else:
             active_configuration["propagation_sync_max_accepted_size"] = 256*40
         
+        if "propagation" in lxmd_config and "propagation_stamp_cost_target" in lxmd_config["propagation"]:
+            active_configuration["propagation_stamp_cost_target"] = lxmd_config["propagation"].as_int("propagation_stamp_cost_target")
+            if active_configuration["propagation_stamp_cost_target"] < LXMF.LXMRouter.PROPAGATION_COST_MIN:
+                active_configuration["propagation_stamp_cost_target"] = LXMF.LXMRouter.PROPAGATION_COST_MIN
+        else:
+            active_configuration["propagation_stamp_cost_target"] = LXMF.LXMRouter.PROPAGATION_COST
+        
+        if "propagation" in lxmd_config and "propagation_stamp_cost_flexibility" in lxmd_config["propagation"]:
+            active_configuration["propagation_stamp_cost_flexibility"] = lxmd_config["propagation"].as_int("propagation_stamp_cost_flexibility")
+            if active_configuration["propagation_stamp_cost_flexibility"] < 0:
+                active_configuration["propagation_stamp_cost_flexibility"] = 0
+        else:
+            active_configuration["propagation_stamp_cost_flexibility"] = LXMF.LXMRouter.PROPAGATION_COST_FLEX
+        
         if "propagation" in lxmd_config and "prioritise_destinations" in lxmd_config["propagation"]:
             active_configuration["prioritised_lxmf_destinations"] = lxmd_config["propagation"].as_list("prioritise_destinations")
         else:
@@ -337,6 +351,8 @@ def program_setup(configdir = None, rnsconfigdir = None, run_pn = False, on_inbo
         autopeer = active_configuration["autopeer"],
         autopeer_maxdepth = active_configuration["autopeer_maxdepth"],
         propagation_limit = active_configuration["propagation_transfer_max_accepted_size"],
+        propagation_cost = active_configuration["propagation_stamp_cost_target"],
+        propagation_cost_flexibility = active_configuration["propagation_stamp_cost_flexibility"],
         sync_limit = active_configuration["propagation_sync_max_accepted_size"],
         delivery_limit = active_configuration["delivery_transfer_max_accepted_size"],
         max_peers = active_configuration["max_peers"],
@@ -557,13 +573,15 @@ def get_status(configdir = None, rnsconfigdir = None, verbosity = 0, quietness =
         print(f"\nLXMF Propagation Node running on {dhs}, uptime is {uts}")
 
         if show_status:
-            msb = RNS.prettysize(s["messagestore"]["bytes"]); msl = RNS.prettysize(s["messagestore"]["limit"])
-            ptl = RNS.prettysize(s["propagation_limit"]*1000); uprx = RNS.prettysize(s["unpeered_propagation_rx_bytes"])
+            msb   = RNS.prettysize(s["messagestore"]["bytes"]); msl = RNS.prettysize(s["messagestore"]["limit"])
+            ptl   = RNS.prettysize(s["propagation_limit"]*1000); uprx = RNS.prettysize(s["unpeered_propagation_rx_bytes"])
             mscnt = s["messagestore"]["count"]; stp = s["total_peers"]; smp = s["max_peers"]; sdp = s["discovered_peers"]
-            ssp = s["static_peers"]; cprr = s["clients"]["client_propagation_messages_received"]
-            cprs = s["clients"]["client_propagation_messages_served"]; upi = s["unpeered_propagation_incoming"]
+            ssp   = s["static_peers"]; cprr = s["clients"]["client_propagation_messages_received"]
+            cprs  = s["clients"]["client_propagation_messages_served"]; upi = s["unpeered_propagation_incoming"]
+            psc   = s["target_stamp_cost"]; scf = s["stamp_cost_flexibility"]
             print(f"Messagestore contains {mscnt} messages, {msb} ({ms_util} utilised of {msl})")
             print(f"Accepting propagated messages from {who_str}, {ptl} per-transfer limit")
+            print(f"Required propagation stamp cost is {psc}, flexibility is {scf}")
             print(f"")
             print(f"Peers   : {stp} total (peer limit is {smp})")
             print(f"          {sdp} discovered, {ssp} static")
@@ -690,24 +708,6 @@ autopeer = yes
 
 autopeer_maxdepth = 4
 
-# The maximum accepted transfer size per in-
-# coming propagation message, in kilobytes.
-# This sets the upper limit for the size of
-# single messages accepted onto this node.
-
-propagation_message_max_accepted_size = 256
-
-# The maximum accepted transfer size per in-
-# coming propagation node sync.
-#
-# If a node wants to propagate a larger number
-# of messages to this node, than what can fit
-# within this limit, it will prioritise sending
-# the smallest messages first, and try again
-# with any remaining messages at a later point.
-
-propagation_sync_max_accepted_size = 256
-
 # The maximum amount of storage to use for
 # the LXMF Propagation Node message store,
 # specified in megabytes. When this limit
@@ -719,6 +719,38 @@ propagation_sync_max_accepted_size = 256
 # and defaults to 500 megabytes.
 
 # message_storage_limit = 500
+
+# The maximum accepted transfer size per in-
+# coming propagation message, in kilobytes.
+# This sets the upper limit for the size of
+# single messages accepted onto this node.
+
+# propagation_message_max_accepted_size = 256
+
+# The maximum accepted transfer size per in-
+# coming propagation node sync.
+#
+# If a node wants to propagate a larger number
+# of messages to this node, than what can fit
+# within this limit, it will prioritise sending
+# the smallest messages first, and try again
+# with any remaining messages at a later point.
+
+# propagation_sync_max_accepted_size = 10240
+
+# You can configure the target stamp cost
+# required to deliver messages via this node.
+
+# propagation_stamp_cost_target = 12
+
+# If set higher than 0, the stamp cost flexi-
+# bility option will make this node accept
+# messages with a lower stamp cost than the
+# target from other propagation nodes (but
+# not from peers directly). This allows the
+# network to gradually adjust stamp cost.
+
+# propagation_stamp_cost_flexibility = 3
 
 # You can tell the LXMF message router to
 # prioritise storage for one or more

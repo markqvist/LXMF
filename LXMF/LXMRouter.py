@@ -44,6 +44,9 @@ class LXMRouter:
     ROTATION_HEADROOM_PCT = 10
     ROTATION_AR_MAX       = 0.5
 
+    PROPAGATION_COST      = 12
+    PROPAGATION_COST_MIN  = 10
+    PROPAGATION_COST_FLEX = 3
     PROPAGATION_LIMIT     = 256
     SYNC_LIMIT            = PROPAGATION_LIMIT*40
     DELIVERY_LIMIT        = 1000
@@ -76,7 +79,8 @@ class LXMRouter:
     def __init__(self, identity=None, storagepath=None, autopeer=AUTOPEER, autopeer_maxdepth=None,
                  propagation_limit=PROPAGATION_LIMIT, delivery_limit=DELIVERY_LIMIT, sync_limit=SYNC_LIMIT,
                  enforce_ratchets=False, enforce_stamps=False, static_peers = [], max_peers=None,
-                 from_static_only=False, sync_strategy=LXMPeer.STRATEGY_PERSISTENT):
+                 from_static_only=False, sync_strategy=LXMPeer.STRATEGY_PERSISTENT,
+                 propagation_cost=PROPAGATION_COST, propagation_cost_flexibility=PROPAGATION_COST_FLEX):
 
         random.seed(os.urandom(10))
 
@@ -101,8 +105,7 @@ class LXMRouter:
         self.propagation_node = False
         self.propagation_node_start_time = None
 
-        if storagepath == None:
-            raise ValueError("LXMF cannot be initialised without a storage path")
+        if storagepath == None: raise ValueError("LXMF cannot be initialised without a storage path")
         else:
             self.storagepath = storagepath+"/lxmf"
             self.ratchetpath = self.storagepath+"/ratchets"
@@ -117,6 +120,8 @@ class LXMRouter:
         self.propagation_per_transfer_limit = propagation_limit
         self.propagation_per_sync_limit = sync_limit
         self.delivery_per_transfer_limit = delivery_limit
+        self.propagation_stamp_cost = propagation_cost
+        self.propagation_stamp_cost_flexibility = propagation_cost_flexibility
         self.enforce_ratchets = enforce_ratchets
         self._enforce_stamps = enforce_stamps
         self.pending_deferred_stamps = {}
@@ -153,34 +158,24 @@ class LXMRouter:
         self.unpeered_propagation_incoming = 0
         self.unpeered_propagation_rx_bytes = 0
 
-        if autopeer != None:
-            self.autopeer = autopeer
-        else:
-            self.autopeer = LXMRouter.AUTOPEER
+        if autopeer != None: self.autopeer = autopeer
+        else:                self.autopeer = LXMRouter.AUTOPEER
 
-        if autopeer_maxdepth != None:
-            self.autopeer_maxdepth = autopeer_maxdepth
-        else:
-            self.autopeer_maxdepth = LXMRouter.AUTOPEER_MAXDEPTH
+        if autopeer_maxdepth != None: self.autopeer_maxdepth = autopeer_maxdepth
+        else:                         self.autopeer_maxdepth = LXMRouter.AUTOPEER_MAXDEPTH
 
-        if max_peers == None:
-            self.max_peers = LXMRouter.MAX_PEERS
+        if max_peers == None: self.max_peers = LXMRouter.MAX_PEERS
         else:
-            if type(max_peers) == int and max_peers >= 0:
-                self.max_peers = max_peers
-            else:
-                raise ValueError(f"Invalid value for max_peers: {max_peers}")
+            if type(max_peers) == int and max_peers >= 0: self.max_peers = max_peers
+            else: raise ValueError(f"Invalid value for max_peers: {max_peers}")
 
         self.from_static_only = from_static_only
-        if type(static_peers) != list:
-            raise ValueError(f"Invalid type supplied for static peer list: {type(static_peers)}")
+        if type(static_peers) != list: raise ValueError(f"Invalid type supplied for static peer list: {type(static_peers)}")
         else:
             for static_peer in static_peers:
-                if type(static_peer) != bytes:
-                    raise ValueError(f"Invalid static peer destination hash: {static_peer}")
+                if type(static_peer) != bytes: raise ValueError(f"Invalid static peer destination hash: {static_peer}")
                 else:
-                    if len(static_peer) != RNS.Reticulum.TRUNCATED_HASHLENGTH//8:
-                        raise ValueError(f"Invalid static peer destination hash: {static_peer}")
+                    if len(static_peer) != RNS.Reticulum.TRUNCATED_HASHLENGTH//8: raise ValueError(f"Invalid static peer destination hash: {static_peer}")
 
             self.static_peers = static_peers
 
@@ -288,11 +283,12 @@ class LXMRouter:
         def delayed_announce():
             time.sleep(LXMRouter.NODE_ANNOUNCE_DELAY)
             node_state = self.propagation_node and not self.from_static_only
+            stamp_cost = [self.propagation_stamp_cost, self.propagation_stamp_cost_flexibility]
             announce_data = [
                 node_state,                             # Boolean flag signalling propagation node state
                 int(time.time()),                       # Current node timebase
                 self.propagation_per_transfer_limit,    # Per-transfer limit for message propagation in kilobytes
-                None,                                   # How many more inbound peers this node wants
+                stamp_cost,                             # Propagation stamp cost for this node
                 self.propagation_per_sync_limit,        # Limit for incoming propagation node syncs
             ]
 
@@ -716,6 +712,8 @@ class LXMRouter:
                     "str": int(peer.sync_transfer_rate),
                     "transfer_limit": peer.propagation_transfer_limit,
                     "sync_limit": peer.propagation_sync_limit,
+                    "target_stamp_cost": peer.propagation_stamp_cost,
+                    "stamp_cost_flexibility": peer.propagation_stamp_cost_flexibility,
                     "network_distance": RNS.Transport.hops_to(peer_id),
                     "rx_bytes": peer.rx_bytes,
                     "tx_bytes": peer.tx_bytes,
@@ -734,6 +732,8 @@ class LXMRouter:
                 "delivery_limit": self.delivery_per_transfer_limit,
                 "propagation_limit": self.propagation_per_transfer_limit,
                 "sync_limit": self.propagation_per_sync_limit,
+                "target_stamp_cost": self.propagation_stamp_cost,
+                "stamp_cost_flexibility": self.propagation_stamp_cost_flexibility,
                 "autopeer_maxdepth": self.autopeer_maxdepth,
                 "from_static_only": self.from_static_only,
                 "messagestore": {
@@ -757,12 +757,9 @@ class LXMRouter:
             return node_stats
 
     def stats_get_request(self, path, data, request_id, remote_identity, requested_at):
-        if remote_identity == None:
-            return LXMPeer.ERROR_NO_IDENTITY
-        elif remote_identity.hash != self.identity.hash:
-            return LXMPeer.ERROR_NO_ACCESS
-        else:
-            return self.compile_stats()
+        if   remote_identity == None:                    return LXMPeer.ERROR_NO_IDENTITY
+        elif remote_identity.hash != self.identity.hash: return LXMPeer.ERROR_NO_ACCESS
+        else:                                            return self.compile_stats()
 
 
     ### Utility & Maintenance #############################
