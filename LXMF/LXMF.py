@@ -99,21 +99,17 @@ RENDERER_BBCODE        = 0x03
 import RNS
 import RNS.vendor.umsgpack as msgpack
 def display_name_from_app_data(app_data=None):
-    if app_data == None:
-        return None
-    elif len(app_data) == 0:
-        return None
+    if app_data == None:     return None
+    elif len(app_data) == 0: return None
     else:
         # Version 0.5.0+ announce format
         if (app_data[0] >= 0x90 and app_data[0] <= 0x9f) or app_data[0] == 0xdc:
             peer_data = msgpack.unpackb(app_data)
             if type(peer_data) == list:
-                if len(peer_data) < 1:
-                    return None
+                if len(peer_data) < 1: return None
                 else:
                     dn = peer_data[0]
-                    if dn == None:
-                        return None
+                    if dn == None: return None
                     else:
                         try:
                             decoded = dn.decode("utf-8")
@@ -127,36 +123,26 @@ def display_name_from_app_data(app_data=None):
             return app_data.decode("utf-8")
 
 def stamp_cost_from_app_data(app_data=None):
-    if app_data == None or app_data == b"":
-        return None
+    if app_data == None or app_data == b"": return None
     else:
         # Version 0.5.0+ announce format
         if (app_data[0] >= 0x90 and app_data[0] <= 0x9f) or app_data[0] == 0xdc:
             peer_data = msgpack.unpackb(app_data)
             if type(peer_data) == list:
-                if len(peer_data) < 2:
-                    return None
-                else:
-                    return peer_data[1]
+                if len(peer_data) < 2: return None
+                else: return peer_data[1]
 
         # Original announce format
-        else:
-            return None
+        else: return None
 
 def pn_announce_data_is_valid(data):
     try:
-        if type(data) == bytes:
-            data = msgpack.unpackb(data)
-
-        if len(data) < 3:
-            raise ValueError("Invalid announce data: Insufficient peer data")
+        if type(data) == bytes: data = msgpack.unpackb(data)
+        if len(data) < 3: raise ValueError("Invalid announce data: Insufficient peer data")
         else:
-            if data[0] != True and data[0] != False:
-                raise ValueError("Invalid announce data: Indeterminate propagation node status")
-            try:
-                int(data[1])
-            except:
-                raise ValueError("Invalid announce data: Could not decode peer timebase")
+            if data[0] != True and data[0] != False: raise ValueError("Invalid announce data: Indeterminate propagation node status")
+            try:                                     int(data[1])
+            except:                                  raise ValueError("Invalid announce data: Could not decode peer timebase")
     
     except Exception as e:
         RNS.log(f"Could not validate propagation node announce data: {e}", RNS.LOG_DEBUG)
