@@ -149,7 +149,8 @@ def stamp_cost_from_app_data(app_data=None):
 
 def pn_announce_data_is_valid(data):
     try:
-        if type(data) == bytes: data = msgpack.unpackb(data)
+        if type(data) != bytes: return False
+        else:                   data = msgpack.unpackb(data)
         if len(data) < 7: raise ValueError("Invalid announce data: Insufficient peer data")
         else:
             try:                                     int(data[1])

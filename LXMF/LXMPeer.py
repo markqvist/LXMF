@@ -259,7 +259,7 @@ class LXMPeer:
                                 per_message_overhead  = 16 # Really only 2 bytes, but set a bit higher for now
                                 cumulative_size       = 24 # Initialised to highest reasonable binary structure overhead
                                 RNS.log(f"Syncing to peer with per-message limit {RNS.prettysize(self.propagation_transfer_limit*1000)} and sync limit {RNS.prettysize(self.propagation_sync_limit*1000)}")  # TODO: Remove debug
-                                
+
                                 for unhandled_entry in unhandled_entries:
                                     transient_id      = unhandled_entry[0]
                                     weight            = unhandled_entry[1]

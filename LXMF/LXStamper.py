@@ -17,12 +17,10 @@ def stamp_workblock(message_id, expand_rounds=WORKBLOCK_EXPAND_ROUNDS):
     wb_st = time.time()
     workblock = b""
     for n in range(expand_rounds):
-        workblock += RNS.Cryptography.hkdf(
-            length=256,
-            derive_from=message_id,
-            salt=RNS.Identity.full_hash(message_id+msgpack.packb(n)),
-            context=None,
-        )
+        workblock += RNS.Cryptography.hkdf(length=256,
+                                           derive_from=message_id,
+                                           salt=RNS.Identity.full_hash(message_id+msgpack.packb(n)),
+                                           context=None)
     wb_time = time.time() - wb_st
     # RNS.log(f"Stamp workblock size {RNS.prettysize(len(workblock))}, generated in {round(wb_time*1000,2)}ms", RNS.LOG_DEBUG)
 
