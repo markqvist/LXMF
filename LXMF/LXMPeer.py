@@ -54,63 +54,39 @@ class LXMPeer:
         peer.alive = peer_alive
         peer.last_heard = peer_last_heard
 
-        if "link_establishment_rate" in dictionary:
-            peer.link_establishment_rate = dictionary["link_establishment_rate"]
-        else:
-            peer.link_establishment_rate = 0
+        if "link_establishment_rate" in dictionary: peer.link_establishment_rate = dictionary["link_establishment_rate"]
+        else: peer.link_establishment_rate = 0
         
-        if "sync_transfer_rate" in dictionary:
-            peer.sync_transfer_rate = dictionary["sync_transfer_rate"]
-        else:
-            peer.sync_transfer_rate = 0
+        if "sync_transfer_rate" in dictionary: peer.sync_transfer_rate = dictionary["sync_transfer_rate"]
+        else:                                  peer.sync_transfer_rate = 0
 
         if "propagation_transfer_limit" in dictionary:
-            try:
-                peer.propagation_transfer_limit = float(dictionary["propagation_transfer_limit"])
-            except Exception as e:
-                peer.propagation_transfer_limit = None
-        else:
-            peer.propagation_transfer_limit = None
+            try:                   peer.propagation_transfer_limit = float(dictionary["propagation_transfer_limit"])
+            except Exception as e: peer.propagation_transfer_limit = None
+        else:                      peer.propagation_transfer_limit = None
 
         if "propagation_sync_limit" in dictionary:
-            try: peer.propagation_sync_limit = int(dictionary["propagation_sync_limit"])
+            try:    peer.propagation_sync_limit = int(dictionary["propagation_sync_limit"])
             except: peer.propagation_sync_limit = peer.propagation_transfer_limit
-        else: peer.propagation_sync_limit = peer.propagation_transfer_limit
+        else:       peer.propagation_sync_limit = peer.propagation_transfer_limit
 
         if "sync_strategy" in dictionary:
             try: peer.sync_strategy = int(dictionary["sync_strategy"])
             except: peer.sync_strategy = LXMPeer.DEFAULT_SYNC_STRATEGY
         else: peer.sync_strategy = LXMPeer.DEFAULT_SYNC_STRATEGY
         
-        if "offered" in dictionary:
-            peer.offered = dictionary["offered"]
-        else:
-            peer.offered = 0
-
-        if "outgoing" in dictionary:
-            peer.outgoing = dictionary["outgoing"]
-        else:
-            peer.outgoing = 0
-
-        if "incoming" in dictionary:
-            peer.incoming = dictionary["incoming"]
-        else:
-            peer.incoming = 0
-
-        if "rx_bytes" in dictionary:
-            peer.rx_bytes = dictionary["rx_bytes"]
-        else:
-            peer.rx_bytes = 0
-        
-        if "tx_bytes" in dictionary:
-            peer.tx_bytes = dictionary["tx_bytes"]
-        else:
-            peer.tx_bytes = 0
-        
-        if "last_sync_attempt" in dictionary:
-            peer.last_sync_attempt = dictionary["last_sync_attempt"]
-        else:
-            peer.last_sync_attempt = 0
+        if "offered"  in dictionary:          peer.offered = dictionary["offered"]
+        else:                                 peer.offered = 0
+        if "outgoing" in dictionary:          peer.outgoing = dictionary["outgoing"]
+        else:                                 peer.outgoing = 0
+        if "incoming" in dictionary:          peer.incoming = dictionary["incoming"]
+        else:                                 peer.incoming = 0
+        if "rx_bytes" in dictionary:          peer.rx_bytes = dictionary["rx_bytes"]
+        else:                                 peer.rx_bytes = 0
+        if "tx_bytes" in dictionary:          peer.tx_bytes = dictionary["tx_bytes"]
+        else:                                 peer.tx_bytes = 0
+        if "last_sync_attempt" in dictionary: peer.last_sync_attempt = dictionary["last_sync_attempt"]
+        else:                                 peer.last_sync_attempt = 0
 
         hm_count = 0
         for transient_id in dictionary["handled_ids"]:
