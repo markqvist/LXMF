@@ -74,6 +74,11 @@ class LXMFPropagationAnnounceHandler:
                                                                 propagation_stamp_cost_flexibility=propagation_stamp_cost_flexibility,
                                                                 metadata=metadata)
 
+                                        else:
+                                            if destination_hash in self.lxmrouter.peers:
+                                                RNS.log(f"Peer {self.lxmrouter.peers[destination_hash]} moved outside auto-peering range, breaking peering...")
+                                                self.lxmrouter.unpeer(destination_hash, node_timebase)
+
                                     elif propagation_enabled == False:
                                         self.lxmrouter.unpeer(destination_hash, node_timebase)
 
