@@ -138,11 +138,20 @@ def stamp_cost_from_app_data(app_data=None):
 def pn_announce_data_is_valid(data):
     try:
         if type(data) == bytes: data = msgpack.unpackb(data)
-        if len(data) < 3: raise ValueError("Invalid announce data: Insufficient peer data")
+        if len(data) < 5: raise ValueError("Invalid announce data: Insufficient peer data")
         else:
             if data[0] != True and data[0] != False: raise ValueError("Invalid announce data: Indeterminate propagation node status")
             try:                                     int(data[1])
             except:                                  raise ValueError("Invalid announce data: Could not decode peer timebase")
+            try:                                     int(data[2])
+            except:                                  raise ValueError("Invalid announce data: Could not decode peer propagation transfer limit")
+            try:                                     int(data[3])
+            except:                                  raise ValueError("Invalid announce data: Could not decode peer propagation sync limit")
+            if type(data[4]) != list:                raise ValueError("Invalid announce data: Could not decode peer stamp costs")
+            try:                                     int(data[4][0])
+            except:                                  raise ValueError("Invalid announce data: Could not decode peer target stamp cost")
+            try:                                     int(data[4][1])
+            except:                                  raise ValueError("Invalid announce data: Could not decode peer stamp cost flexibility")
     
     except Exception as e:
         RNS.log(f"Could not validate propagation node announce data: {e}", RNS.LOG_DEBUG)

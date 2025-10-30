@@ -288,8 +288,8 @@ class LXMRouter:
                 node_state,                             # Boolean flag signalling propagation node state
                 int(time.time()),                       # Current node timebase
                 self.propagation_per_transfer_limit,    # Per-transfer limit for message propagation in kilobytes
-                stamp_cost,                             # Propagation stamp cost for this node
                 self.propagation_per_sync_limit,        # Limit for incoming propagation node syncs
+                stamp_cost,                             # Propagation stamp cost for this node
             ]
 
             data = msgpack.packb(announce_data)
@@ -1783,7 +1783,7 @@ class LXMRouter:
     ### Peer Sync & Propagation ###########################
     #######################################################
 
-    def peer(self, destination_hash, timestamp, propagation_transfer_limit, propagation_sync_limit, wanted_inbound_peers = None):
+    def peer(self, destination_hash, timestamp, propagation_transfer_limit, propagation_sync_limit, propagation_stamp_cost, propagation_stamp_cost_flexibility):
         if destination_hash in self.peers:
             peer = self.peers[destination_hash]
             if timestamp > peer.peering_timebase:
@@ -1792,6 +1792,8 @@ class LXMRouter:
                 peer.next_sync_attempt = 0
                 peer.peering_timebase = timestamp
                 peer.last_heard = time.time()
+                peer.propagation_stamp_cost = propagation_stamp_cost
+                peer.propagation_stamp_cost_flexibility = propagation_stamp_cost_flexibility
                 peer.propagation_transfer_limit = propagation_transfer_limit
                 if propagation_sync_limit != None: peer.propagation_sync_limit = propagation_sync_limit
                 else:                              peer.propagation_sync_limit = propagation_transfer_limit
@@ -1803,6 +1805,8 @@ class LXMRouter:
                 peer = LXMPeer(self, destination_hash, sync_strategy=self.default_sync_strategy)
                 peer.alive = True
                 peer.last_heard = time.time()
+                peer.propagation_stamp_cost = propagation_stamp_cost
+                peer.propagation_stamp_cost_flexibility = propagation_stamp_cost_flexibility
                 peer.propagation_transfer_limit = propagation_transfer_limit
                 if propagation_sync_limit != None: peer.propagation_sync_limit = propagation_sync_limit
                 else:                              peer.propagation_sync_limit = propagation_transfer_limit
