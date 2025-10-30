@@ -91,6 +91,17 @@ RENDERER_MICRON        = 0x01
 RENDERER_MARKDOWN      = 0x02
 RENDERER_BBCODE        = 0x03
 
+# Optional propagation node metadata fields. These
+# fields may be highly unstable in allocation and
+# availability until the version 1.0.0 release, so use
+# at your own risk until then, and expect changes!
+PN_META_VERSION        = 0x00
+PN_META_NAME           = 0x01
+PN_META_SYNC_STRATUM   = 0x02
+PN_META_SYNC_THROTTLE  = 0x03
+PN_META_AUTH_BAND      = 0x04
+PN_META_UTIL_PRESSURE  = 0x05
+
 ##########################################################
 # The following helper functions makes it easier to      #
 # handle and operate on LXMF data in client programs     #
@@ -138,19 +149,20 @@ def stamp_cost_from_app_data(app_data=None):
 def pn_announce_data_is_valid(data):
     try:
         if type(data) == bytes: data = msgpack.unpackb(data)
-        if len(data) < 5: raise ValueError("Invalid announce data: Insufficient peer data")
+        if len(data) < 6: raise ValueError("Invalid announce data: Insufficient peer data")
         else:
-            if data[0] != True and data[0] != False: raise ValueError("Invalid announce data: Indeterminate propagation node status")
-            try:                                     int(data[1])
-            except:                                  raise ValueError("Invalid announce data: Could not decode peer timebase")
+            if type(data[0]) != dict:                raise ValueError("Invalid announce data: Could not decode peer metadata")
+            if data[1] != True and data[1] != False: raise ValueError("Invalid announce data: Indeterminate propagation node status")
             try:                                     int(data[2])
-            except:                                  raise ValueError("Invalid announce data: Could not decode peer propagation transfer limit")
+            except:                                  raise ValueError("Invalid announce data: Could not decode peer timebase")
             try:                                     int(data[3])
+            except:                                  raise ValueError("Invalid announce data: Could not decode peer propagation transfer limit")
+            try:                                     int(data[4])
             except:                                  raise ValueError("Invalid announce data: Could not decode peer propagation sync limit")
             if type(data[4]) != list:                raise ValueError("Invalid announce data: Could not decode peer stamp costs")
-            try:                                     int(data[4][0])
+            try:                                     int(data[5][0])
             except:                                  raise ValueError("Invalid announce data: Could not decode peer target stamp cost")
-            try:                                     int(data[4][1])
+            try:                                     int(data[5][1])
             except:                                  raise ValueError("Invalid announce data: Could not decode peer stamp cost flexibility")
     
     except Exception as e:

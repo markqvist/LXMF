@@ -76,7 +76,7 @@ def validate_pn_stamps_job_multip(transient_stamps):
     cores      = multiprocessing.cpu_count()
     pool_count = min(cores, math.ceil(len(transient_stamps) / PN_VALIDATION_POOL_MIN_SIZE))
         
-    RNS.log(f"Validating {len(transient_stamps)} stamps using {pool_count} processes...")
+    RNS.log(f"Validating {len(transient_stamps)} stamps using {pool_count} processes...", RNS.LOG_VERBOSE)
     with multiprocessing.Pool(pool_count) as p: validated_entries = p.map(_validate_single_pn_stamp_entry, transient_stamps)
 
     return validated_entries

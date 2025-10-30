@@ -45,12 +45,13 @@ class LXMFPropagationAnnounceHandler:
                     if self.lxmrouter.propagation_node:
                         data = msgpack.unpackb(app_data)
                         if pn_announce_data_is_valid(data):
-                            pn_active = data[0]
-                            node_timebase = int(data[1])
-                            propagation_transfer_limit = int(data[2])
-                            propagation_sync_limit = int(data[3])
-                            propagation_stamp_cost = int(data[4][0])
-                            propagation_stamp_cost_flexibility = int(data[4][1])
+                            metadata                           = data[0]
+                            propagation_enabled                = data[1]
+                            node_timebase                      = int(data[2])
+                            propagation_transfer_limit         = int(data[3])
+                            propagation_sync_limit             = int(data[4])
+                            propagation_stamp_cost             = int(data[5][0])
+                            propagation_stamp_cost_flexibility = int(data[5][1])
                             
                             if destination_hash in self.lxmrouter.static_peers:
                                 self.lxmrouter.peer(destination_hash=destination_hash,
@@ -58,20 +59,22 @@ class LXMFPropagationAnnounceHandler:
                                                     propagation_transfer_limit=propagation_transfer_limit,
                                                     propagation_sync_limit=propagation_sync_limit,
                                                     propagation_stamp_cost=propagation_stamp_cost,
-                                                    propagation_stamp_cost_flexibility=propagation_stamp_cost_flexibility)
+                                                    propagation_stamp_cost_flexibility=propagation_stamp_cost_flexibility,
+                                                    metadata=metadata)
 
                             else:
                                 if self.lxmrouter.autopeer:
-                                    if pn_active == True:
+                                    if propagation_enabled == True:
                                         if RNS.Transport.hops_to(destination_hash) <= self.lxmrouter.autopeer_maxdepth:
                                             self.lxmrouter.peer(destination_hash=destination_hash,
                                                                 timestamp=node_timebase,
                                                                 propagation_transfer_limit=propagation_transfer_limit,
                                                                 propagation_sync_limit=propagation_sync_limit,
                                                                 propagation_stamp_cost=propagation_stamp_cost,
-                                                                propagation_stamp_cost_flexibility=propagation_stamp_cost_flexibility)
+                                                                propagation_stamp_cost_flexibility=propagation_stamp_cost_flexibility,
+                                                                metadata=metadata)
 
-                                    elif pn_active == False:
+                                    elif propagation_enabled == False:
                                         self.lxmrouter.unpeer(destination_hash, node_timebase)
 
             except Exception as e:

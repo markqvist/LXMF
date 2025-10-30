@@ -282,9 +282,11 @@ class LXMRouter:
     def announce_propagation_node(self):
         def delayed_announce():
             time.sleep(LXMRouter.NODE_ANNOUNCE_DELAY)
-            node_state = self.propagation_node and not self.from_static_only
-            stamp_cost = [self.propagation_stamp_cost, self.propagation_stamp_cost_flexibility]
+            node_state    = self.propagation_node and not self.from_static_only
+            stamp_cost    = [self.propagation_stamp_cost, self.propagation_stamp_cost_flexibility]
+            metadata      = {}
             announce_data = [
+                metadata,                               # Node metadata
                 node_state,                             # Boolean flag signalling propagation node state
                 int(time.time()),                       # Current node timebase
                 self.propagation_per_transfer_limit,    # Per-transfer limit for message propagation in kilobytes
