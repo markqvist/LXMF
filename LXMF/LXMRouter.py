@@ -905,11 +905,6 @@ class LXMRouter:
             self.save_outbound_stamp_costs()
         threading.Thread(target=self.save_outbound_stamp_costs, daemon=True).start()
 
-    def get_wanted_inbound_peers(self):
-        # TODO: Implement/rethink.
-        # Probably not necessary anymore.
-        return None
-
     def get_announce_app_data(self, destination_hash):
         if destination_hash in self.delivery_destinations:
             delivery_destination = self.delivery_destinations[destination_hash]
