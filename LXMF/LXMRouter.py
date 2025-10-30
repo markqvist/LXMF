@@ -517,7 +517,7 @@ class LXMRouter:
             et = time.time(); mps = 0 if et-st == 0 else math.floor(len(self.propagation_entries)/(et-st))
             RNS.log(f"Indexed {len(self.propagation_entries)} messages in {RNS.prettytime(et-st)}, {mps} msgs/s", RNS.LOG_NOTICE)
             RNS.log("Rebuilding peer synchronisation states...", RNS.LOG_NOTICE)
-            st = time.time();
+            st = time.time()
 
             if os.path.isfile(self.storagepath+"/peers"):
                 peers_file = open(self.storagepath+"/peers", "rb")
