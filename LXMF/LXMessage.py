@@ -268,15 +268,6 @@ class LXMessage:
     def register_failed_callback(self, callback):
         self.failed_callback = callback
 
-    @staticmethod
-    def stamp_valid(stamp, target_cost, workblock):
-        target = 0b1 << 256-target_cost
-        result = RNS.Identity.full_hash(workblock+stamp)
-        if int.from_bytes(result, byteorder="big") > target:
-            return False
-        else:
-            return True
-
     def validate_stamp(self, target_cost, tickets=None):
         if tickets != None:
             for ticket in tickets:
@@ -293,7 +284,7 @@ class LXMessage:
             return False
         else:
             workblock = LXStamper.stamp_workblock(self.message_id)
-            if LXMessage.stamp_valid(self.stamp, target_cost, workblock):
+            if LXStamper.stamp_valid(self.stamp, target_cost, workblock):
                 RNS.log(f"Stamp on {self} validated", RNS.LOG_DEBUG) # TODO: Remove at some point
                 self.stamp_value = LXStamper.stamp_value(workblock, self.stamp)
                 return True
