@@ -58,8 +58,7 @@ class LXMFPropagationAnnounceHandler:
                                                     propagation_transfer_limit=propagation_transfer_limit,
                                                     propagation_sync_limit=propagation_sync_limit,
                                                     propagation_stamp_cost=propagation_stamp_cost,
-                                                    propagation_stamp_cost_flexibility=propagation_stamp_cost_flexibility,
-                                                    wanted_inbound_peers=wanted_inbound_peers)
+                                                    propagation_stamp_cost_flexibility=propagation_stamp_cost_flexibility)
 
                             else:
                                 if self.lxmrouter.autopeer:
@@ -70,8 +69,7 @@ class LXMFPropagationAnnounceHandler:
                                                                 propagation_transfer_limit=propagation_transfer_limit,
                                                                 propagation_sync_limit=propagation_sync_limit,
                                                                 propagation_stamp_cost=propagation_stamp_cost,
-                                                                propagation_stamp_cost_flexibility=propagation_stamp_cost_flexibility,
-                                                                wanted_inbound_peers=wanted_inbound_peers)
+                                                                propagation_stamp_cost_flexibility=propagation_stamp_cost_flexibility)
 
                                     elif pn_active == False:
                                         self.lxmrouter.unpeer(destination_hash, node_timebase)
