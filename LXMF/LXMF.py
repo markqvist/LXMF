@@ -101,6 +101,7 @@ PN_META_SYNC_STRATUM   = 0x02
 PN_META_SYNC_THROTTLE  = 0x03
 PN_META_AUTH_BAND      = 0x04
 PN_META_UTIL_PRESSURE  = 0x05
+PN_META_CUSTOM         = 0xFF
 
 ##########################################################
 # The following helper functions makes it easier to      #
