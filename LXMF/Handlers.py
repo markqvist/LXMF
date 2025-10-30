@@ -8,13 +8,13 @@ from .LXMessage import LXMessage
 
 class LXMFDeliveryAnnounceHandler:
     def __init__(self, lxmrouter):
-        self.aspect_filter = APP_NAME+".delivery"
+        self.aspect_filter          = APP_NAME+".delivery"
         self.receive_path_responses = True
-        self.lxmrouter = lxmrouter
+        self.lxmrouter              = lxmrouter
 
     def received_announce(self, destination_hash, announced_identity, app_data):
         for lxmessage in self.lxmrouter.pending_outbound:
-            if destination_hash == lxmessage.destination_hash:
+            if destination_hash     == lxmessage.destination_hash:
                 if lxmessage.method == LXMessage.DIRECT or lxmessage.method == LXMessage.OPPORTUNISTIC:
                     lxmessage.next_delivery_attempt = time.time()
 
@@ -34,9 +34,9 @@ class LXMFDeliveryAnnounceHandler:
 
 class LXMFPropagationAnnounceHandler:
     def __init__(self, lxmrouter):
-        self.aspect_filter = APP_NAME+".propagation"
+        self.aspect_filter          = APP_NAME+".propagation"
         self.receive_path_responses = True
-        self.lxmrouter = lxmrouter
+        self.lxmrouter              = lxmrouter
 
     def received_announce(self, destination_hash, announced_identity, app_data, announce_packet_hash, is_path_response):
         if not is_path_response:
@@ -51,7 +51,7 @@ class LXMFPropagationAnnounceHandler:
                             propagation_sync_limit             = int(data[4])
                             propagation_stamp_cost             = int(data[5][0])
                             propagation_stamp_cost_flexibility = int(data[5][1])
-                            metadata                           = data[6]
+                            metadata                           =     data[6]
                             
                             if destination_hash in self.lxmrouter.static_peers:
                                 self.lxmrouter.peer(destination_hash=destination_hash,
@@ -84,4 +84,4 @@ class LXMFPropagationAnnounceHandler:
 
             except Exception as e:
                 RNS.log("Error while evaluating propagation node announce, ignoring announce.", RNS.LOG_DEBUG)
-                RNS.log("The contained exception was: "+str(e), RNS.LOG_DEBUG)
+                RNS.log(f"The contained exception was: {str(e)}", RNS.LOG_DEBUG)
