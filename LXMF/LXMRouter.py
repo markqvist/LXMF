@@ -285,14 +285,13 @@ class LXMRouter:
             node_state    = self.propagation_node and not self.from_static_only
             stamp_cost    = [self.propagation_stamp_cost, self.propagation_stamp_cost_flexibility]
             metadata      = {}
-            announce_data = [
-                metadata,                               # Node metadata
-                node_state,                             # Boolean flag signalling propagation node state
-                int(time.time()),                       # Current node timebase
-                self.propagation_per_transfer_limit,    # Per-transfer limit for message propagation in kilobytes
-                self.propagation_per_sync_limit,        # Limit for incoming propagation node syncs
-                stamp_cost,                             # Propagation stamp cost for this node
-            ]
+            announce_data = [ False,                                  # Legacy LXMF PN support
+                              int(time.time()),                       # Current node timebase
+                              node_state,                             # Boolean flag signalling propagation node state
+                              self.propagation_per_transfer_limit,    # Per-transfer limit for message propagation in kilobytes
+                              self.propagation_per_sync_limit,        # Limit for incoming propagation node syncs
+                              stamp_cost,                             # Propagation stamp cost for this node
+                              metadata ]                              # Node metadata
 
             data = msgpack.packb(announce_data)
             self.propagation_destination.announce(app_data=data)

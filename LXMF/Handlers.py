@@ -45,13 +45,13 @@ class LXMFPropagationAnnounceHandler:
                     if self.lxmrouter.propagation_node:
                         data = msgpack.unpackb(app_data)
                         if pn_announce_data_is_valid(data):
-                            metadata                           = data[0]
-                            propagation_enabled                = data[1]
-                            node_timebase                      = int(data[2])
+                            node_timebase                      = int(data[1])
+                            propagation_enabled                =     data[2]
                             propagation_transfer_limit         = int(data[3])
                             propagation_sync_limit             = int(data[4])
                             propagation_stamp_cost             = int(data[5][0])
                             propagation_stamp_cost_flexibility = int(data[5][1])
+                            metadata                           = data[6]
                             
                             if destination_hash in self.lxmrouter.static_peers:
                                 self.lxmrouter.peer(destination_hash=destination_hash,
