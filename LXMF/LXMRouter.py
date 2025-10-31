@@ -2000,10 +2000,13 @@ class LXMRouter:
                 #######################################
                 # TODO: Check propagation stamps here #
                 #######################################
-                stamps_valid = False
+                target_cost = max(0, self.propagation_stamp_cost-self.propagation_stamp_cost_flexibility)
+                validated_messages = LXStamper.validate_pn_stamps(messages, target_cost)
 
-                for lxmf_data in messages:
-                    self.lxmf_propagation(lxmf_data)
+                for validated_entry in validated_messages:
+                    lxmf_data    = validated_entry[1]
+                    stamp_value  = validated_entry[2]
+                    self.lxmf_propagation(lxmf_data, stamp_value=stamp_value)
                     self.client_propagation_messages_received += 1
 
                 if stamps_valid: packet.prove()
@@ -2093,10 +2096,14 @@ class LXMRouter:
                     #######################################
                     # TODO: Check propagation stamps here #
                     #######################################
+                    target_cost = max(0, self.propagation_stamp_cost-self.propagation_stamp_cost_flexibility)
+                    validated_messages = LXStamper.validate_pn_stamps(messages, target_cost)
 
-                    for lxmf_data in messages:
-                        peer = None
-                        transient_id = RNS.Identity.full_hash(lxmf_data)
+                    for validated_entry in validated_messages:
+                        transient_id = validated_entry[0]
+                        lxmf_data    = validated_entry[1]
+                        stamp_value  = validated_entry[2]
+                        peer         = None
                         
                         if remote_hash != None and remote_hash in self.peers:
                             peer = self.peers[remote_hash]
@@ -2109,7 +2116,7 @@ class LXMRouter:
                             else:
                                 self.client_propagation_messages_received += 1
 
-                        self.lxmf_propagation(lxmf_data, from_peer=peer)
+                        self.lxmf_propagation(lxmf_data, from_peer=peer, stamp_value=stamp_value)
                         if peer != None: peer.queue_handled_message(transient_id)
 
                 else:
