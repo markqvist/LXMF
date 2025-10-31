@@ -145,26 +145,32 @@ class LXMessage:
 
         self.set_fields(fields)
 
-        self.payload          = None
-        self.timestamp        = None
-        self.signature        = None
-        self.hash             = None
-        self.packed           = None
-        self.state            = LXMessage.GENERATING
-        self.method           = LXMessage.UNKNOWN
-        self.progress         = 0.0
-        self.rssi             = None
-        self.snr              = None
-        self.q                = None
+        self.payload                 = None
+        self.timestamp               = None
+        self.signature               = None
+        self.hash                    = None
+        self.transient_id            = None
+        self.packed                  = None
+        self.state                   = LXMessage.GENERATING
+        self.method                  = LXMessage.UNKNOWN
+        self.progress                = 0.0
+        self.rssi                    = None
+        self.snr                     = None
+        self.q                       = None
 
-        self.stamp            = None
-        self.stamp_cost       = stamp_cost
-        self.stamp_value      = None
-        self.stamp_valid      = False
-        self.stamp_checked    = False
-        self.defer_stamp      = True
-        self.outbound_ticket  = None
-        self.include_ticket   = include_ticket
+        self.stamp                   = None
+        self.stamp_cost              = stamp_cost
+        self.stamp_value             = None
+        self.stamp_valid             = False
+        self.stamp_checked           = False
+        self.propagation_stamp       = None
+        self.propagation_stamp_value = None
+        self.propagation_stamp_valid = False
+        self.propagation_target_cost = None
+        self.defer_stamp             = True
+        self.defer_propagation_stamp = True
+        self.outbound_ticket         = None
+        self.include_ticket          = include_ticket
 
         self.propagation_packed      = None
         self.paper_packed            = None
@@ -184,6 +190,7 @@ class LXMessage:
         self.resource_representation = None
         self.__delivery_destination  = None
         self.__delivery_callback     = None
+        self.__pn_encrypted_data     = None
         self.failed_callback         = None
         
         self.deferred_stamp_generating = False
@@ -324,10 +331,35 @@ class LXMessage:
             else:
                 return None
 
+    def get_propagation_stamp(self, target_cost, timeout=None):
+        # If a stamp was already generated, return
+        # it immediately.
+        if self.propagation_stamp != None:
+            return self.propagation_stamp
+
+        # Otherwise, we will need to generate a
+        # valid stamp according to the cost that
+        # the propagation node has specified.
+        else:
+            self.propagation_target_cost = target_cost
+            if self.propagation_target_cost == None:
+                raise ValueError("Cannot generate propagation stamp without configured target propagation cost")
+
+            
+            if not self.transient_id: self.pack()
+            generated_stamp, value = LXStamper.generate_stamp(self.transient_id, target_cost, expand_rounds=LXStamper.WORKBLOCK_EXPAND_ROUNDS_PN)
+            if generated_stamp:
+                self.propagation_stamp = generated_stamp
+                self.propagation_stamp_value = value
+                self.propagation_stamp_valid = True
+                return generated_stamp
+            
+            else:
+                return None
+
     def pack(self):
         if not self.packed:
-            if self.timestamp == None:
-                self.timestamp = time.time()
+            if self.timestamp == None: self.timestamp = time.time()
 
             self.propagation_packed = None
             self.paper_packed = None
@@ -343,9 +375,8 @@ class LXMessage:
 
             if not self.defer_stamp:
                 self.stamp       = self.get_stamp()
-                if self.stamp   != None:
-                    self.payload.append(self.stamp)
-            
+                if self.stamp   != None: self.payload.append(self.stamp)
+
             signed_part      = b""
             signed_part     += hashed_part
             signed_part     += self.hash
@@ -400,9 +431,14 @@ class LXMessage:
             elif self.desired_method == LXMessage.PROPAGATED:
                 single_packet_content_limit = LXMessage.LINK_PACKET_MAX_CONTENT
 
-                encrypted_data = self.__destination.encrypt(self.packed[LXMessage.DESTINATION_LENGTH:])
-                self.ratchet_id = self.__destination.latest_ratchet_id
-                self.propagation_packed = msgpack.packb([time.time(), [self.packed[:LXMessage.DESTINATION_LENGTH]+encrypted_data]])
+                if self.__pn_encrypted_data == None:
+                    self.__pn_encrypted_data = self.__destination.encrypt(self.packed[LXMessage.DESTINATION_LENGTH:])
+                    self.ratchet_id          = self.__destination.latest_ratchet_id
+
+                lxmf_data = self.packed[:LXMessage.DESTINATION_LENGTH]+self.__pn_encrypted_data
+                self.transient_id = RNS.Identity.full_hash(lxmf_data)
+                if self.propagation_stamp != None: lxmf_data += self.propagation_stamp
+                self.propagation_packed = msgpack.packb([time.time(), [lxmf_data]])
 
                 content_size = len(self.propagation_packed)
                 if content_size <= single_packet_content_limit:

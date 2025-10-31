@@ -10,7 +10,7 @@ import multiprocessing
 WORKBLOCK_EXPAND_ROUNDS         = 3000
 WORKBLOCK_EXPAND_ROUNDS_PN      = 1000
 WORKBLOCK_EXPAND_ROUNDS_PEERING = 25
-STAMP_SIZE                      = RNS.Identity.HASHLENGTH
+STAMP_SIZE                      = RNS.Identity.HASHLENGTH//8
 PN_VALIDATION_POOL_MIN_SIZE     = 256
 
 active_jobs = {}
@@ -24,7 +24,7 @@ def stamp_workblock(material, expand_rounds=WORKBLOCK_EXPAND_ROUNDS):
                                            salt=RNS.Identity.full_hash(material+msgpack.packb(n)),
                                            context=None)
     wb_time = time.time() - wb_st
-    RNS.log(f"Stamp workblock size {RNS.prettysize(len(workblock))}, generated in {round(wb_time*1000,2)}ms", RNS.LOG_DEBUG)
+    # RNS.log(f"Stamp workblock size {RNS.prettysize(len(workblock))}, generated in {round(wb_time*1000,2)}ms", RNS.LOG_DEBUG)
 
     return workblock
 
@@ -52,23 +52,23 @@ def validate_peering_key(peering_id, peering_key, target_cost):
 
 def validate_pn_stamp(transient_data, target_cost):
     from .LXMessage import LXMessage
-    if len(transient_data) <= LXMessage.LXMF_OVERHEAD+STAMP_SIZE: return False, None, None
+    if len(transient_data) <= LXMessage.LXMF_OVERHEAD+STAMP_SIZE: return None, None, None
     else:
         lxm_data     = transient_data[:-STAMP_SIZE]
         stamp        = transient_data[-STAMP_SIZE:]
         transient_id = RNS.Identity.full_hash(lxm_data)
         workblock    = stamp_workblock(transient_id, expand_rounds=WORKBLOCK_EXPAND_ROUNDS_PN)
         
-        if not stamp_valid(stamp, target_cost, workblock): return False, None, None
+        if not stamp_valid(stamp, target_cost, workblock): return None, None, None
         else:
             value = stamp_value(workblock, stamp)
-            return True, transient_id, value
+            return transient_id, lxm_data, value
 
 def validate_pn_stamps_job_simple(transient_list, target_cost):
     validated_messages = []
     for transient_data in transient_list:
-        stamp_valid, transient_id, value = validate_pn_stamp(transient_data, target_cost)
-        if stamp_valid: validated_messages.append([transient_id, transient_data, value])
+        transient_id, lxm_data, value = validate_pn_stamp(transient_data, target_cost)
+        if transient_id: validated_messages.append([transient_id, lxm_data, value])
 
     return validated_messages
 
@@ -80,7 +80,7 @@ def validate_pn_stamps_job_multip(transient_list, target_cost):
     with multiprocessing.Pool(pool_count) as p:
         validated_entries = p.starmap(validate_pn_stamp, zip(transient_list, itertools.repeat(target_cost)))
 
-    return [e for e in validated_entries if e[0] == True]
+    return [e for e in validated_entries if e[0] != None]
 
 def validate_pn_stamps(transient_list, target_cost):
     non_mp_platform = RNS.vendor.platformutils.is_android()

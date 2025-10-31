@@ -588,16 +588,18 @@ def get_status(configdir = None, rnsconfigdir = None, verbosity = 0, quietness =
 
         if show_status:
             msb   = RNS.prettysize(s["messagestore"]["bytes"]); msl = RNS.prettysize(s["messagestore"]["limit"])
-            ptl   = RNS.prettysize(s["propagation_limit"]*1000); uprx = RNS.prettysize(s["unpeered_propagation_rx_bytes"])
+            ptl   = RNS.prettysize(s["propagation_limit"]*1000); psl = RNS.prettysize(s["sync_limit"]*1000); 
+            uprx = RNS.prettysize(s["unpeered_propagation_rx_bytes"])
             mscnt = s["messagestore"]["count"]; stp = s["total_peers"]; smp = s["max_peers"]; sdp = s["discovered_peers"]
             ssp   = s["static_peers"]; cprr = s["clients"]["client_propagation_messages_received"]
             cprs  = s["clients"]["client_propagation_messages_served"]; upi = s["unpeered_propagation_incoming"]
             psc   = s["target_stamp_cost"]; scf = s["stamp_cost_flexibility"]
             pc    = s["peering_cost"]; pcm = s["max_peering_cost"]
             print(f"Messagestore contains {mscnt} messages, {msb} ({ms_util} utilised of {msl})")
-            print(f"Accepting propagated messages from {who_str}, {ptl} per-transfer limit")
             print(f"Required propagation stamp cost is {psc}, flexibility is {scf}")
             print(f"Peering cost is {pc}, max remote peering cost is {pcm}")
+            print(f"Accepting propagated messages from {who_str}")
+            print(f"{ptl} message limit, {psl} sync limit")
             print(f"")
             print(f"Peers   : {stp} total (peer limit is {smp})")
             print(f"          {sdp} discovered, {ssp} static")
@@ -642,14 +644,16 @@ def get_status(configdir = None, rnsconfigdir = None, verbosity = 0, quietness =
                 else:
                     ls = "never synced"
 
-                sstr = RNS.prettyspeed(p["str"]); sler = RNS.prettyspeed(p["ler"]); stl = RNS.prettysize(p["transfer_limit"]*1000)
+                sstr = RNS.prettyspeed(p["str"]); sler = RNS.prettyspeed(p["ler"])
+                stl = RNS.prettysize(p["transfer_limit"]*1000); ssl = RNS.prettysize(p["sync_limit"]*1000)
                 srxb = RNS.prettysize(p["rx_bytes"]); stxb = RNS.prettysize(p["tx_bytes"]); pmo = pm["offered"]; pmout = pm["outgoing"]
                 pmi  = pm["incoming"]; pmuh = pm["unhandled"]
                 print(f"{ind}{t}{RNS.prettyhexrep(peer_id)}")
                 print(f"{ind*2}Status     : {a}, {hs}, last heard {RNS.prettytime(h)} ago")
                 print(f"{ind*2}Costs      : Propagation {psc} (flex {psf}), peering {pc}")
                 print(f"{ind*2}Sync key   : {pk}")
-                print(f"{ind*2}Speeds     : {sstr} STR, {sler} LER, {stl} transfer limit")
+                print(f"{ind*2}Speeds     : {sstr} STR, {sler} LER")
+                print(f"{ind*2}Limits     : {stl} message limit, {ssl} sync limit")
                 print(f"{ind*2}Messages   : {pmo} offered, {pmout} outgoing, {pmi} incoming")
                 print(f"{ind*2}Traffic    : {srxb} received, {stxb} sent")
                 ms = "" if pm["unhandled"] == 1 else "s"

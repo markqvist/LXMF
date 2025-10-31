@@ -160,7 +160,7 @@ def pn_announce_data_is_valid(data):
             except:                                  raise ValueError("Invalid announce data: Could not decode propagation transfer limit")
             try:                                     int(data[4])
             except:                                  raise ValueError("Invalid announce data: Could not decode propagation sync limit")
-            if type(data[4]) != list:                raise ValueError("Invalid announce data: Could not decode stamp costs")
+            if type(data[5]) != list:                raise ValueError("Invalid announce data: Could not decode stamp costs")
             try:                                     int(data[5][0])
             except:                                  raise ValueError("Invalid announce data: Could not decode target stamp cost")
             try:                                     int(data[5][1])

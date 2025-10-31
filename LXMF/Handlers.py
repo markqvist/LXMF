@@ -42,8 +42,8 @@ class LXMFPropagationAnnounceHandler:
         try:
             if type(app_data) == bytes:
                 if self.lxmrouter.propagation_node:
-                    data = msgpack.unpackb(app_data)
-                    if pn_announce_data_is_valid(data):
+                    if pn_announce_data_is_valid(app_data):
+                        data                               = msgpack.unpackb(app_data)
                         node_timebase                      = int(data[1])
                         propagation_enabled                =     data[2]
                         propagation_transfer_limit         = int(data[3])
