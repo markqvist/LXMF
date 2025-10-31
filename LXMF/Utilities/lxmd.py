@@ -467,6 +467,112 @@ def deferred_start_jobs():
     last_node_announce = time.time()
     threading.Thread(target=jobs, daemon=True).start()
 
+def _request_sync(identity, destination_hash, timeout=5, exit_on_fail=False):
+    control_destination = RNS.Destination(identity, RNS.Destination.OUT, RNS.Destination.SINGLE, APP_NAME, "propagation", "control")
+
+    timeout = time.time()+timeout
+    def check_timeout():
+        if time.time() > timeout:
+            if exit_on_fail:
+                RNS.log("Requesting lxmd peer sync timed out, exiting now", RNS.LOG_ERROR)
+                exit(200)
+            else:
+                return LXMF.LXMPeer.LXMPeer.ERROR_TIMEOUT
+        else:
+            time.sleep(0.1)
+
+    if not RNS.Transport.has_path(control_destination.hash):
+        RNS.Transport.request_path(control_destination.hash)
+        while not RNS.Transport.has_path(control_destination.hash):
+            tc = check_timeout()
+            if tc:
+                return tc
+
+    link = RNS.Link(control_destination)
+    while not link.status == RNS.Link.ACTIVE:
+        tc = check_timeout()
+        if tc:
+            return tc
+
+    link.identify(identity)
+    request_receipt = link.request(LXMF.LXMRouter.SYNC_REQUEST_PATH, data=destination_hash, response_callback=None, failed_callback=None)
+    while not request_receipt.get_status() == RNS.RequestReceipt.READY:
+        tc = check_timeout()
+        if tc:
+            return tc
+
+    link.teardown()
+    return request_receipt.get_response()
+
+def request_sync(target, configdir = None, rnsconfigdir = None, verbosity = 0, quietness = 0, timeout=15, identity_path=None):
+    global configpath, identitypath, storagedir, lxmdir
+    global lxmd_config, active_configuration, targetloglevel
+    targetlogdest  = RNS.LOG_STDOUT
+
+    if identity_path == None:
+        if configdir == None:
+            if os.path.isdir("/etc/lxmd") and os.path.isfile("/etc/lxmd/config"):
+                configdir = "/etc/lxmd"
+            elif os.path.isdir(RNS.Reticulum.userdir+"/.config/lxmd") and os.path.isfile(Reticulum.userdir+"/.config/lxmd/config"):
+                configdir = RNS.Reticulum.userdir+"/.config/lxmd"
+            else:
+                configdir = RNS.Reticulum.userdir+"/.lxmd"
+
+        configpath   = configdir+"/config"
+        identitypath = configdir+"/identity"
+        identity = None
+
+        if not os.path.isdir(configdir):
+            RNS.log("Specified configuration directory does not exist, exiting now", RNS.LOG_ERROR)
+            exit(201)
+        if not os.path.isfile(identitypath):
+            RNS.log("Identity file not found in specified configuration directory, exiting now", RNS.LOG_ERROR)
+            exit(202)
+        else:
+            identity = RNS.Identity.from_file(identitypath)
+            if identity == None:
+                RNS.log("Could not load the Primary Identity from "+identitypath, RNS.LOG_ERROR)
+                exit(4)
+
+    else:
+        if not os.path.isfile(identity_path):
+            RNS.log("Identity file not found in specified configuration directory, exiting now", RNS.LOG_ERROR)
+            exit(202)
+        else:
+            identity = RNS.Identity.from_file(identity_path)
+            if identity == None:
+                RNS.log("Could not load the Primary Identity from "+identity_path, RNS.LOG_ERROR)
+                exit(4)        
+
+    if targetloglevel == None: targetloglevel = 3
+    if verbosity != 0 or quietness != 0: targetloglevel = targetloglevel+verbosity-quietness
+
+    try:
+        destination_hash = bytes.fromhex(target)
+        if len(destination_hash) != RNS.Identity.TRUNCATED_HASHLENGTH//8: raise ValueError(f"Destination hash length must be {RNS.Identity.TRUNCATED_HASHLENGTH//8*2} characters")
+    except Exception as e:
+        print(f"Invalid peer destination hash: {e}")
+        exit(203)
+    
+    reticulum = RNS.Reticulum(configdir=rnsconfigdir, loglevel=targetloglevel, logdest=targetlogdest)
+    response = _request_sync(identity, destination_hash, timeout=timeout, exit_on_fail=True)
+
+    if response == LXMF.LXMPeer.LXMPeer.ERROR_NO_IDENTITY:
+        print("Remote received no identity")
+        exit(203)
+    elif response == LXMF.LXMPeer.LXMPeer.ERROR_NO_ACCESS:
+        print("Access denied")
+        exit(204)
+    elif response == LXMF.LXMPeer.LXMPeer.ERROR_INVALID_DATA:
+        print("Invalid data received by remote")
+        exit(205)
+    elif response == LXMF.LXMPeer.LXMPeer.ERROR_NOT_FOUND:
+        print("The requested peer was not found")
+        exit(206)
+    else:
+        print(f"Sync requested for peer {RNS.prettyhexrep(destination_hash)}")
+        exit(0)
+
 def query_status(identity, timeout=5, exit_on_fail=False):
     control_destination = RNS.Destination(identity, RNS.Destination.OUT, RNS.Destination.SINGLE, APP_NAME, "propagation", "control")
 
@@ -683,6 +789,7 @@ def main():
         parser.add_argument("-s", "--service", action="store_true", default=False, help="lxmd is running as a service and should log to file")
         parser.add_argument("--status", action="store_true", default=False, help="display node status")
         parser.add_argument("--peers", action="store_true", default=False, help="display peered nodes")
+        parser.add_argument("--sync", action="store", default=None, help="request a sync with the specified peer", type=str)
         parser.add_argument("--timeout", action="store", default=5, help="timeout in seconds for query operations", type=float)
         parser.add_argument("--identity", action="store", default=None, help="path to identity used for query request", type=str)
         parser.add_argument("--exampleconfig", action="store_true", default=False, help="print verbose configuration example to stdout and exit")
@@ -696,14 +803,23 @@ def main():
 
         if args.status or args.peers:
             get_status(configdir = args.config,
-                      rnsconfigdir=args.rnsconfig,
-                      verbosity=args.verbose,
-                      quietness=args.quiet,
-                      timeout=args.timeout,
-                      show_status=args.status,
-                      show_peers=args.peers,
-                      identity_path=args.identity)
+                       rnsconfigdir=args.rnsconfig,
+                       verbosity=args.verbose,
+                       quietness=args.quiet,
+                       timeout=args.timeout,
+                       show_status=args.status,
+                       show_peers=args.peers,
+                       identity_path=args.identity)
             exit()
+
+        if args.sync:
+            request_sync(target=args.sync,
+                         configdir = args.config,
+                         rnsconfigdir=args.rnsconfig,
+                         verbosity=args.verbose,
+                         quietness=args.quiet,
+                         timeout=args.timeout,
+                         identity_path=args.identity)
 
         program_setup(configdir = args.config,
                       rnsconfigdir=args.rnsconfig,
