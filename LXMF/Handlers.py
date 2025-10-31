@@ -39,22 +39,23 @@ class LXMFPropagationAnnounceHandler:
         self.lxmrouter              = lxmrouter
 
     def received_announce(self, destination_hash, announced_identity, app_data, announce_packet_hash, is_path_response):
-        if not is_path_response:
-            try:
-                if type(app_data) == bytes:
-                    if self.lxmrouter.propagation_node:
-                        data = msgpack.unpackb(app_data)
-                        if pn_announce_data_is_valid(data):
-                            node_timebase                      = int(data[1])
-                            propagation_enabled                =     data[2]
-                            propagation_transfer_limit         = int(data[3])
-                            propagation_sync_limit             = int(data[4])
-                            propagation_stamp_cost             = int(data[5][0])
-                            propagation_stamp_cost_flexibility = int(data[5][1])
-                            peering_cost                       = int(data[5][2])
-                            metadata                           =     data[6]
-                            
-                            if destination_hash in self.lxmrouter.static_peers:
+        try:
+            if type(app_data) == bytes:
+                if self.lxmrouter.propagation_node:
+                    data = msgpack.unpackb(app_data)
+                    if pn_announce_data_is_valid(data):
+                        node_timebase                      = int(data[1])
+                        propagation_enabled                =     data[2]
+                        propagation_transfer_limit         = int(data[3])
+                        propagation_sync_limit             = int(data[4])
+                        propagation_stamp_cost             = int(data[5][0])
+                        propagation_stamp_cost_flexibility = int(data[5][1])
+                        peering_cost                       = int(data[5][2])
+                        metadata                           =     data[6]
+                        
+                        if destination_hash in self.lxmrouter.static_peers:
+                            static_peer = self.lxmrouter.static_peers[destination_hash]
+                            if not is_path_response or static_peer.last_heard == 0:
                                 self.lxmrouter.peer(destination_hash=destination_hash,
                                                     timestamp=node_timebase,
                                                     propagation_transfer_limit=propagation_transfer_limit,
@@ -64,27 +65,27 @@ class LXMFPropagationAnnounceHandler:
                                                     peering_cost=peering_cost,
                                                     metadata=metadata)
 
-                            else:
-                                if self.lxmrouter.autopeer:
-                                    if propagation_enabled == True:
-                                        if RNS.Transport.hops_to(destination_hash) <= self.lxmrouter.autopeer_maxdepth:
-                                            self.lxmrouter.peer(destination_hash=destination_hash,
-                                                                timestamp=node_timebase,
-                                                                propagation_transfer_limit=propagation_transfer_limit,
-                                                                propagation_sync_limit=propagation_sync_limit,
-                                                                propagation_stamp_cost=propagation_stamp_cost,
-                                                                propagation_stamp_cost_flexibility=propagation_stamp_cost_flexibility,
-                                                                peering_cost=peering_cost,
-                                                                metadata=metadata)
+                        else:
+                            if self.lxmrouter.autopeer and not is_path_response:
+                                if propagation_enabled == True:
+                                    if RNS.Transport.hops_to(destination_hash) <= self.lxmrouter.autopeer_maxdepth:
+                                        self.lxmrouter.peer(destination_hash=destination_hash,
+                                                            timestamp=node_timebase,
+                                                            propagation_transfer_limit=propagation_transfer_limit,
+                                                            propagation_sync_limit=propagation_sync_limit,
+                                                            propagation_stamp_cost=propagation_stamp_cost,
+                                                            propagation_stamp_cost_flexibility=propagation_stamp_cost_flexibility,
+                                                            peering_cost=peering_cost,
+                                                            metadata=metadata)
 
-                                        else:
-                                            if destination_hash in self.lxmrouter.peers:
-                                                RNS.log(f"Peer {self.lxmrouter.peers[destination_hash]} moved outside auto-peering range, breaking peering...")
-                                                self.lxmrouter.unpeer(destination_hash, node_timebase)
+                                    else:
+                                        if destination_hash in self.lxmrouter.peers:
+                                            RNS.log(f"Peer {self.lxmrouter.peers[destination_hash]} moved outside auto-peering range, breaking peering...")
+                                            self.lxmrouter.unpeer(destination_hash, node_timebase)
 
-                                    elif propagation_enabled == False:
-                                        self.lxmrouter.unpeer(destination_hash, node_timebase)
+                                elif propagation_enabled == False:
+                                    self.lxmrouter.unpeer(destination_hash, node_timebase)
 
-            except Exception as e:
-                RNS.log("Error while evaluating propagation node announce, ignoring announce.", RNS.LOG_DEBUG)
-                RNS.log(f"The contained exception was: {str(e)}", RNS.LOG_DEBUG)
+        except Exception as e:
+            RNS.log("Error while evaluating propagation node announce, ignoring announce.", RNS.LOG_DEBUG)
+            RNS.log(f"The contained exception was: {str(e)}", RNS.LOG_DEBUG)

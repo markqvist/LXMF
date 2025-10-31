@@ -540,9 +540,6 @@ class LXMRouter:
                         peer = LXMPeer.from_bytes(serialised_peer, self)
                         del serialised_peer
                         if peer.destination_hash in self.static_peers and peer.last_heard == 0:
-                            # TODO: Allow path request responses through announce handler
-                            # momentarily here, so peering config can be updated even if
-                            # the static peer is not available to directly send an announce.
                             RNS.Transport.request_path(peer.destination_hash)
                         if peer.identity != None:
                             self.peers[peer.destination_hash] = peer
@@ -2012,14 +2009,11 @@ class LXMRouter:
         try:
             if packet.destination_type != RNS.Destination.LINK: return
             else:
-                data            = msgpack.unpackb(data)
-                remote_timebase = data[0]
-                messages        = data[1]
+                data               = msgpack.unpackb(data)
+                remote_timebase    = data[0]
+                messages           = data[1]
 
-                #######################################
-                # TODO: Check propagation stamps here #
-                #######################################
-                min_accepted_cost = max(0, self.propagation_stamp_cost-self.propagation_stamp_cost_flexibility)
+                min_accepted_cost  = max(0, self.propagation_stamp_cost-self.propagation_stamp_cost_flexibility)
                 validated_messages = LXStamper.validate_pn_stamps(messages, min_accepted_cost)
 
                 for validated_entry in validated_messages:
@@ -2119,9 +2113,6 @@ class LXMRouter:
                     ms = "" if len(messages) == 1 else "s"
                     RNS.log(f"Received {len(messages)} message{ms} from {remote_str}", RNS.LOG_VERBOSE)
 
-                    #######################################
-                    # TODO: Check propagation stamps here #
-                    #######################################
                     min_accepted_cost = max(0, self.propagation_stamp_cost-self.propagation_stamp_cost_flexibility)
                     validated_messages = LXStamper.validate_pn_stamps(messages, min_accepted_cost)
 
