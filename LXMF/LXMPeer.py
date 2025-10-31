@@ -22,7 +22,9 @@ class LXMPeer:
 
     ERROR_NO_IDENTITY     = 0xf0
     ERROR_NO_ACCESS       = 0xf1
-    ERROR_THROTTLED       = 0xf2
+    ERROR_INVALID_KEY     = 0xf3
+    ERROR_INVALID_DATA    = 0xf4
+    ERROR_THROTTLED       = 0xf5
     ERROR_TIMEOUT         = 0xfe
 
     STRATEGY_LAZY         = 0x01
@@ -369,9 +371,11 @@ class LXMPeer:
                                     cumulative_size += lxm_transfer_size
                                     unhandled_ids.append(transient_id)
 
+                                offer = [self.peering_key[0], unhandled_ids]
+
                                 RNS.log(f"Offering {len(unhandled_ids)} messages to peer {RNS.prettyhexrep(self.destination.hash)} ({RNS.prettysize(len(msgpack.packb(unhandled_ids)))})", RNS.LOG_VERBOSE)
                                 self.last_offer = unhandled_ids
-                                self.link.request(LXMPeer.OFFER_REQUEST_PATH, unhandled_ids, response_callback=self.offer_response, failed_callback=self.request_failed)
+                                self.link.request(LXMPeer.OFFER_REQUEST_PATH, offer, response_callback=self.offer_response, failed_callback=self.request_failed)
                                 self.state = LXMPeer.REQUEST_SENT
 
                 else:

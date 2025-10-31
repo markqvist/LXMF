@@ -45,8 +45,8 @@ class LXMRouter:
     ROTATION_HEADROOM_PCT = 10
     ROTATION_AR_MAX       = 0.5
 
-    PEERING_COST          = 10
-    MAX_PEERING_COST      = 12
+    PEERING_COST          = 18
+    MAX_PEERING_COST      = 24
     PROPAGATION_COST_MIN  = 13
     PROPAGATION_COST_FLEX = 3
     PROPAGATION_COST      = 16
@@ -2047,21 +2047,30 @@ class LXMRouter:
                     return LXMPeer.ERROR_NO_ACCESS
 
             try:
-                transient_ids = data
-                wanted_ids = []
+                if type(data) != list and len(data) < 2: return LXMPeer.ERROR_INVALID_DATA
 
-                for transient_id in transient_ids:
-                    if not transient_id in self.propagation_entries:
-                        wanted_ids.append(transient_id)
+                peering_id         = self.identity.hash+remote_identity
+                target_cost        = self.peering_cost
+                peering_key        = data[0]
+                transient_ids      = data[1]
+                wanted_ids         = []
 
-                if len(wanted_ids) == 0:
-                    return False
+                ts                 = time.time()
+                peering_key_valid  = LXStamper.validate_peering_key(peering_id, peering_key, target_cost)
+                td                 = time.time() - ts
 
-                elif len(wanted_ids) == len(transient_ids):
-                    return True
+                if not peering_key_valid:
+                    RNS.log(f"Invalid peering key for incoming sync offer", RNS.LOG_DEBUG)
+                    return LXMPeer.ERROR_INVALID_KEY
 
                 else:
-                    return wanted_ids
+                    RNS.log(f"Peering key validated for incoming offer in {RNS.prettytime(td)}", RNS.LOG_DEBUG)
+                    for transient_id in transient_ids:
+                        if not transient_id in self.propagation_entries: wanted_ids.append(transient_id)
+
+                    if len(wanted_ids)   == 0:                  return False
+                    elif len(wanted_ids) == len(transient_ids): return True
+                    else:                                       return wanted_ids
 
             except Exception as e:
                 RNS.log("Error occurred while generating response for sync request, the contained exception was: "+str(e), RNS.LOG_DEBUG)
@@ -2069,9 +2078,6 @@ class LXMRouter:
 
     def propagation_resource_concluded(self, resource):
         if resource.status == RNS.Resource.COMPLETE:
-            # TODO: The peer this was received from should
-            # have the transient id added to its list of
-            # already handled messages.
             try:
                 data = msgpack.unpackb(resource.data.read())
 

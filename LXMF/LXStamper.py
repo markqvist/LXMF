@@ -8,8 +8,8 @@ import itertools
 import multiprocessing
 
 WORKBLOCK_EXPAND_ROUNDS         = 3000
-WORKBLOCK_EXPAND_ROUNDS_PEERING = 20000
 WORKBLOCK_EXPAND_ROUNDS_PN      = 1000
+WORKBLOCK_EXPAND_ROUNDS_PEERING = 25
 STAMP_SIZE                      = RNS.Identity.HASHLENGTH
 PN_VALIDATION_POOL_MIN_SIZE     = 256
 
@@ -43,6 +43,11 @@ def stamp_valid(stamp, target_cost, workblock):
     target = 0b1 << 256-target_cost
     result = RNS.Identity.full_hash(workblock+stamp)
     if int.from_bytes(result, byteorder="big") > target: return False
+    else: return True
+
+def validate_peering_key(peering_id, peering_key, target_cost):
+    workblock = stamp_workblock(peering_id, expand_rounds=WORKBLOCK_EXPAND_ROUNDS_PEERING)
+    if not stamp_valid(peering_key, target_cost, workblock): return False
     else: return True
 
 def validate_pn_stamp(transient_data, target_cost):
@@ -348,6 +353,13 @@ def job_android(stamp_cost, workblock, message_id):
 
     return stamp, total_rounds
 
+# def stamp_value_linear(workblock, stamp):
+#     value = 0
+#     bits = 256
+#     material = RNS.Identity.full_hash(workblock+stamp)
+#     s = int.from_bytes(material, byteorder="big")
+#     return s.bit_count()
+
 if __name__ == "__main__":
     import sys
     if len(sys.argv) < 2:
@@ -365,10 +377,12 @@ if __name__ == "__main__":
     message_id = os.urandom(32)
     generate_stamp(message_id, cost)
 
+    RNS.log("", RNS.LOG_DEBUG)
     RNS.log("Testing propagation stamp generation", RNS.LOG_DEBUG)
     message_id = os.urandom(32)
     generate_stamp(message_id, cost, expand_rounds=WORKBLOCK_EXPAND_ROUNDS_PN)
 
+    RNS.log("", RNS.LOG_DEBUG)
     RNS.log("Testing peering key generation", RNS.LOG_DEBUG)
     message_id = os.urandom(32)
     generate_stamp(message_id, cost, expand_rounds=WORKBLOCK_EXPAND_ROUNDS_PEERING)
