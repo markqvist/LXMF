@@ -7,23 +7,24 @@ import math
 import itertools
 import multiprocessing
 
-WORKBLOCK_EXPAND_ROUNDS     = 3000
-WORKBLOCK_EXPAND_ROUNDS_PN  = 1000
-STAMP_SIZE                  = RNS.Identity.HASHLENGTH
-PN_VALIDATION_POOL_MIN_SIZE = 256
+WORKBLOCK_EXPAND_ROUNDS         = 3000
+WORKBLOCK_EXPAND_ROUNDS_PEERING = 20000
+WORKBLOCK_EXPAND_ROUNDS_PN      = 1000
+STAMP_SIZE                      = RNS.Identity.HASHLENGTH
+PN_VALIDATION_POOL_MIN_SIZE     = 256
 
 active_jobs = {}
 
-def stamp_workblock(message_id, expand_rounds=WORKBLOCK_EXPAND_ROUNDS):
+def stamp_workblock(material, expand_rounds=WORKBLOCK_EXPAND_ROUNDS):
     wb_st = time.time()
     workblock = b""
     for n in range(expand_rounds):
         workblock += RNS.Cryptography.hkdf(length=256,
-                                           derive_from=message_id,
-                                           salt=RNS.Identity.full_hash(message_id+msgpack.packb(n)),
+                                           derive_from=material,
+                                           salt=RNS.Identity.full_hash(material+msgpack.packb(n)),
                                            context=None)
     wb_time = time.time() - wb_st
-    # RNS.log(f"Stamp workblock size {RNS.prettysize(len(workblock))}, generated in {round(wb_time*1000,2)}ms", RNS.LOG_DEBUG)
+    RNS.log(f"Stamp workblock size {RNS.prettysize(len(workblock))}, generated in {round(wb_time*1000,2)}ms", RNS.LOG_DEBUG)
 
     return workblock
 
@@ -81,9 +82,9 @@ def validate_pn_stamps(transient_list, target_cost):
     if len(transient_list) <= PN_VALIDATION_POOL_MIN_SIZE or non_mp_platform: return validate_pn_stamps_job_simple(transient_list, target_cost)
     else:                                                                     return validate_pn_stamps_job_multip(transient_list, target_cost)
 
-def generate_stamp(message_id, stamp_cost):
+def generate_stamp(message_id, stamp_cost, expand_rounds=WORKBLOCK_EXPAND_ROUNDS):
     RNS.log(f"Generating stamp with cost {stamp_cost} for {RNS.prettyhexrep(message_id)}...", RNS.LOG_DEBUG)
-    workblock = stamp_workblock(message_id)
+    workblock = stamp_workblock(message_id, expand_rounds=expand_rounds)
     
     start_time = time.time()
     stamp = None
@@ -363,3 +364,11 @@ if __name__ == "__main__":
     RNS.log("Testing LXMF stamp generation", RNS.LOG_DEBUG)
     message_id = os.urandom(32)
     generate_stamp(message_id, cost)
+
+    RNS.log("Testing propagation stamp generation", RNS.LOG_DEBUG)
+    message_id = os.urandom(32)
+    generate_stamp(message_id, cost, expand_rounds=WORKBLOCK_EXPAND_ROUNDS_PN)
+
+    RNS.log("Testing peering key generation", RNS.LOG_DEBUG)
+    message_id = os.urandom(32)
+    generate_stamp(message_id, cost, expand_rounds=WORKBLOCK_EXPAND_ROUNDS_PEERING)

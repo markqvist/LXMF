@@ -45,9 +45,11 @@ class LXMRouter:
     ROTATION_HEADROOM_PCT = 10
     ROTATION_AR_MAX       = 0.5
 
-    PROPAGATION_COST      = 12
-    PROPAGATION_COST_MIN  = 10
+    PEERING_COST          = 10
+    MAX_PEERING_COST      = 12
+    PROPAGATION_COST_MIN  = 13
     PROPAGATION_COST_FLEX = 3
+    PROPAGATION_COST      = 16
     PROPAGATION_LIMIT     = 256
     SYNC_LIMIT            = PROPAGATION_LIMIT*40
     DELIVERY_LIMIT        = 1000
@@ -81,7 +83,8 @@ class LXMRouter:
                  propagation_limit=PROPAGATION_LIMIT, delivery_limit=DELIVERY_LIMIT, sync_limit=SYNC_LIMIT,
                  enforce_ratchets=False, enforce_stamps=False, static_peers = [], max_peers=None,
                  from_static_only=False, sync_strategy=LXMPeer.STRATEGY_PERSISTENT,
-                 propagation_cost=PROPAGATION_COST, propagation_cost_flexibility=PROPAGATION_COST_FLEX):
+                 propagation_cost=PROPAGATION_COST, propagation_cost_flexibility=PROPAGATION_COST_FLEX,
+                 peering_cost=PEERING_COST):
 
         random.seed(os.urandom(10))
 
@@ -115,17 +118,20 @@ class LXMRouter:
         self.outbound_propagation_link = None
 
         if delivery_limit == None: delivery_limit = LXMRouter.DELIVERY_LIMIT
+        if propagation_cost < LXMRouter.PROPAGATION_COST_MIN: propagation_cost = LXMRouter.PROPAGATION_COST_MIN
 
-        self.message_storage_limit = None
-        self.information_storage_limit = None
-        self.propagation_per_transfer_limit = propagation_limit
-        self.propagation_per_sync_limit = sync_limit
-        self.delivery_per_transfer_limit = delivery_limit
-        self.propagation_stamp_cost = propagation_cost
+        self.message_storage_limit              = None
+        self.information_storage_limit          = None
+        self.propagation_per_transfer_limit     = propagation_limit
+        self.propagation_per_sync_limit         = sync_limit
+        self.delivery_per_transfer_limit        = delivery_limit
+        self.propagation_stamp_cost             = propagation_cost
         self.propagation_stamp_cost_flexibility = propagation_cost_flexibility
-        self.enforce_ratchets = enforce_ratchets
-        self._enforce_stamps = enforce_stamps
-        self.pending_deferred_stamps = {}
+        self.peering_cost                       = peering_cost
+        self.max_peering_cost                   = LXMRouter.MAX_PEERING_COST
+        self.enforce_ratchets                   = enforce_ratchets
+        self._enforce_stamps                    = enforce_stamps
+        self.pending_deferred_stamps            = {}
 
         if sync_limit == None or self.propagation_per_sync_limit < self.propagation_per_transfer_limit:
             self.propagation_per_sync_limit = self.propagation_per_transfer_limit
@@ -284,7 +290,7 @@ class LXMRouter:
         def delayed_announce():
             time.sleep(LXMRouter.NODE_ANNOUNCE_DELAY)
             node_state    = self.propagation_node and not self.from_static_only
-            stamp_cost    = [self.propagation_stamp_cost, self.propagation_stamp_cost_flexibility]
+            stamp_cost    = [self.propagation_stamp_cost, self.propagation_stamp_cost_flexibility, self.peering_cost]
             metadata      = {}
             announce_data = [ False,                                  # 0: Legacy LXMF PN support
                               int(time.time()),                       # 1: Current node timebase
@@ -719,6 +725,8 @@ class LXMRouter:
                     "sync_limit": peer.propagation_sync_limit,
                     "target_stamp_cost": peer.propagation_stamp_cost,
                     "stamp_cost_flexibility": peer.propagation_stamp_cost_flexibility,
+                    "peering_cost": peer.peering_cost,
+                    "peering_key": peer.peering_key_value(),
                     "network_distance": RNS.Transport.hops_to(peer_id),
                     "rx_bytes": peer.rx_bytes,
                     "tx_bytes": peer.tx_bytes,
@@ -739,6 +747,8 @@ class LXMRouter:
                 "sync_limit": self.propagation_per_sync_limit,
                 "target_stamp_cost": self.propagation_stamp_cost,
                 "stamp_cost_flexibility": self.propagation_stamp_cost_flexibility,
+                "peering_cost": self.peering_cost,
+                "max_peering_cost": self.max_peering_cost,
                 "autopeer_maxdepth": self.autopeer_maxdepth,
                 "from_static_only": self.from_static_only,
                 "messagestore": {
@@ -1782,39 +1792,48 @@ class LXMRouter:
     ### Peer Sync & Propagation ###########################
     #######################################################
 
-    def peer(self, destination_hash, timestamp, propagation_transfer_limit, propagation_sync_limit, propagation_stamp_cost, propagation_stamp_cost_flexibility):
-        if destination_hash in self.peers:
-            peer = self.peers[destination_hash]
-            if timestamp > peer.peering_timebase:
-                peer.alive = True
-                peer.sync_backoff = 0
-                peer.next_sync_attempt = 0
-                peer.peering_timebase = timestamp
-                peer.last_heard = time.time()
-                peer.propagation_stamp_cost = propagation_stamp_cost
-                peer.propagation_stamp_cost_flexibility = propagation_stamp_cost_flexibility
-                peer.propagation_transfer_limit = propagation_transfer_limit
-                if propagation_sync_limit != None: peer.propagation_sync_limit = propagation_sync_limit
-                else:                              peer.propagation_sync_limit = propagation_transfer_limit
-                
-                RNS.log(f"Peering config updated for {RNS.prettyhexrep(destination_hash)}", RNS.LOG_VERBOSE)
-            
-        else:
-            if len(self.peers) < self.max_peers:
-                peer = LXMPeer(self, destination_hash, sync_strategy=self.default_sync_strategy)
-                peer.alive = True
-                peer.last_heard = time.time()
-                peer.propagation_stamp_cost = propagation_stamp_cost
-                peer.propagation_stamp_cost_flexibility = propagation_stamp_cost_flexibility
-                peer.propagation_transfer_limit = propagation_transfer_limit
-                if propagation_sync_limit != None: peer.propagation_sync_limit = propagation_sync_limit
-                else:                              peer.propagation_sync_limit = propagation_transfer_limit
-                
-                self.peers[destination_hash] = peer
-                RNS.log(f"Peered with {RNS.prettyhexrep(destination_hash)}", RNS.LOG_NOTICE)
-
+    def peer(self, destination_hash, timestamp, propagation_transfer_limit, propagation_sync_limit, propagation_stamp_cost, propagation_stamp_cost_flexibility, peering_cost, metadata):
+        if peering_cost > self.max_peering_cost:
+            if destination_hash in self.peers:
+                RNS.log(f"Peer {RNS.prettyhexrep(destination_hash)} increased peering cost beyond local accepted maximum, breaking peering...", RNS.LOG_NOTICE)
+                self.unpeer(destination_hash, timestamp)
             else:
-                RNS.log(f"Max peers reached, not peering with {RNS.prettyhexrep(destination_hash)}", RNS.LOG_DEBUG)
+                RNS.log(f"Not peering with {RNS.prettyhexrep(destination_hash)}, since its peering cost of {peering_cost} exceeds local maximum of {self.max_peering_cost}", RNS.LOG_NOTICE)
+
+        else:
+            if destination_hash in self.peers:
+                peer = self.peers[destination_hash]
+                if timestamp > peer.peering_timebase:
+                    peer.alive = True
+                    peer.sync_backoff = 0
+                    peer.next_sync_attempt = 0
+                    peer.peering_timebase = timestamp
+                    peer.last_heard = time.time()
+                    peer.propagation_stamp_cost = propagation_stamp_cost
+                    peer.propagation_stamp_cost_flexibility = propagation_stamp_cost_flexibility
+                    peer.peering_cost = peering_cost
+                    peer.propagation_transfer_limit = propagation_transfer_limit
+                    if propagation_sync_limit != None: peer.propagation_sync_limit = propagation_sync_limit
+                    else:                              peer.propagation_sync_limit = propagation_transfer_limit
+                    
+                    RNS.log(f"Peering config updated for {RNS.prettyhexrep(destination_hash)}", RNS.LOG_VERBOSE)
+                
+            else:
+                if len(self.peers) >= self.max_peers: RNS.log(f"Max peers reached, not peering with {RNS.prettyhexrep(destination_hash)}", RNS.LOG_DEBUG)
+                else:
+                    peer = LXMPeer(self, destination_hash, sync_strategy=self.default_sync_strategy)
+                    peer.alive = True
+                    peer.last_heard = time.time()
+                    peer.propagation_stamp_cost = propagation_stamp_cost
+                    peer.propagation_stamp_cost_flexibility = propagation_stamp_cost_flexibility
+                    peer.peering_cost = peering_cost
+                    peer.propagation_transfer_limit = propagation_transfer_limit
+                    if propagation_sync_limit != None: peer.propagation_sync_limit = propagation_sync_limit
+                    else:                              peer.propagation_sync_limit = propagation_transfer_limit
+                    
+                    self.peers[destination_hash] = peer
+                    RNS.log(f"Peered with {RNS.prettyhexrep(destination_hash)}", RNS.LOG_NOTICE)
+
 
     def unpeer(self, destination_hash, timestamp = None):
         if timestamp == None:
@@ -2000,8 +2019,8 @@ class LXMRouter:
                 #######################################
                 # TODO: Check propagation stamps here #
                 #######################################
-                target_cost = max(0, self.propagation_stamp_cost-self.propagation_stamp_cost_flexibility)
-                validated_messages = LXStamper.validate_pn_stamps(messages, target_cost)
+                min_accepted_cost = max(0, self.propagation_stamp_cost-self.propagation_stamp_cost_flexibility)
+                validated_messages = LXStamper.validate_pn_stamps(messages, min_accepted_cost)
 
                 for validated_entry in validated_messages:
                     lxmf_data    = validated_entry[1]
@@ -2077,7 +2096,7 @@ class LXMRouter:
                                 # 2: Boolean flag signalling propagation node state
                                 # 3: Per-transfer limit for message propagation in kilobytes
                                 # 4: Limit for incoming propagation node syncs
-                                # 5: Propagation stamp cost for this node
+                                # 5: Propagation stamp costs for this node
                                 # 6: Node metadata
                                 if remote_app_data[2] and self.autopeer and RNS.Transport.hops_to(remote_hash) <= self.autopeer_maxdepth:
                                     remote_timebase       = remote_app_data[1]
@@ -2085,10 +2104,11 @@ class LXMRouter:
                                     remote_sync_limit     = remote_app_data[4]
                                     remote_stamp_cost     = remote_app_data[5][0]
                                     remote_stamp_flex     = remote_app_data[5][1]
+                                    remote_peering_cost   = remote_app_data[5][2]
                                     remote_metadata       = remote_app_data[6]
 
                                     RNS.log(f"Auto-peering with {remote_str} discovered via incoming sync", RNS.LOG_DEBUG) # TODO: Remove debug
-                                    self.peer(remote_hash, remote_timebase, remote_transfer_limit, remote_sync_limit, remote_stamp_cost, remote_stamp_flex, remote_metadata)
+                                    self.peer(remote_hash, remote_timebase, remote_transfer_limit, remote_sync_limit, remote_stamp_cost, remote_stamp_flex, remote_peering_cost, remote_metadata)
 
                     ms = "" if len(messages) == 1 else "s"
                     RNS.log(f"Received {len(messages)} message{ms} from {remote_str}", RNS.LOG_VERBOSE)
@@ -2096,8 +2116,8 @@ class LXMRouter:
                     #######################################
                     # TODO: Check propagation stamps here #
                     #######################################
-                    target_cost = max(0, self.propagation_stamp_cost-self.propagation_stamp_cost_flexibility)
-                    validated_messages = LXStamper.validate_pn_stamps(messages, target_cost)
+                    min_accepted_cost = max(0, self.propagation_stamp_cost-self.propagation_stamp_cost_flexibility)
+                    validated_messages = LXStamper.validate_pn_stamps(messages, min_accepted_cost)
 
                     for validated_entry in validated_messages:
                         transient_id = validated_entry[0]
@@ -2177,13 +2197,13 @@ class LXMRouter:
                             msg_file        = open(file_path, "wb")
                             msg_file.write(lxmf_data); msg_file.close()
 
-                            RNS.log("Received propagated LXMF message "+RNS.prettyhexrep(transient_id)+", adding to peer distribution queues...", RNS.LOG_EXTREME)
+                            RNS.log(f"Received propagated LXMF message {RNS.prettyhexrep(transient_id)} with stamp value {stamp_value}, adding to peer distribution queues...", RNS.LOG_EXTREME)
                             self.propagation_entries[transient_id] = [destination_hash, file_path, time.time(), len(lxmf_data), [], [], stamp_value]
                             self.enqueue_peer_distribution(transient_id, from_peer)
 
                         else:
                             # TODO: Add message to sneakernet queues when implemented
-                            RNS.log("Received propagated LXMF message "+RNS.prettyhexrep(transient_id)+", but this instance is not hosting a propagation node, discarding message.", RNS.LOG_DEBUG)
+                            RNS.log(f"Received propagated LXMF message {RNS.prettyhexrep(transient_id)}, but this instance is not hosting a propagation node, discarding message.", RNS.LOG_DEBUG)
 
                     return True
 

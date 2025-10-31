@@ -51,6 +51,7 @@ class LXMFPropagationAnnounceHandler:
                             propagation_sync_limit             = int(data[4])
                             propagation_stamp_cost             = int(data[5][0])
                             propagation_stamp_cost_flexibility = int(data[5][1])
+                            peering_cost                       = int(data[5][2])
                             metadata                           =     data[6]
                             
                             if destination_hash in self.lxmrouter.static_peers:
@@ -60,6 +61,7 @@ class LXMFPropagationAnnounceHandler:
                                                     propagation_sync_limit=propagation_sync_limit,
                                                     propagation_stamp_cost=propagation_stamp_cost,
                                                     propagation_stamp_cost_flexibility=propagation_stamp_cost_flexibility,
+                                                    peering_cost=peering_cost,
                                                     metadata=metadata)
 
                             else:
@@ -72,6 +74,7 @@ class LXMFPropagationAnnounceHandler:
                                                                 propagation_sync_limit=propagation_sync_limit,
                                                                 propagation_stamp_cost=propagation_stamp_cost,
                                                                 propagation_stamp_cost_flexibility=propagation_stamp_cost_flexibility,
+                                                                peering_cost=peering_cost,
                                                                 metadata=metadata)
 
                                         else:

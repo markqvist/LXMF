@@ -1,8 +1,10 @@
 import os
 import time
+import threading
 
 import RNS
 import RNS.vendor.umsgpack as msgpack
+import LXMF.LXStamper as LXStamper
 
 from collections import deque
 from .LXMF import APP_NAME
@@ -20,6 +22,7 @@ class LXMPeer:
 
     ERROR_NO_IDENTITY     = 0xf0
     ERROR_NO_ACCESS       = 0xf1
+    ERROR_THROTTLED       = 0xf2
     ERROR_TIMEOUT         = 0xfe
 
     STRATEGY_LAZY         = 0x01
@@ -80,6 +83,11 @@ class LXMPeer:
             except: peer.propagation_stamp_cost_flexibility = None
         else:       peer.propagation_stamp_cost_flexibility = None
 
+        if "peering_cost" in dictionary:
+            try:    peer.peering_cost = int(dictionary["peering_cost"])
+            except: peer.peering_cost = None
+        else:       peer.peering_cost = None
+
         if "sync_strategy" in dictionary:
             try: peer.sync_strategy = int(dictionary["sync_strategy"])
             except: peer.sync_strategy = LXMPeer.DEFAULT_SYNC_STRATEGY
@@ -97,6 +105,8 @@ class LXMPeer:
         else:                                 peer.tx_bytes = 0
         if "last_sync_attempt" in dictionary: peer.last_sync_attempt = dictionary["last_sync_attempt"]
         else:                                 peer.last_sync_attempt = 0
+        if "peering_key" in dictionary:       peer.peering_key = dictionary["peering_key"]
+        else:                                 peer.peering_key = None
 
         hm_count = 0
         for transient_id in dictionary["handled_ids"]:
@@ -123,6 +133,8 @@ class LXMPeer:
         dictionary["peering_timebase"] = self.peering_timebase
         dictionary["alive"] = self.alive
         dictionary["last_heard"] = self.last_heard
+        dictionary["sync_strategy"] = self.sync_strategy
+        dictionary["peering_key"] = self.peering_key
         dictionary["destination_hash"] = self.destination_hash
         dictionary["link_establishment_rate"] = self.link_establishment_rate
         dictionary["sync_transfer_rate"] = self.sync_transfer_rate
@@ -130,7 +142,7 @@ class LXMPeer:
         dictionary["propagation_sync_limit"] = self.propagation_sync_limit
         dictionary["propagation_stamp_cost"] = self.propagation_stamp_cost
         dictionary["propagation_stamp_cost_flexibility"] = self.propagation_stamp_cost_flexibility
-        dictionary["sync_strategy"] = self.sync_strategy
+        dictionary["peering_cost"] = self.peering_cost
         dictionary["last_sync_attempt"] = self.last_sync_attempt
         dictionary["offered"]  = self.offered
         dictionary["outgoing"] = self.outgoing
@@ -155,16 +167,18 @@ class LXMPeer:
         return peer_bytes
 
     def __init__(self, router, destination_hash, sync_strategy=DEFAULT_SYNC_STRATEGY):
-        self.alive = False
-        self.last_heard = 0
+        self.alive         = False
+        self.last_heard    = 0
         self.sync_strategy = sync_strategy
+        self.peering_key   = None
+        self.peering_cost  = None
 
-        self.next_sync_attempt = 0
-        self.last_sync_attempt = 0
-        self.sync_backoff = 0
-        self.peering_timebase = 0
+        self.next_sync_attempt       = 0
+        self.last_sync_attempt       = 0
+        self.sync_backoff            = 0
+        self.peering_timebase        = 0
         self.link_establishment_rate = 0
-        self.sync_transfer_rate = 0
+        self.sync_transfer_rate      = 0
 
         self.propagation_transfer_limit         = None
         self.propagation_sync_limit             = None
@@ -185,6 +199,8 @@ class LXMPeer:
         self._hm_counts_synced = False
         self._um_counts_synced = False
 
+        self._peering_key_lock = threading.Lock()
+
         self.link = None
         self.state = LXMPeer.IDLE
 
@@ -199,11 +215,74 @@ class LXMPeer:
             self.destination = None
             RNS.log(f"Could not recall identity for LXMF propagation peer {RNS.prettyhexrep(self.destination_hash)}, will retry identity resolution on next sync", RNS.LOG_WARNING)
 
+    def peering_key_ready(self):
+        if not self.peering_cost: return False
+        if type(self.peering_key) == list and len(self.peering_key) == 2:
+            value = self.peering_key[1]
+            if value >= self.peering_cost: return True
+            else:
+                RNS.log(f"Peering key value mismatch for {self}. Current value is {value}, but peer requires {self.peering_cost}. Scheduling regeneration...", RNS.LOG_WARNING)
+                self.peering_key = None
+
+        return False
+
+    def peering_key_value(self):
+        if type(self.peering_key) == list and len(self.peering_key) == 2: return self.peering_key[1]
+        else: return None
+
+    def generate_peering_key(self):
+        if self.peering_cost == None: return False
+        with self._peering_key_lock:
+            if self.peering_key != None: return True
+            else:
+                RNS.log(f"Generating peering key for {self}", RNS.LOG_NOTICE)
+                if self.router.identity == None:
+                    RNS.log(f"Could not update peering key for {self} since the local LXMF router identity is not configured", RNS.LOG_ERROR)
+                    return False
+
+                if self.identity == None:
+                    self.identity = RNS.Identity.recall(destination_hash)
+                    if self.identity == None:
+                        RNS.log(f"Could not update peering key for {self} since its identity could not be recalled", RNS.LOG_ERROR)
+                        return False
+
+                key_material        = self.identity.hash+self.router.identity.hash
+                peering_key, value  = LXStamper.generate_stamp(key_material, self.peering_cost, expand_rounds=LXStamper.WORKBLOCK_EXPAND_ROUNDS_PEERING)
+                if value >= self.peering_cost:
+                    self.peering_key = [peering_key, value]
+                    RNS.log(f"Peering key successfully generated for {self}", RNS.LOG_NOTICE)
+                    return True
+
+        return False
+
     def sync(self):
         RNS.log("Initiating LXMF Propagation Node sync with peer "+RNS.prettyhexrep(self.destination_hash), RNS.LOG_DEBUG)
         self.last_sync_attempt = time.time()
 
-        if time.time() > self.next_sync_attempt:
+        sync_time_reached = time.time() > self.next_sync_attempt
+        stamp_costs_known = self.propagation_stamp_cost != None and self.propagation_stamp_cost_flexibility != None and self.peering_cost != None
+        peering_key_ready = self.peering_key_ready()
+        sync_checks = sync_time_reached and stamp_costs_known and peering_key_ready
+
+        if not sync_checks:
+            try:
+                if not sync_time_reached:
+                    postpone_reason = " due to previous failures"
+                    if self.last_sync_attempt > self.last_heard: self.alive = False
+                elif not stamp_costs_known:
+                    postpone_reason = " since its required stamp costs are not yet known"
+                elif not peering_key_ready:
+                    postpone_reason = " since a peering key has not been generated yet"
+                    def job(): self.generate_peering_key()
+                    threading.Thread(target=job, daemon=True).start()
+
+                delay = self.next_sync_attempt-time.time()
+                postpone_delay =  " for {RNS.prettytime({delay})}" if delay > 0 else ""
+                RNS.log(f"Postponing sync with peer {RNS.prettyhexrep(self.destination_hash)}{postpone_delay}{postpone_reason}", RNS.LOG_DEBUG)
+            except Exception as e:
+                RNS.trace_exception(e)
+
+        else:
             if not RNS.Transport.has_path(self.destination_hash):
                 RNS.log("No path to peer "+RNS.prettyhexrep(self.destination_hash)+" exists, requesting...", RNS.LOG_DEBUG)
                 RNS.Transport.request_path(self.destination_hash)
@@ -219,6 +298,10 @@ class LXMPeer:
                         self.destination = RNS.Destination(self.identity, RNS.Destination.OUT, RNS.Destination.SINGLE, APP_NAME, "propagation")
 
                 if self.destination != None:
+                    if len(self.unhandled_messages) == 0:
+                        RNS.log(f"Sync requested for {self}, but no unhandled messages exist for peer. Sync complete.", RNS.LOG_DEBUG)
+                        return
+
                     if len(self.unhandled_messages) > 0:
                         if self.currently_transferring_messages != None:
                             RNS.log(f"Sync requested for {self}, but current message transfer index was not clear. Aborting.", RNS.LOG_ERROR)
@@ -236,23 +319,31 @@ class LXMPeer:
                                 self.alive = True
                                 self.last_heard = time.time()
                                 self.sync_backoff = 0
+                                min_accepted_cost = min(0, self.propagation_stamp_cost-self.propagation_stamp_cost_flexibility)
 
-                                RNS.log("Synchronisation link to peer "+RNS.prettyhexrep(self.destination_hash)+" established, preparing request...", RNS.LOG_DEBUG)
+                                RNS.log("Synchronisation link to peer "+RNS.prettyhexrep(self.destination_hash)+" established, preparing sync offer...", RNS.LOG_DEBUG)
                                 unhandled_entries = []
-                                unhandled_ids = []
-                                purged_ids = []
+                                unhandled_ids     = []
+                                purged_ids        = []
+                                low_value_ids     = []
                                 for transient_id in self.unhandled_messages:
                                     if transient_id in self.router.propagation_entries:
-                                        unhandled_entry = [ transient_id,
-                                                            self.router.get_weight(transient_id),
-                                                            self.router.get_size(transient_id) ]
-                                        
-                                        unhandled_entries.append(unhandled_entry)
+                                        if self.router.get_stamp_value(transient_id) < min_accepted_cost: low_value_ids.append(transient_id)
+                                        else:
+                                            unhandled_entry = [ transient_id,
+                                                                self.router.get_weight(transient_id),
+                                                                self.router.get_size(transient_id) ]
+                                            
+                                            unhandled_entries.append(unhandled_entry)
                                     
                                     else: purged_ids.append(transient_id)
 
                                 for transient_id in purged_ids:
-                                    RNS.log("Dropping unhandled message "+RNS.prettyhexrep(transient_id)+" for peer "+RNS.prettyhexrep(self.destination_hash)+" since it no longer exists in the message store.", RNS.LOG_DEBUG)
+                                    RNS.log(f"Dropping unhandled message {RNS.prettyhexrep(transient_id)} for peer {RNS.prettyhexrep(self.destination_hash)} since it no longer exists in the message store.", RNS.LOG_DEBUG)
+                                    self.remove_unhandled_message(transient_id)
+
+                                for transient_id in low_value_ids:
+                                    RNS.log(f"Dropping unhandled message {RNS.prettyhexrep(transient_id)} for peer {RNS.prettyhexrep(self.destination_hash)} since its stamp value is lower than peer requirement of {min_accepted_cost}.", RNS.LOG_DEBUG)
                                     self.remove_unhandled_message(transient_id)
 
                                 unhandled_entries.sort(key=lambda e: e[1], reverse=False)
@@ -284,11 +375,7 @@ class LXMPeer:
                                 self.state = LXMPeer.REQUEST_SENT
 
                 else:
-                    RNS.log("Could not request sync to peer "+RNS.prettyhexrep(self.destination_hash)+" since its identity could not be recalled.", RNS.LOG_ERROR)
-
-        else:
-            RNS.log("Postponing sync with peer "+RNS.prettyhexrep(self.destination_hash)+" for "+RNS.prettytime(self.next_sync_attempt-time.time())+" due to previous failures", RNS.LOG_DEBUG)
-            if self.last_sync_attempt > self.last_heard: self.alive = False
+                    RNS.log(f"Could not request sync to peer {RNS.prettyhexrep(self.destination_hash)} since its identity could not be recalled.", RNS.LOG_ERROR)
 
     def request_failed(self, request_receipt):
         RNS.log(f"Sync request to peer {self.destination} failed", RNS.LOG_DEBUG)

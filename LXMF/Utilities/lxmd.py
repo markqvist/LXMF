@@ -164,6 +164,20 @@ def apply_config():
         else:
             active_configuration["propagation_stamp_cost_flexibility"] = LXMF.LXMRouter.PROPAGATION_COST_FLEX
         
+        if "propagation" in lxmd_config and "peering_cost" in lxmd_config["propagation"]:
+            active_configuration["peering_cost"] = lxmd_config["propagation"].as_int("peering_cost")
+            if active_configuration["peering_cost"] < 0:
+                active_configuration["peering_cost"] = 0
+        else:
+            active_configuration["peering_cost"] = LXMF.LXMRouter.PEERING_COST
+        
+        if "propagation" in lxmd_config and "remote_peering_cost_max" in lxmd_config["propagation"]:
+            active_configuration["remote_peering_cost_max"] = lxmd_config["propagation"].as_int("remote_peering_cost_max")
+            if active_configuration["remote_peering_cost_max"] < 0:
+                active_configuration["remote_peering_cost_max"] = 0
+        else:
+            active_configuration["remote_peering_cost_max"] = LXMF.LXMRouter.MAX_PEERING_COST
+        
         if "propagation" in lxmd_config and "prioritise_destinations" in lxmd_config["propagation"]:
             active_configuration["prioritised_lxmf_destinations"] = lxmd_config["propagation"].as_list("prioritise_destinations")
         else:
@@ -579,9 +593,11 @@ def get_status(configdir = None, rnsconfigdir = None, verbosity = 0, quietness =
             ssp   = s["static_peers"]; cprr = s["clients"]["client_propagation_messages_received"]
             cprs  = s["clients"]["client_propagation_messages_served"]; upi = s["unpeered_propagation_incoming"]
             psc   = s["target_stamp_cost"]; scf = s["stamp_cost_flexibility"]
+            pc    = s["peering_cost"]; pcm = s["max_peering_cost"]
             print(f"Messagestore contains {mscnt} messages, {msb} ({ms_util} utilised of {msl})")
             print(f"Accepting propagated messages from {who_str}, {ptl} per-transfer limit")
             print(f"Required propagation stamp cost is {psc}, flexibility is {scf}")
+            print(f"Peering cost is {pc}, max remote peering cost is {pcm}")
             print(f"")
             print(f"Peers   : {stp} total (peer limit is {smp})")
             print(f"          {sdp} discovered, {ssp} static")
@@ -613,7 +629,13 @@ def get_status(configdir = None, rnsconfigdir = None, verbosity = 0, quietness =
                 h = max(time.time()-p["last_heard"], 0)
                 hops = p["network_distance"]
                 hs = "hops unknown" if hops == RNS.Transport.PATHFINDER_M else f"{hops} hop away" if hops == 1 else f"{hops} hops away"
-                pm = p["messages"]
+                pm = p["messages"]; pk = p["peering_key"]
+                pc = p["peering_cost"]; psc = p["target_stamp_cost"]; psf = p["stamp_cost_flexibility"]
+                if pc == None: pc = "unknown"
+                if psc == None: psc = "unknown"
+                if psf == None: psf = "unknown"
+                if pk == None: pk = "Not generated"
+                else:          pk = f"Generated, value is {pk}"
                 if p["last_sync_attempt"] != 0:
                     lsa = p["last_sync_attempt"]
                     ls = f"last synced {RNS.prettytime(max(time.time()-lsa, 0))} ago"
@@ -622,9 +644,11 @@ def get_status(configdir = None, rnsconfigdir = None, verbosity = 0, quietness =
 
                 sstr = RNS.prettyspeed(p["str"]); sler = RNS.prettyspeed(p["ler"]); stl = RNS.prettysize(p["transfer_limit"]*1000)
                 srxb = RNS.prettysize(p["rx_bytes"]); stxb = RNS.prettysize(p["tx_bytes"]); pmo = pm["offered"]; pmout = pm["outgoing"]
-                pmi = pm["incoming"]; pmuh = pm["unhandled"]
+                pmi  = pm["incoming"]; pmuh = pm["unhandled"]
                 print(f"{ind}{t}{RNS.prettyhexrep(peer_id)}")
                 print(f"{ind*2}Status     : {a}, {hs}, last heard {RNS.prettytime(h)} ago")
+                print(f"{ind*2}Costs      : Propagation {psc} (flex {psf}), peering {pc}")
+                print(f"{ind*2}Sync key   : {pk}")
                 print(f"{ind*2}Speeds     : {sstr} STR, {sler} LER, {stl} transfer limit")
                 print(f"{ind*2}Messages   : {pmo} offered, {pmout} outgoing, {pmi} incoming")
                 print(f"{ind*2}Traffic    : {srxb} received, {stxb} sent")
@@ -751,6 +775,22 @@ autopeer_maxdepth = 4
 # network to gradually adjust stamp cost.
 
 # propagation_stamp_cost_flexibility = 3
+
+# The peering_cost option configures the target
+# value required for a remote node to peer with
+# and deliver messages to this node.
+
+# peering_cost = 10
+
+# You can configure the maximum peering cost
+# of remote nodes that this node will peer with.
+# Setting this to a higher number will allow
+# this node to peer with other nodes requiring
+# a high peering key value, but will require
+# more computation time during initial peering
+# when generating the peering key.
+
+# remote_peering_cost_max = 12
 
 # You can tell the LXMF message router to
 # prioritise storage for one or more
