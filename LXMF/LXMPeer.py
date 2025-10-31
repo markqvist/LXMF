@@ -8,6 +8,7 @@ import LXMF.LXStamper as LXStamper
 
 from collections import deque
 from .LXMF import APP_NAME
+from .LXMF import PN_META_NAME
 
 class LXMPeer:
     OFFER_REQUEST_PATH = "/offer"
@@ -110,6 +111,8 @@ class LXMPeer:
         else:                                 peer.last_sync_attempt = 0
         if "peering_key" in dictionary:       peer.peering_key = dictionary["peering_key"]
         else:                                 peer.peering_key = None
+        if "metadata" in dictionary:          peer.metadata = dictionary["metadata"]
+        else:                                 peer.metadata = None
 
         hm_count = 0
         for transient_id in dictionary["handled_ids"]:
@@ -135,6 +138,7 @@ class LXMPeer:
         dictionary = {}
         dictionary["peering_timebase"] = self.peering_timebase
         dictionary["alive"] = self.alive
+        dictionary["metadata"] = self.metadata
         dictionary["last_heard"] = self.last_heard
         dictionary["sync_strategy"] = self.sync_strategy
         dictionary["peering_key"] = self.peering_key
@@ -175,6 +179,7 @@ class LXMPeer:
         self.sync_strategy = sync_strategy
         self.peering_key   = None
         self.peering_cost  = None
+        self.metadata      = None
 
         self.next_sync_attempt       = 0
         self.last_sync_attempt       = 0
@@ -616,6 +621,15 @@ class LXMPeer:
                 self.router.propagation_entries[transient_id][5].remove(self.destination_hash)
                 self._um_counts_synced = False
 
+    @property
+    def name(self):
+        if type(self.metadata) != dict: return None
+        else:
+            if not PN_META_NAME in self.metadata: return None
+            else:
+                try: return self.metadata[PN_META_NAME].decode("utf-8")
+                except: return None
+    
     def __str__(self):
         if self.destination_hash: return RNS.prettyhexrep(self.destination_hash)
         else: return "<Unknown>"

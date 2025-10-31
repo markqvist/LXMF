@@ -147,6 +147,28 @@ def stamp_cost_from_app_data(app_data=None):
         # Original announce format
         else: return None
 
+def pn_name_from_app_data(app_data=None):
+    if app_data == None: return None
+    else:
+        if pn_announce_data_is_valid(app_data):
+            data = msgpack.unpackb(app_data)
+            metadata = data[6]
+            if not PN_META_NAME in metadata: return None
+            else:
+                try: return metadata[PN_META_NAME].decode("utf-8")
+                except: return None
+
+    return None
+
+def pn_stamp_cost_from_app_data(app_data=None):
+    if app_data == None: return None
+    else:
+        if pn_announce_data_is_valid(app_data):
+            data = msgpack.unpackb(app_data)
+            return data[5][0]
+        else:
+            return None
+
 def pn_announce_data_is_valid(data):
     try:
         if type(data) != bytes: return False

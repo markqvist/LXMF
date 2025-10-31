@@ -15,6 +15,7 @@ import RNS.vendor.umsgpack as msgpack
 
 from .LXMF import APP_NAME
 from .LXMF import FIELD_TICKET
+from .LXMF import PN_META_NAME
 from .LXMF import pn_announce_data_is_valid
 
 from .LXMPeer import LXMPeer
@@ -84,7 +85,7 @@ class LXMRouter:
                  enforce_ratchets=False, enforce_stamps=False, static_peers = [], max_peers=None,
                  from_static_only=False, sync_strategy=LXMPeer.STRATEGY_PERSISTENT,
                  propagation_cost=PROPAGATION_COST, propagation_cost_flexibility=PROPAGATION_COST_FLEX,
-                 peering_cost=PEERING_COST):
+                 peering_cost=PEERING_COST, name=None):
 
         random.seed(os.urandom(10))
 
@@ -105,9 +106,10 @@ class LXMRouter:
         self.processing_outbound   = False
         self.processing_inbound    = False
         self.processing_count      = 0
+        self.name                  = name
 
         self.propagation_node = False
-        self.propagation_node_start_time = None
+        self.propagation_node_start_time = None        
 
         if storagepath == None: raise ValueError("LXMF cannot be initialised without a storage path")
         else:
@@ -287,10 +289,15 @@ class LXMRouter:
         if destination_hash in self.delivery_destinations:
             self.delivery_destinations[destination_hash].announce(app_data=self.get_announce_app_data(destination_hash), attached_interface=attached_interface)
 
+    def get_propagation_node_announce_metadata(self):
+        metadata = {}
+        if self.name: metadata[PN_META_NAME] = str(self.name).encode("utf-8")
+        return metadata
+
     def get_propagation_node_app_data(self):
+        metadata      = self.get_propagation_node_announce_metadata()
         node_state    = self.propagation_node and not self.from_static_only
         stamp_cost    = [self.propagation_stamp_cost, self.propagation_stamp_cost_flexibility, self.peering_cost]
-        metadata      = {}
         announce_data = [ False,                                  # 0: Legacy LXMF PN support
                           int(time.time()),                       # 1: Current node timebase
                           node_state,                             # 2: Boolean flag signalling propagation node state
@@ -737,6 +744,7 @@ class LXMRouter:
                     "type": "static" if peer_id in self.static_peers else "discovered",
                     "state": peer.state,
                     "alive": peer.alive,
+                    "name":  peer.name,
                     "last_heard": int(peer.last_heard),
                     "next_sync_attempt": peer.next_sync_attempt,
                     "last_sync_attempt": peer.last_sync_attempt,
@@ -1834,6 +1842,7 @@ class LXMRouter:
                 peer = self.peers[destination_hash]
                 if timestamp > peer.peering_timebase:
                     peer.alive = True
+                    peer.metadata = metadata
                     peer.sync_backoff = 0
                     peer.next_sync_attempt = 0
                     peer.peering_timebase = timestamp
@@ -1852,6 +1861,7 @@ class LXMRouter:
                 else:
                     peer = LXMPeer(self, destination_hash, sync_strategy=self.default_sync_strategy)
                     peer.alive = True
+                    peer.metadata = metadata
                     peer.last_heard = time.time()
                     peer.propagation_stamp_cost = propagation_stamp_cost
                     peer.propagation_stamp_cost_flexibility = propagation_stamp_cost_flexibility

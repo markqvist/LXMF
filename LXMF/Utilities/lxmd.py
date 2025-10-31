@@ -97,6 +97,11 @@ def apply_config():
         else:
             active_configuration["enable_propagation_node"] = False
 
+        if "propagation" in lxmd_config and "node_name" in lxmd_config["propagation"]:
+            active_configuration["node_name"] = lxmd_config["propagation"].get("node_name")
+        else:
+            active_configuration["node_name"] = None
+
         if "propagation" in lxmd_config and "auth_required" in lxmd_config["propagation"]:
             active_configuration["auth_required"] = lxmd_config["propagation"].as_bool("auth_required")
         else:
@@ -371,7 +376,8 @@ def program_setup(configdir = None, rnsconfigdir = None, run_pn = False, on_inbo
         delivery_limit = active_configuration["delivery_transfer_max_accepted_size"],
         max_peers = active_configuration["max_peers"],
         static_peers = active_configuration["static_peers"],
-        from_static_only = active_configuration["from_static_only"])
+        from_static_only = active_configuration["from_static_only"],
+        name = active_configuration["node_name"])
     
     message_router.register_delivery_callback(lxmf_delivery)
 
@@ -647,8 +653,12 @@ def get_status(configdir = None, rnsconfigdir = None, verbosity = 0, quietness =
                 sstr = RNS.prettyspeed(p["str"]); sler = RNS.prettyspeed(p["ler"])
                 stl = RNS.prettysize(p["transfer_limit"]*1000); ssl = RNS.prettysize(p["sync_limit"]*1000)
                 srxb = RNS.prettysize(p["rx_bytes"]); stxb = RNS.prettysize(p["tx_bytes"]); pmo = pm["offered"]; pmout = pm["outgoing"]
-                pmi  = pm["incoming"]; pmuh = pm["unhandled"]
+                pmi  = pm["incoming"]; pmuh = pm["unhandled"];
+                if p["name"] == None: nn = ""
+                else: nn = p["name"].strip().replace("\n", "").replace("\r", "")
+                if len(nn) > 45: nn = f"{nn[:45]}..."
                 print(f"{ind}{t}{RNS.prettyhexrep(peer_id)}")
+                if len(nn): print(f"{ind*2}Name       : {nn}")
                 print(f"{ind*2}Status     : {a}, {hs}, last heard {RNS.prettytime(h)} ago")
                 print(f"{ind*2}Costs      : Propagation {psc} (flex {psf}), peering {pc}")
                 print(f"{ind*2}Sync key   : {pk}")
@@ -716,6 +726,11 @@ __default_lxmd_config__ = """# This is an example LXM Daemon config file.
 # Whether to enable propagation node
 
 enable_node = no
+
+# An optional name for this node, included
+# in announces.
+
+# node_name = Anonymous Propagation Node
 
 # Automatic announce interval in minutes.
 # 6 hours by default.
