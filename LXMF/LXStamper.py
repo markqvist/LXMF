@@ -52,23 +52,23 @@ def validate_peering_key(peering_id, peering_key, target_cost):
 
 def validate_pn_stamp(transient_data, target_cost):
     from .LXMessage import LXMessage
-    if len(transient_data) <= LXMessage.LXMF_OVERHEAD+STAMP_SIZE: return None, None, None
+    if len(transient_data) <= LXMessage.LXMF_OVERHEAD+STAMP_SIZE: return None, None, None, None
     else:
         lxm_data     = transient_data[:-STAMP_SIZE]
         stamp        = transient_data[-STAMP_SIZE:]
         transient_id = RNS.Identity.full_hash(lxm_data)
         workblock    = stamp_workblock(transient_id, expand_rounds=WORKBLOCK_EXPAND_ROUNDS_PN)
         
-        if not stamp_valid(stamp, target_cost, workblock): return None, None, None
+        if not stamp_valid(stamp, target_cost, workblock): return None, None, None, None
         else:
             value = stamp_value(workblock, stamp)
-            return transient_id, lxm_data, value
+            return transient_id, lxm_data, value, stamp
 
 def validate_pn_stamps_job_simple(transient_list, target_cost):
     validated_messages = []
     for transient_data in transient_list:
-        transient_id, lxm_data, value = validate_pn_stamp(transient_data, target_cost)
-        if transient_id: validated_messages.append([transient_id, lxm_data, value])
+        transient_id, lxm_data, value, stamp_data = validate_pn_stamp(transient_data, target_cost)
+        if transient_id: validated_messages.append([transient_id, lxm_data, value, stamp_data])
 
     return validated_messages
 

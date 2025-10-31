@@ -27,6 +27,7 @@ class LXMPeer:
     ERROR_INVALID_DATA    = 0xf4
     ERROR_INVALID_STAMP   = 0xf5
     ERROR_THROTTLED       = 0xf6
+    ERROR_NOT_FOUND       = 0xfd
     ERROR_TIMEOUT         = 0xfe
 
     STRATEGY_LAZY         = 0x01
