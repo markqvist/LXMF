@@ -377,6 +377,8 @@ def program_setup(configdir = None, rnsconfigdir = None, run_pn = False, on_inbo
         propagation_limit = active_configuration["propagation_transfer_max_accepted_size"],
         propagation_cost = active_configuration["propagation_stamp_cost_target"],
         propagation_cost_flexibility = active_configuration["propagation_stamp_cost_flexibility"],
+        peering_cost = active_configuration["peering_cost"],
+        max_peering_cost = active_configuration["remote_peering_cost_max"],
         sync_limit = active_configuration["propagation_sync_max_accepted_size"],
         delivery_limit = active_configuration["delivery_transfer_max_accepted_size"],
         max_peers = active_configuration["max_peers"],
@@ -1009,7 +1011,7 @@ autopeer_maxdepth = 4
 # value required for a remote node to peer with
 # and deliver messages to this node.
 
-# peering_cost = 10
+# peering_cost = 18
 
 # You can configure the maximum peering cost
 # of remote nodes that this node will peer with.
@@ -1019,7 +1021,7 @@ autopeer_maxdepth = 4
 # more computation time during initial peering
 # when generating the peering key.
 
-# remote_peering_cost_max = 12
+# remote_peering_cost_max = 24
 
 # You can tell the LXMF message router to
 # prioritise storage for one or more

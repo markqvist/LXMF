@@ -88,7 +88,7 @@ class LXMRouter:
                  enforce_ratchets=False, enforce_stamps=False, static_peers = [], max_peers=None,
                  from_static_only=False, sync_strategy=LXMPeer.STRATEGY_PERSISTENT,
                  propagation_cost=PROPAGATION_COST, propagation_cost_flexibility=PROPAGATION_COST_FLEX,
-                 peering_cost=PEERING_COST, name=None):
+                 peering_cost=PEERING_COST, max_peering_cost=MAX_PEERING_COST, name=None):
 
         random.seed(os.urandom(10))
 
@@ -134,7 +134,7 @@ class LXMRouter:
         self.propagation_stamp_cost             = propagation_cost
         self.propagation_stamp_cost_flexibility = propagation_cost_flexibility
         self.peering_cost                       = peering_cost
-        self.max_peering_cost                   = LXMRouter.MAX_PEERING_COST
+        self.max_peering_cost                   = max_peering_cost
         self.enforce_ratchets                   = enforce_ratchets
         self._enforce_stamps                    = enforce_stamps
         self.pending_deferred_stamps            = {}
@@ -2420,7 +2420,6 @@ class LXMRouter:
 
                             else:
                                 propagation_stamp = selected_lxm.get_propagation_stamp(target_cost=pn_target_cost)
-                                RNS.log(f"Generated propagation stamp: {RNS.hexrep(propagation_stamp)}")
                                 if propagation_stamp:
                                     selected_lxm.propagation_stamp = propagation_stamp
                                     selected_lxm.defer_propagation_stamp = False

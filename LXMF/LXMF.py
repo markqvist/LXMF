@@ -173,7 +173,7 @@ def pn_announce_data_is_valid(data):
     try:
         if type(data) != bytes: return False
         else:                   data = msgpack.unpackb(data)
-        if len(data) < 7: raise ValueError("Invalid announce data: Insufficient peer data")
+        if len(data) < 7: raise ValueError("Invalid announce data: Insufficient peer data, likely from deprecated LXMF version")
         else:
             try:                                     int(data[1])
             except:                                  raise ValueError("Invalid announce data: Could not decode timebase")
