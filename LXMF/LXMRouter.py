@@ -713,27 +713,15 @@ class LXMRouter:
 
     def set_information_storage_limit(self, kilobytes = None, megabytes = None, gigabytes = None):
         limit_bytes = 0
-
-        if kilobytes != None:
-            limit_bytes += kilobytes*1000
-
-        if megabytes != None:
-            limit_bytes += megabytes*1000*1000
-
-        if gigabytes != None:
-            limit_bytes += gigabytes*1000*1000*1000
-
-        if limit_bytes == 0:
-            limit_bytes = None
+        if kilobytes != None: limit_bytes += kilobytes*1000
+        if megabytes != None: limit_bytes += megabytes*1000*1000
+        if gigabytes != None: limit_bytes += gigabytes*1000*1000*1000
+        if limit_bytes == 0:  limit_bytes = None
 
         try:
-            if limit_bytes == None or int(limit_bytes) > 0:
-                self.information_storage_limit = int(limit_bytes)
-            else:
-                raise ValueError("Cannot set LXMF information storage limit to "+str(limit_bytes))
-        
-        except Exception as e:
-            raise ValueError("Cannot set LXMF information storage limit to "+str(limit_bytes))
+            if limit_bytes == None or int(limit_bytes) > 0: self.information_storage_limit = int(limit_bytes)
+            else: raise ValueError("Cannot set LXMF information storage limit to "+str(limit_bytes))
+        except Exception as e: raise ValueError("Cannot set LXMF information storage limit to "+str(limit_bytes))
 
     def information_storage_limit(self):
         return self.information_storage_limit
@@ -742,18 +730,15 @@ class LXMRouter:
         pass
 
     def delivery_link_available(self, destination_hash):
-        if destination_hash in self.direct_links or destination_hash in self.backchannel_links:
-            return True
-        else:
-            return False
+        if destination_hash in self.direct_links or destination_hash in self.backchannel_links: return True
+        else: return False
 
 
     ### Propagation Node Control ##########################
     #######################################################
 
     def compile_stats(self):
-        if not self.propagation_node:
-            return None
+        if not self.propagation_node: return None
         else:
             peer_stats = {}
             for peer_id in self.peers.copy():
