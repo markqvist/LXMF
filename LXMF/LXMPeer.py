@@ -286,7 +286,7 @@ class LXMPeer:
                     threading.Thread(target=job, daemon=True).start()
 
                 delay = self.next_sync_attempt-time.time()
-                postpone_delay =  " for {RNS.prettytime({delay})}" if delay > 0 else ""
+                postpone_delay =  f" for {RNS.prettytime(delay)}" if delay > 0 else ""
                 RNS.log(f"Postponing sync with peer {RNS.prettyhexrep(self.destination_hash)}{postpone_delay}{postpone_reason}", RNS.LOG_DEBUG)
             except Exception as e:
                 RNS.trace_exception(e)
@@ -412,6 +412,12 @@ class LXMPeer:
             elif response == LXMPeer.ERROR_NO_ACCESS:
                 RNS.log("Remote indicated that access was denied, breaking peering", RNS.LOG_VERBOSE)
                 self.router.unpeer(self.destination_hash)
+                return
+
+            elif response == LXMPeer.ERROR_THROTTLED:
+                throttle_time = self.router.PN_STAMP_THROTTLE
+                RNS.log(f"Remote indicated that we're throttled, postponing sync for {RNS.prettytime(throttle_time)}", RNS.LOG_VERBOSE)
+                self.next_sync_attempt = time.time()+throttle_time
                 return
 
             elif response == False:
