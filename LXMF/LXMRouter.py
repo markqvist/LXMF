@@ -764,6 +764,7 @@ class LXMRouter:
                     "network_distance": RNS.Transport.hops_to(peer_id),
                     "rx_bytes": peer.rx_bytes,
                     "tx_bytes": peer.tx_bytes,
+                    "acceptance_rate": peer.acceptance_rate,
                     "messages": {
                         "offered": peer.offered,
                         "outgoing": peer.outgoing,
@@ -1430,7 +1431,8 @@ class LXMRouter:
                                     filepath = self.propagation_entries[transient_id][1]
                                     self.propagation_entries.pop(transient_id)
                                     os.unlink(filepath)
-                                    RNS.log("Client "+RNS.prettyhexrep(remote_destination.hash)+" purged message "+RNS.prettyhexrep(transient_id)+" at "+str(filepath), RNS.LOG_DEBUG)
+                                    # TODO: Remove debug
+                                    # RNS.log("Client "+RNS.prettyhexrep(remote_destination.hash)+" purged message "+RNS.prettyhexrep(transient_id)+" at "+str(filepath), RNS.LOG_DEBUG)
                                 
                                 except Exception as e:
                                     RNS.log("Error while processing message purge request from "+RNS.prettyhexrep(remote_destination.hash)+". The contained exception was: "+str(e), RNS.LOG_ERROR)

@@ -760,7 +760,7 @@ def get_status(remote=None, configdir=None, rnsconfigdir=None, verbosity=0, quie
                 sstr = RNS.prettyspeed(p["str"]); sler = RNS.prettyspeed(p["ler"])
                 stl = RNS.prettysize(p["transfer_limit"]*1000); ssl = RNS.prettysize(p["sync_limit"]*1000)
                 srxb = RNS.prettysize(p["rx_bytes"]); stxb = RNS.prettysize(p["tx_bytes"]); pmo = pm["offered"]; pmout = pm["outgoing"]
-                pmi  = pm["incoming"]; pmuh = pm["unhandled"];
+                pmi  = pm["incoming"]; pmuh = pm["unhandled"]; ar = round(p["acceptance_rate"]*100, 2)
                 if p["name"] == None: nn = ""
                 else: nn = p["name"].strip().replace("\n", "").replace("\r", "")
                 if len(nn) > 45: nn = f"{nn[:45]}..."
@@ -771,7 +771,7 @@ def get_status(remote=None, configdir=None, rnsconfigdir=None, verbosity=0, quie
                 print(f"{ind*2}Sync key   : {pk}")
                 print(f"{ind*2}Speeds     : {sstr} STR, {sler} LER")
                 print(f"{ind*2}Limits     : {stl} message limit, {ssl} sync limit")
-                print(f"{ind*2}Messages   : {pmo} offered, {pmout} outgoing, {pmi} incoming")
+                print(f"{ind*2}Messages   : {pmo} offered, {pmout} outgoing, {pmi} incoming, {ar}% acceptance rate")
                 print(f"{ind*2}Traffic    : {srxb} received, {stxb} sent")
                 ms = "" if pm["unhandled"] == 1 else "s"
                 print(f"{ind*2}Sync state : {pmuh} unhandled message{ms}, {ls}")
