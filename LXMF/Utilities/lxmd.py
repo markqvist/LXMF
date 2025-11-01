@@ -187,6 +187,11 @@ def apply_config():
             active_configuration["prioritised_lxmf_destinations"] = lxmd_config["propagation"].as_list("prioritise_destinations")
         else:
             active_configuration["prioritised_lxmf_destinations"] = []
+        
+        if "propagation" in lxmd_config and "control_allowed" in lxmd_config["propagation"]:
+            active_configuration["control_allowed_identities"] = lxmd_config["propagation"].as_list("control_allowed")
+        else:
+            active_configuration["control_allowed_identities"] = []
 
         if "propagation" in lxmd_config and "static_peers" in lxmd_config["propagation"]:
             static_peers = lxmd_config["propagation"].as_list("static_peers")
@@ -410,13 +415,16 @@ def program_setup(configdir = None, rnsconfigdir = None, run_pn = False, on_inbo
         for dest_str in active_configuration["prioritised_lxmf_destinations"]:
             try:
                 dest_hash = bytes.fromhex(dest_str)
-                if len(dest_hash) == RNS.Reticulum.TRUNCATED_HASHLENGTH//8:
-                    message_router.prioritise(dest_hash)
-
-            except Exception as e:
-                RNS.log("Cannot prioritise "+str(dest_str)+", it is not a valid destination hash", RNS.LOG_ERROR)
+                if len(dest_hash) == RNS.Reticulum.TRUNCATED_HASHLENGTH//8: message_router.prioritise(dest_hash)
+            except Exception as e: RNS.log("Cannot prioritise "+str(dest_str)+", it is not a valid destination hash", RNS.LOG_ERROR)
 
         message_router.enable_propagation()
+        
+        for ident_str in active_configuration["control_allowed_identities"]:
+            try:
+                identity_hash = bytes.fromhex(ident_str)
+                if len(identity_hash) == RNS.Reticulum.TRUNCATED_HASHLENGTH//8: message_router.allow_control(identity_hash)
+            except Exception as e: RNS.log(f"Cannot allow control from {ident_str}, it is not a valid identity hash", RNS.LOG_ERROR)
 
         RNS.log("LXMF Propagation Node started on "+RNS.prettyhexrep(message_router.propagation_destination.hash))
 
@@ -833,6 +841,12 @@ __default_lxmd_config__ = """# This is an example LXM Daemon config file.
 # Whether to enable propagation node
 
 enable_node = no
+
+# You can specify identity hashes for remotes
+# that are allowed to control and query status
+# for this propagation node.
+
+# control_allowed = 7d7e542829b40f32364499b27438dba8, 437229f8e29598b2282b88bad5e44698
 
 # An optional name for this node, included
 # in announces.

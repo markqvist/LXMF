@@ -101,6 +101,7 @@ class LXMRouter:
         self.prioritised_list      = []
         self.ignored_list          = []
         self.allowed_list          = []
+        self.control_allowed_list  = []
         self.auth_required         = False
         self.retain_synced_on_node = False
 
@@ -450,6 +451,16 @@ class LXMRouter:
         else:
             raise ValueError("Disallowed identity hash must be "+str(RNS.Identity.TRUNCATED_HASHLENGTH//8)+" bytes")
 
+    def allow_control(self, identity_hash=None):
+        if isinstance(identity_hash, bytes) and len(identity_hash) == RNS.Identity.TRUNCATED_HASHLENGTH//8:
+            if not identity_hash in self.control_allowed_list: self.control_allowed_list.append(identity_hash)
+        else: raise ValueError("Allowed identity hash must be "+str(RNS.Identity.TRUNCATED_HASHLENGTH//8)+" bytes")
+
+    def disallow_control(self, identity_hash=None):
+        if isinstance(identity_hash, bytes) and len(identity_hash) == RNS.Identity.TRUNCATED_HASHLENGTH//8:
+            if identity_hash in self.control_allowed_list: self.control_allowed_list.pop(identity_hash)
+        else: raise ValueError("Disallowed identity hash must be "+str(RNS.Identity.TRUNCATED_HASHLENGTH//8)+" bytes")
+
     def prioritise(self, destination_hash=None):
         if isinstance(destination_hash, bytes) and len(destination_hash) == RNS.Reticulum.TRUNCATED_HASHLENGTH//8:
             if not destination_hash in self.prioritised_list:
@@ -628,9 +639,10 @@ class LXMRouter:
             self.propagation_destination.register_request_handler(LXMPeer.OFFER_REQUEST_PATH, self.offer_request, allow = RNS.Destination.ALLOW_ALL)
             self.propagation_destination.register_request_handler(LXMPeer.MESSAGE_GET_PATH, self.message_get_request, allow = RNS.Destination.ALLOW_ALL)
 
-            self.control_destination = RNS.Destination(self.identity, RNS.Destination.IN, RNS.Destination.SINGLE, APP_NAME, "propagation", "control")
-            self.control_destination.register_request_handler(LXMRouter.STATS_GET_PATH, self.stats_get_request, allow = RNS.Destination.ALLOW_LIST, allowed_list=[self.identity.hash])
-            self.control_destination.register_request_handler(LXMRouter.SYNC_REQUEST_PATH, self.peer_sync_request, allow = RNS.Destination.ALLOW_LIST, allowed_list=[self.identity.hash])
+            self.control_allowed_list = [self.identity.hash]
+            self.control_destination  = RNS.Destination(self.identity, RNS.Destination.IN, RNS.Destination.SINGLE, APP_NAME, "propagation", "control")
+            self.control_destination.register_request_handler(LXMRouter.STATS_GET_PATH, self.stats_get_request, allow = RNS.Destination.ALLOW_LIST, allowed_list=self.control_allowed_list)
+            self.control_destination.register_request_handler(LXMRouter.SYNC_REQUEST_PATH, self.peer_sync_request, allow = RNS.Destination.ALLOW_LIST, allowed_list=self.control_allowed_list)
 
             if self.message_storage_limit != None:
                 limit_str = ", limit is "+RNS.prettysize(self.message_storage_limit)
@@ -807,13 +819,13 @@ class LXMRouter:
             return node_stats
 
     def stats_get_request(self, path, data, request_id, remote_identity, requested_at):
-        if   remote_identity == None:                    return LXMPeer.ERROR_NO_IDENTITY
-        elif remote_identity.hash != self.identity.hash: return LXMPeer.ERROR_NO_ACCESS
-        else:                                            return self.compile_stats()
+        if   remote_identity == None:                               return LXMPeer.ERROR_NO_IDENTITY
+        elif remote_identity.hash not in self.control_allowed_list: return LXMPeer.ERROR_NO_ACCESS
+        else:                                                       return self.compile_stats()
 
     def peer_sync_request(self, path, data, request_id, remote_identity, requested_at):
-        if   remote_identity == None:                    return LXMPeer.ERROR_NO_IDENTITY
-        elif remote_identity.hash != self.identity.hash: return LXMPeer.ERROR_NO_ACCESS
+        if   remote_identity == None:                               return LXMPeer.ERROR_NO_IDENTITY
+        elif remote_identity.hash not in self.control_allowed_list: return LXMPeer.ERROR_NO_ACCESS
         else:
             if type(data)  != bytes:                                return LXMPeer.ERROR_INVALID_DATA
             elif len(data) != RNS.Identity.TRUNCATED_HASHLENGTH//8: return LXMPeer.ERROR_INVALID_DATA
