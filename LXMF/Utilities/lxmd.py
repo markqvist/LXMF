@@ -539,8 +539,80 @@ def request_sync(target, remote=None, configdir=None, rnsconfigdir=None, verbosi
     elif response == LXMF.LXMPeer.LXMPeer.ERROR_NOT_FOUND:
         print("The requested peer was not found")
         exit(206)
+    elif response == None:
+        print("Empty response received")
+        exit(207)
     else:
         print(f"Sync requested for peer {RNS.prettyhexrep(peer_destination_hash)}")
+        exit(0)
+
+def _request_unpeer(identity, destination_hash, remote_identity, timeout=15, exit_on_fail=False):
+    control_destination = RNS.Destination(remote_identity, RNS.Destination.OUT, RNS.Destination.SINGLE, APP_NAME, "propagation", "control")
+
+    timeout = time.time()+timeout
+    def check_timeout():
+        if time.time() > timeout:
+            if exit_on_fail:
+                print("Requesting lxmd peering break timed out, exiting now")
+                exit(200)
+            else: return LXMF.LXMPeer.LXMPeer.ERROR_TIMEOUT
+        else: time.sleep(0.1)
+
+    if not RNS.Transport.has_path(control_destination.hash):
+        RNS.Transport.request_path(control_destination.hash)
+        while not RNS.Transport.has_path(control_destination.hash):
+            tc = check_timeout()
+            if tc:
+                return tc
+
+    link = RNS.Link(control_destination)
+    while not link.status == RNS.Link.ACTIVE:
+        tc = check_timeout()
+        if tc:
+            return tc
+
+    link.identify(identity)
+    request_receipt = link.request(LXMF.LXMRouter.UNPEER_REQUEST_PATH, data=destination_hash, response_callback=None, failed_callback=None)
+    while not request_receipt.get_status() == RNS.RequestReceipt.READY:
+        tc = check_timeout()
+        if tc:
+            return tc
+
+    link.teardown()
+    return request_receipt.get_response()
+
+
+def request_unpeer(target, remote=None, configdir=None, rnsconfigdir=None, verbosity=0, quietness=0, timeout=15, identity_path=None):
+    global configpath, identitypath, storagedir, lxmdir
+    global lxmd_config, active_configuration, targetloglevel
+
+    try:
+        peer_destination_hash = bytes.fromhex(target)
+        if len(peer_destination_hash) != RNS.Identity.TRUNCATED_HASHLENGTH//8: raise ValueError(f"Destination hash length must be {RNS.Identity.TRUNCATED_HASHLENGTH//8*2} characters")
+    except Exception as e:
+        print(f"Invalid peer destination hash: {e}")
+        exit(203)
+    remote
+    _remote_init(configdir, rnsconfigdir, verbosity, quietness, identity_path)
+    response = _request_unpeer(identity, peer_destination_hash, remote_identity=_get_target_identity(remote), timeout=timeout, exit_on_fail=True)
+
+    if response == LXMF.LXMPeer.LXMPeer.ERROR_NO_IDENTITY:
+        print("Remote received no identity")
+        exit(203)
+    elif response == LXMF.LXMPeer.LXMPeer.ERROR_NO_ACCESS:
+        print("Access denied")
+        exit(204)
+    elif response == LXMF.LXMPeer.LXMPeer.ERROR_INVALID_DATA:
+        print("Invalid data received by remote")
+        exit(205)
+    elif response == LXMF.LXMPeer.LXMPeer.ERROR_NOT_FOUND:
+        print("The requested peer was not found")
+        exit(206)
+    elif response == None:
+        print("Empty response received")
+        exit(207)
+    else:
+        print(f"Broke peering with {RNS.prettyhexrep(peer_destination_hash)}")
         exit(0)
 
 def query_status(identity, remote_identity, timeout=5, exit_on_fail=False):
@@ -588,6 +660,9 @@ def get_status(remote=None, configdir=None, rnsconfigdir=None, verbosity=0, quie
     if response == LXMF.LXMPeer.LXMPeer.ERROR_NO_ACCESS:
         print("Access denied")
         exit(204)
+    elif response == None:
+        print("Empty response received")
+        exit(207)
     else:
         s = response
         mutil = round((s["messagestore"]["bytes"]/s["messagestore"]["limit"])*100, 2)
@@ -784,6 +859,7 @@ def main():
         parser.add_argument("--status", action="store_true", default=False, help="display node status")
         parser.add_argument("--peers", action="store_true", default=False, help="display peered nodes")
         parser.add_argument("--sync", action="store", default=None, help="request a sync with the specified peer", type=str)
+        parser.add_argument("-b", "--break", dest="unpeer", action="store", default=None, help="break peering with the specified peer", type=str)
         parser.add_argument("--timeout", action="store", default=None, help="timeout in seconds for query operations", type=float)
         parser.add_argument("-r", "--remote", action="store", default=None, help="remote propagation node destination hash", type=str)
         parser.add_argument("--identity", action="store", default=None, help="path to identity used for remote requests", type=str)
@@ -819,6 +895,19 @@ def main():
                          timeout=args.timeout,
                          identity_path=args.identity,
                          remote=args.remote)
+            exit()
+
+        if args.unpeer:
+            if not args.timeout: args.timeout = 10
+            request_unpeer(target=args.unpeer,
+                           configdir = args.config,
+                           rnsconfigdir=args.rnsconfig,
+                           verbosity=args.verbose,
+                           quietness=args.quiet,
+                           timeout=args.timeout,
+                           identity_path=args.identity,
+                           remote=args.remote)
+            exit()
 
         program_setup(configdir = args.config,
                       rnsconfigdir=args.rnsconfig,
@@ -944,9 +1033,9 @@ autopeer_maxdepth = 4
 
 # You can configure the maximum number of other
 # propagation nodes that this node will peer
-# with automatically. The default is 50.
+# with automatically. The default is 20.
 
-# max_peers = 25
+# max_peers = 20
 
 # You can configure a list of static propagation
 # node peers, that this node will always be

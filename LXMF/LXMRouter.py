@@ -39,7 +39,7 @@ class LXMRouter:
 
     NODE_ANNOUNCE_DELAY   = 20
 
-    MAX_PEERS             = 50
+    MAX_PEERS             = 20
     AUTOPEER              = True
     AUTOPEER_MAXDEPTH     = 4
     FASTEST_N_RANDOM_POOL = 2
@@ -77,6 +77,7 @@ class LXMRouter:
 
     STATS_GET_PATH        = "/pn/get/stats"
     SYNC_REQUEST_PATH     = "/pn/peer/sync"
+    UNPEER_REQUEST_PATH   = "/pn/peer/unpeer"
 
 
     ### Developer-facing API ##############################
@@ -643,6 +644,7 @@ class LXMRouter:
             self.control_destination  = RNS.Destination(self.identity, RNS.Destination.IN, RNS.Destination.SINGLE, APP_NAME, "propagation", "control")
             self.control_destination.register_request_handler(LXMRouter.STATS_GET_PATH, self.stats_get_request, allow = RNS.Destination.ALLOW_LIST, allowed_list=self.control_allowed_list)
             self.control_destination.register_request_handler(LXMRouter.SYNC_REQUEST_PATH, self.peer_sync_request, allow = RNS.Destination.ALLOW_LIST, allowed_list=self.control_allowed_list)
+            self.control_destination.register_request_handler(LXMRouter.UNPEER_REQUEST_PATH, self.peer_unpeer_request, allow = RNS.Destination.ALLOW_LIST, allowed_list=self.control_allowed_list)
 
             if self.message_storage_limit != None:
                 limit_str = ", limit is "+RNS.prettysize(self.message_storage_limit)
@@ -833,6 +835,18 @@ class LXMRouter:
                 if not data in self.peers: return LXMPeer.ERROR_NOT_FOUND
                 else:
                     self.peers[data].sync()
+                    return True
+
+    def peer_unpeer_request(self, path, data, request_id, remote_identity, requested_at):
+        if   remote_identity == None:                               return LXMPeer.ERROR_NO_IDENTITY
+        elif remote_identity.hash not in self.control_allowed_list: return LXMPeer.ERROR_NO_ACCESS
+        else:
+            if type(data)  != bytes:                                return LXMPeer.ERROR_INVALID_DATA
+            elif len(data) != RNS.Identity.TRUNCATED_HASHLENGTH//8: return LXMPeer.ERROR_INVALID_DATA
+            else:
+                if not data in self.peers: return LXMPeer.ERROR_NOT_FOUND
+                else:
+                    self.unpeer(data)
                     return True
 
 
@@ -1318,6 +1332,8 @@ class LXMRouter:
             self.propagation_destination.deregister_request_handler(LXMPeer.OFFER_REQUEST_PATH)
             self.propagation_destination.deregister_request_handler(LXMPeer.MESSAGE_GET_PATH)
             self.propagation_destination.deregister_request_handler(LXMRouter.STATS_GET_PATH)
+            self.propagation_destination.deregister_request_handler(LXMRouter.SYNC_REQUEST_PATH)
+            self.propagation_destination.deregister_request_handler(LXMRouter.UNPEER_REQUEST_PATH)
             for link in self.active_propagation_links:
                 try:
                     if link.status == RNS.Link.ACTIVE:
