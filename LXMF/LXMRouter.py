@@ -1088,12 +1088,13 @@ class LXMRouter:
         now = time.time()
         removed_entries = {}
         for transient_id in self.propagation_entries.copy():
-            entry = self.propagation_entries[transient_id]
-            filepath = entry[1]
+            entry       = self.propagation_entries[transient_id]
+            filepath    = entry[1]
             stamp_value = entry[6]
-            components = filepath.split("_")
+            filename    = os.path.split(filepath)[-1]
+            components  = filename.split("_")
 
-            if len(components) >= 3 and float(components[1]) > 0 and len(os.path.split(components[0])[1]) == (RNS.Identity.HASHLENGTH//8)*2 and int(components[2]) == stamp_value:
+            if len(components) == 3 and float(components[1]) > 0 and len(os.path.split(components[0])[1]) == (RNS.Identity.HASHLENGTH//8)*2 and int(components[2]) == stamp_value:
                 timestamp = float(components[1])
                 if now > timestamp+LXMRouter.MESSAGE_EXPIRY:
                     RNS.log("Purging message "+RNS.prettyhexrep(transient_id)+" due to expiry", RNS.LOG_EXTREME)
