@@ -617,7 +617,8 @@ def request_unpeer(target, remote=None, configdir=None, rnsconfigdir=None, verbo
         print(f"Broke peering with {RNS.prettyhexrep(peer_destination_hash)}")
         exit(0)
 
-def query_status(identity, remote_identity, timeout=5, exit_on_fail=False):
+def query_status(identity, remote_identity=None, timeout=5, exit_on_fail=False):
+    if remote_identity == None: remote_identity = identity
     control_destination = RNS.Destination(remote_identity, RNS.Destination.OUT, RNS.Destination.SINGLE, APP_NAME, "propagation", "control")
 
     timeout = time.time()+timeout
