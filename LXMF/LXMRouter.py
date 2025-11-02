@@ -47,7 +47,7 @@ class LXMRouter:
     ROTATION_AR_MAX       = 0.5
 
     PEERING_COST          = 18
-    MAX_PEERING_COST      = 24
+    MAX_PEERING_COST      = 26
     PROPAGATION_COST_MIN  = 13
     PROPAGATION_COST_FLEX = 3
     PROPAGATION_COST      = 16

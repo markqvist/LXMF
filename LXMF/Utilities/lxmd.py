@@ -1023,7 +1023,7 @@ autopeer_maxdepth = 4
 # more computation time during initial peering
 # when generating the peering key.
 
-# remote_peering_cost_max = 24
+# remote_peering_cost_max = 26
 
 # You can tell the LXMF message router to
 # prioritise storage for one or more
