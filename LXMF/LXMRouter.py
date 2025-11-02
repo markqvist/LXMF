@@ -544,20 +544,18 @@ class LXMRouter:
             st = time.time(); RNS.log("Indexing messagestore...", RNS.LOG_NOTICE)
             for filename in os.listdir(self.messagepath):
                 components = filename.split("_")
-                if len(components) >= 2:
+                if len(components) >= 3:
                     if float(components[1]) > 0:
                         if len(components[0]) == RNS.Identity.HASHLENGTH//8*2:
                             try:
                                 transient_id       = bytes.fromhex(components[0])
                                 received           = float(components[1])
+                                stamp_value        = int(components[2])
                                 filepath           = self.messagepath+"/"+filename
                                 msg_size           = os.path.getsize(filepath)
                                 file               = open(filepath, "rb")
                                 destination_hash   = file.read(LXMessage.DESTINATION_LENGTH)
                                 file.close()
-
-                                if len(components) >= 3: stamp_value = int(components[2])
-                                else:                    stamp_value = None
 
                                 self.propagation_entries[transient_id] = [
                                     destination_hash,   # 0: Destination hash
