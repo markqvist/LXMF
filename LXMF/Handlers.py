@@ -54,7 +54,7 @@ class LXMFPropagationAnnounceHandler:
                         metadata                           =     data[6]
                         
                         if destination_hash in self.lxmrouter.static_peers:
-                            static_peer = self.lxmrouter.static_peers[destination_hash]
+                            static_peer = self.lxmrouter.peers[destination_hash]
                             if not is_path_response or static_peer.last_heard == 0:
                                 self.lxmrouter.peer(destination_hash=destination_hash,
                                                     timestamp=node_timebase,

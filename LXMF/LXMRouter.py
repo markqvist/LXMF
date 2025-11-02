@@ -75,6 +75,8 @@ class LXMRouter:
 
     PR_ALL_MESSAGES       = 0x00
 
+    DUPLICATE_SIGNAL      = "lxmf_duplicate"
+
     STATS_GET_PATH        = "/pn/get/stats"
     SYNC_REQUEST_PATH     = "/pn/peer/sync"
     UNPEER_REQUEST_PATH   = "/pn/peer/unpeer"
@@ -1537,10 +1539,12 @@ class LXMRouter:
             self.propagation_transfer_state = LXMRouter.PR_NO_ACCESS
 
         else:
+            duplicates = 0
             if request_receipt.response != None and len(request_receipt.response) > 0:
                 haves = []
                 for lxmf_data in request_receipt.response:
-                    self.lxmf_propagation(lxmf_data)
+                    result = self.lxmf_propagation(lxmf_data, signal_duplicate=LXMRouter.DUPLICATE_SIGNAL)
+                    if result == LXMRouter.DUPLICATE_SIGNAL: duplicates += 1
                     haves.append(RNS.Identity.full_hash(lxmf_data))
 
                 # Return a list of successfully received messages to the node.
@@ -1556,6 +1560,7 @@ class LXMRouter:
 
             self.propagation_transfer_state = LXMRouter.PR_COMPLETE
             self.propagation_transfer_progress = 1.0
+            self.propagation_transfer_last_duplicates = duplicates
             self.propagation_transfer_last_result = len(request_receipt.response)
             self.save_locally_delivered_transient_ids()
 
@@ -1674,11 +1679,14 @@ class LXMRouter:
     def get_outbound_lxm_stamp_cost(self, lxm_hash):
         for lxm in self.pending_outbound:
             if lxm.hash == lxm_hash:
-                return lxm.stamp_cost
+                if lxm.outbound_ticket: return None
+                else:                   return lxm.stamp_cost
 
         for lxm_id in self.pending_deferred_stamps:
             if self.pending_deferred_stamps[lxm_id].hash == lxm_hash:
-                return self.pending_deferred_stamps[lxm_id].stamp_cost
+                lxm = self.pending_deferred_stamps[lxm_id]
+                if lxm.outbound_ticket: return None
+                else:                   return lxm.stamp_cost
         
         return None
 
@@ -1689,7 +1697,7 @@ class LXMRouter:
 
         for lxm_id in self.pending_deferred_stamps:
             if self.pending_deferred_stamps[lxm_id].hash == lxm_hash:
-                return self.pending_deferred_stamps[lxm_id].stamp_cost
+                return self.pending_deferred_stamps[lxm_id].propagation_target_cost
         
         return None
 

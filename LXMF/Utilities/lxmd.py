@@ -758,7 +758,8 @@ def get_status(remote=None, configdir=None, rnsconfigdir=None, verbosity=0, quie
                     ls = "never synced"
 
                 sstr = RNS.prettyspeed(p["str"]); sler = RNS.prettyspeed(p["ler"])
-                stl = RNS.prettysize(p["transfer_limit"]*1000); ssl = RNS.prettysize(p["sync_limit"]*1000)
+                stl = RNS.prettysize(p["transfer_limit"]*1000) if p["transfer_limit"] else "Unknown"
+                ssl = RNS.prettysize(p["sync_limit"]*1000) if p["sync_limit"] else "unknown"
                 srxb = RNS.prettysize(p["rx_bytes"]); stxb = RNS.prettysize(p["tx_bytes"]); pmo = pm["offered"]; pmout = pm["outgoing"]
                 pmi  = pm["incoming"]; pmuh = pm["unhandled"]; ar = round(p["acceptance_rate"]*100, 2)
                 if p["name"] == None: nn = ""
