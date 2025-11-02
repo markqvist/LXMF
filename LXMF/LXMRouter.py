@@ -150,6 +150,7 @@ class LXMRouter:
         self.propagation_transfer_state = LXMRouter.PR_IDLE
         self.propagation_transfer_progress = 0.0
         self.propagation_transfer_last_result = None
+        self.propagation_transfer_last_duplicates = None
         self.propagation_transfer_max_messages = None
         self.prioritise_rotating_unreachable_peers = False
         self.active_propagation_links = []
