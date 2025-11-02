@@ -998,7 +998,7 @@ autopeer_maxdepth = 4
 # You can configure the target stamp cost
 # required to deliver messages via this node.
 
-# propagation_stamp_cost_target = 12
+# propagation_stamp_cost_target = 16
 
 # If set higher than 0, the stamp cost flexi-
 # bility option will make this node accept
@@ -1019,7 +1019,7 @@ autopeer_maxdepth = 4
 # of remote nodes that this node will peer with.
 # Setting this to a higher number will allow
 # this node to peer with other nodes requiring
-# a high peering key value, but will require
+# a higher peering key value, but will require
 # more computation time during initial peering
 # when generating the peering key.
 
