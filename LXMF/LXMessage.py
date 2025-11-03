@@ -357,7 +357,7 @@ class LXMessage:
             else:
                 return None
 
-    def pack(self):
+    def pack(self, payload_updated=False):
         if not self.packed:
             if self.timestamp == None: self.timestamp = time.time()
 
@@ -431,7 +431,7 @@ class LXMessage:
             elif self.desired_method == LXMessage.PROPAGATED:
                 single_packet_content_limit = LXMessage.LINK_PACKET_MAX_CONTENT
 
-                if self.__pn_encrypted_data == None:
+                if self.__pn_encrypted_data == None or payload_updated:
                     self.__pn_encrypted_data = self.__destination.encrypt(self.packed[LXMessage.DESTINATION_LENGTH:])
                     self.ratchet_id          = self.__destination.latest_ratchet_id
 

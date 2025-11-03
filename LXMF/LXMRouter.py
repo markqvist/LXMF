@@ -2424,7 +2424,7 @@ class LXMRouter:
                                 selected_lxm.stamp = generated_stamp
                                 selected_lxm.defer_stamp = False
                                 selected_lxm.packed = None
-                                selected_lxm.pack()
+                                selected_lxm.pack(payload_updated=True)
                                 stamp_generation_success = True
                                 RNS.log(f"Stamp generation completed for {selected_lxm}", RNS.LOG_DEBUG)
                             else:
