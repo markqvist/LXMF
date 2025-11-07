@@ -1360,14 +1360,16 @@ class LXMRouter:
     def sigint_handler(self, signal, frame):
         if not self.exit_handler_running:
             RNS.log("Received SIGINT, shutting down now!", RNS.LOG_WARNING)
-            sys.exit(0)
+            self.exit_handler()
+            RNS.exit(0)
         else:
             RNS.log("Received SIGINT, but exit handler is running, keeping process alive until storage persist is complete", RNS.LOG_WARNING)
 
     def sigterm_handler(self, signal, frame):
         if not self.exit_handler_running:
             RNS.log("Received SIGTERM, shutting down now!", RNS.LOG_WARNING)
-            sys.exit(0)
+            self.exit_handler()
+            RNS.exit(0)
         else:
             RNS.log("Received SIGTERM, but exit handler is running, keeping process alive until storage persist is complete", RNS.LOG_WARNING)
 
