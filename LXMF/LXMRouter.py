@@ -2200,14 +2200,15 @@ class LXMRouter:
                                 # 4: Limit for incoming propagation node syncs
                                 # 5: Propagation stamp costs for this node
                                 # 6: Node metadata
-                                if remote_app_data[2] and self.autopeer and RNS.Transport.hops_to(remote_hash) <= self.autopeer_maxdepth:
-                                    remote_timebase       = remote_app_data[1]
-                                    remote_transfer_limit = remote_app_data[3]
-                                    remote_sync_limit     = remote_app_data[4]
-                                    remote_stamp_cost     = remote_app_data[5][0]
-                                    remote_stamp_flex     = remote_app_data[5][1]
-                                    remote_peering_cost   = remote_app_data[5][2]
-                                    remote_metadata       = remote_app_data[6]
+                                pn_config = msgpack.unpackb(remote_app_data)
+                                if pn_config[2] and self.autopeer and RNS.Transport.hops_to(remote_hash) <= self.autopeer_maxdepth:
+                                    remote_timebase       = pn_config[1]
+                                    remote_transfer_limit = pn_config[3]
+                                    remote_sync_limit     = pn_config[4]
+                                    remote_stamp_cost     = pn_config[5][0]
+                                    remote_stamp_flex     = pn_config[5][1]
+                                    remote_peering_cost   = pn_config[5][2]
+                                    remote_metadata       = pn_config[6]
 
                                     RNS.log(f"Auto-peering with {remote_str} discovered via incoming sync", RNS.LOG_DEBUG) # TODO: Remove debug
                                     self.peer(remote_hash, remote_timebase, remote_transfer_limit, remote_sync_limit, remote_stamp_cost, remote_stamp_flex, remote_peering_cost, remote_metadata)
