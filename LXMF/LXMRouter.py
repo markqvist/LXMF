@@ -219,7 +219,7 @@ class LXMRouter:
                     self.locally_delivered_transient_ids = {}
 
         except Exception as e:
-            RNS.log("Could not load locally delivered message ID cache from storage. The contained exception was: "+str(e), RNS.LOG_ERROR)
+            RNS.log(f"Could not load locally delivered message ID cache from storage. The contained exception was: {e}", RNS.LOG_ERROR)
             self.locally_delivered_transient_ids = {}
 
         try:
