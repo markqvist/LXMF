@@ -16,7 +16,12 @@ create_symlinks:
 	-ln -s ../../LXMF ./LXMF/Utilities/LXMF
 
 build_wheel:
-	python3 setup.py sdist bdist_wheel
+	python3 setup.py bdist_wheel
+
+build_sdist:
+	python3 setup.py sdist
+
+build_spkg: remove_symlinks build_sdist create_symlinks
 
 release: remove_symlinks build_wheel create_symlinks
 
