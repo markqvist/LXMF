@@ -576,13 +576,20 @@ class LXMRouter:
             RNS.log("Rebuilding peer synchronisation states...", RNS.LOG_NOTICE)
             st = time.time()
 
-            if os.path.isfile(self.storagepath+"/peers"):
-                peers_file = open(self.storagepath+"/peers", "rb")
+            peers_storage_path = self.storagepath+"/peers"
+            if os.path.isfile(peers_storage_path):
+                peers_file = open(peers_storage_path, "rb")
                 peers_data = peers_file.read()
                 peers_file.close()
 
                 if len(peers_data) > 0:
-                    serialised_peers = msgpack.unpackb(peers_data)
+                    try: serialised_peers = msgpack.unpackb(peers_data)
+                    except Exception as e:
+                        RNS.log(f"Could not load propagation node peering data from storage. The contained exception was: {e}", RNS.LOG_ERROR)
+                        RNS.log(f"The peering data file located at {peers_storage_path} is likely corrupt.", RNS.LOG_ERROR)
+                        RNS.log(f"You can delete this file and attempt starting the propagation node again, but peer synchronization states will be lost.", RNS.LOG_ERROR)
+                        raise e
+
                     del peers_data
 
                     while len(serialised_peers) > 0:
