@@ -15,6 +15,14 @@ PN_VALIDATION_POOL_MIN_SIZE     = 256
 
 active_jobs = {}
 
+external_generator = None
+
+def set_external_generator(generator):
+    global external_generator
+    external_generator = generator
+    if generator is not None:
+        RNS.log("External stamp generator registered", RNS.LOG_DEBUG)
+
 if RNS.vendor.platformutils.is_linux(): multiprocessing.set_start_method("fork")
 
 def stamp_workblock(material, expand_rounds=WORKBLOCK_EXPAND_ROUNDS):
@@ -98,7 +106,10 @@ def generate_stamp(message_id, stamp_cost, expand_rounds=WORKBLOCK_EXPAND_ROUNDS
     rounds = 0
     value = 0
 
-    if RNS.vendor.platformutils.is_windows() or RNS.vendor.platformutils.is_darwin(): stamp, rounds = job_simple(stamp_cost, workblock, message_id)
+    if external_generator is not None:
+        RNS.log("Using external stamp generator", RNS.LOG_DEBUG)
+        stamp, rounds = external_generator(workblock, stamp_cost)
+    elif RNS.vendor.platformutils.is_windows() or RNS.vendor.platformutils.is_darwin(): stamp, rounds = job_simple(stamp_cost, workblock, message_id)
     elif RNS.vendor.platformutils.is_android(): stamp, rounds = job_android(stamp_cost, workblock, message_id)
     else: stamp, rounds = job_linux(stamp_cost, workblock, message_id)
     
