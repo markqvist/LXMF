@@ -1236,7 +1236,7 @@ class LXMRouter:
                         os.makedirs(self.storagepath)
 
                 outbound_stamp_costs_file = open(self.storagepath+"/outbound_stamp_costs", "wb")
-                outbound_stamp_costs_file.write(msgpack.packb(self.outbound_stamp_costs))
+                outbound_stamp_costs_file.write(msgpack.packb(self.outbound_stamp_costs.copy()))
                 outbound_stamp_costs_file.close()
 
             except Exception as e:
