@@ -1365,7 +1365,9 @@ class LXMRouter:
         self.save_node_stats()
 
     def sigint_handler(self, signal, frame):
-        if threading.current_thread() != threading.main_thread(): os._exit(0)
+        if threading.current_thread() != threading.main_thread():
+            RNS.log(f"SIGINT on non-main thread {threading.current_thread()}, exiting immediately", RNS.LOG_WARNING)
+            os._exit(0)
         else:
             if not self.exit_handler_running:
                 RNS.log("Received SIGINT, shutting down now!", RNS.LOG_WARNING)
@@ -1375,7 +1377,9 @@ class LXMRouter:
                 RNS.log("Received SIGINT, but exit handler is running, keeping process alive until storage persist is complete", RNS.LOG_WARNING)
 
     def sigterm_handler(self, signal, frame):
-        if threading.current_thread() != threading.main_thread(): os._exit(0)
+        if threading.current_thread() != threading.main_thread():
+            RNS.log(f"SIGTERM on non-main thread {threading.current_thread()}, exiting immediately", RNS.LOG_WARNING)
+            os._exit(0)
         else:
             if not self.exit_handler_running:
                 RNS.log("Received SIGTERM, shutting down now!", RNS.LOG_WARNING)

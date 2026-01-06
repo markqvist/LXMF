@@ -15,8 +15,6 @@ PN_VALIDATION_POOL_MIN_SIZE     = 256
 
 active_jobs = {}
 
-if RNS.vendor.platformutils.is_linux(): multiprocessing.set_start_method("fork")
-
 def stamp_workblock(material, expand_rounds=WORKBLOCK_EXPAND_ROUNDS):
     wb_st = time.time()
     workblock = b""
@@ -79,8 +77,10 @@ def validate_pn_stamps_job_multip(transient_list, target_cost):
     pool_count = min(cores, math.ceil(len(transient_list) / PN_VALIDATION_POOL_MIN_SIZE))
         
     RNS.log(f"Validating {len(transient_list)} stamps using {pool_count} processes...", RNS.LOG_VERBOSE)
-    with multiprocessing.Pool(pool_count) as p:
+    with multiprocessing.get_context("spawn").Pool(pool_count) as p:
         validated_entries = p.starmap(validate_pn_stamp, zip(transient_list, itertools.repeat(target_cost)))
+    
+    RNS.log(f"Validation pool completed for {len(transient_list)} stamps", RNS.LOG_VERBOSE)
 
     return [e for e in validated_entries if e[0] != None]
 
@@ -210,22 +210,19 @@ def job_linux(stamp_cost, workblock, message_id):
     job_procs = []
     RNS.log(f"Starting {jobs} stamp generation workers", RNS.LOG_DEBUG)
     for jpn in range(jobs):
-        process = multiprocessing.Process(target=job, kwargs={"stop_event": stop_event, "pn": jpn, "sc": stamp_cost, "wb": workblock}, daemon=True)
+        process = multiprocessing.get_context("fork").Process(target=job, kwargs={"stop_event": stop_event, "pn": jpn, "sc": stamp_cost, "wb": workblock}, daemon=True)
         job_procs.append(process)
         process.start()
 
     active_jobs[message_id] = [stop_event, result_queue]
 
     stamp = result_queue.get()
-    RNS.log("Got stamp result from worker", RNS.LOG_DEBUG) # TODO: Remove
 
     # Collect any potential spurious
     # results from worker queue.
     try:
-        while True:
-            result_queue.get_nowait()
-    except:
-        pass
+        while True: result_queue.get_nowait()
+    except: pass
 
     for j in range(jobs):
         nrounds = 0
@@ -389,3 +386,10 @@ if __name__ == "__main__":
     RNS.log("Testing peering key generation", RNS.LOG_DEBUG)
     message_id = os.urandom(32)
     generate_stamp(message_id, cost, expand_rounds=WORKBLOCK_EXPAND_ROUNDS_PEERING)
+
+    transient_list = []
+    st = time.time(); count = 10000
+    for i in range(count): transient_list.append(os.urandom(256))
+    validate_pn_stamps(transient_list, 5)
+    dt = time.time()-st; mps = count/dt
+    RNS.log(f"Validated {count} PN stamps in {RNS.prettytime(dt)}, {round(mps,1)} m/s", RNS.LOG_DEBUG)
