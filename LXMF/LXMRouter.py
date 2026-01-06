@@ -321,6 +321,7 @@ class LXMRouter:
         def delayed_announce():
             time.sleep(LXMRouter.NODE_ANNOUNCE_DELAY)
             self.propagation_destination.announce(app_data=self.get_propagation_node_app_data())
+            if len(self.control_allowed_list) > 1: self.control_destination.announce()
 
         da_thread = threading.Thread(target=delayed_announce)
         da_thread.setDaemon(True)
