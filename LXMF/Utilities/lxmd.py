@@ -319,11 +319,8 @@ def program_setup(configdir = None, rnsconfigdir = None, run_pn = False, on_inbo
     storagedir   = configdir+"/storage"
     lxmdir       = storagedir+"/messages"
 
-    if not os.path.isdir(storagedir):
-        os.makedirs(storagedir)
-
-    if not os.path.isdir(lxmdir):
-        os.makedirs(lxmdir)
+    if not os.path.isdir(storagedir): os.makedirs(storagedir)
+    if not os.path.isdir(lxmdir):     os.makedirs(lxmdir)
 
     if not os.path.isfile(configpath):
         RNS.log("Could not load config file, creating default configuration file...")
@@ -351,6 +348,7 @@ def program_setup(configdir = None, rnsconfigdir = None, run_pn = False, on_inbo
     # Start Reticulum
     RNS.log("Substantiating Reticulum...")
     reticulum = RNS.Reticulum(configdir=rnsconfigdir, loglevel=targetloglevel, logdest=targetlogdest)
+    if targetlogdest == RNS.LOG_FILE: RNS.logfile = configdir+"/logfile"
 
     # Generate or load primary identity
     if os.path.isfile(identitypath):
@@ -971,7 +969,7 @@ autopeer = yes
 # The maximum peering depth (in hops) for
 # automatically peered nodes.
 
-autopeer_maxdepth = 4
+autopeer_maxdepth = 6
 
 # The maximum amount of storage to use for
 # the LXMF Propagation Node message store,

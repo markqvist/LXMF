@@ -1365,20 +1365,24 @@ class LXMRouter:
         self.save_node_stats()
 
     def sigint_handler(self, signal, frame):
-        if not self.exit_handler_running:
-            RNS.log("Received SIGINT, shutting down now!", RNS.LOG_WARNING)
-            self.exit_handler()
-            RNS.exit(0)
+        if threading.current_thread() != threading.main_thread(): os._exit(0)
         else:
-            RNS.log("Received SIGINT, but exit handler is running, keeping process alive until storage persist is complete", RNS.LOG_WARNING)
+            if not self.exit_handler_running:
+                RNS.log("Received SIGINT, shutting down now!", RNS.LOG_WARNING)
+                self.exit_handler()
+                RNS.exit(0)
+            else:
+                RNS.log("Received SIGINT, but exit handler is running, keeping process alive until storage persist is complete", RNS.LOG_WARNING)
 
     def sigterm_handler(self, signal, frame):
-        if not self.exit_handler_running:
-            RNS.log("Received SIGTERM, shutting down now!", RNS.LOG_WARNING)
-            self.exit_handler()
-            RNS.exit(0)
+        if threading.current_thread() != threading.main_thread(): os._exit(0)
         else:
-            RNS.log("Received SIGTERM, but exit handler is running, keeping process alive until storage persist is complete", RNS.LOG_WARNING)
+            if not self.exit_handler_running:
+                RNS.log("Received SIGTERM, shutting down now!", RNS.LOG_WARNING)
+                self.exit_handler()
+                RNS.exit(0)
+            else:
+                RNS.log("Received SIGTERM, but exit handler is running, keeping process alive until storage persist is complete", RNS.LOG_WARNING)
 
     def __str__(self):
         return "<LXMRouter "+RNS.hexrep(self.identity.hash, delimit=False)+">"
