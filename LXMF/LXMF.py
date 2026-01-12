@@ -123,6 +123,9 @@ def display_name_from_app_data(app_data=None):
                     dn = peer_data[0]
                     if dn == None: return None
                     else:
+                        # if it was packed as a string, then we don't need to decode it
+                        if isinstance(dn, str):
+                            return dn
                         try:
                             decoded = dn.decode("utf-8")
                             return decoded
