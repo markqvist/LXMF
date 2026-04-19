@@ -16,6 +16,7 @@ import RNS.vendor.umsgpack as msgpack
 from .LXMF import APP_NAME
 from .LXMF import FIELD_TICKET
 from .LXMF import PN_META_NAME
+from .LXMF import SF_COMPRESSION
 from .LXMF import pn_announce_data_is_valid
 
 from .LXMPeer import LXMPeer
@@ -995,6 +996,7 @@ class LXMRouter:
                 if delivery_destination.stamp_cost > 0 and delivery_destination.stamp_cost < 255:
                     stamp_cost = delivery_destination.stamp_cost
 
+            supported_functionality = [SF_COMPRESSION]
             peer_data = [display_name, stamp_cost]
 
             return msgpack.packb(peer_data)

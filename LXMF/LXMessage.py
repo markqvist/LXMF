@@ -7,7 +7,7 @@ import base64
 import multiprocessing
 
 import LXMF.LXStamper as LXStamper
-from .LXMF import APP_NAME
+from .LXMF import APP_NAME, compression_support_from_app_data
 
 
 class LXMessage:
@@ -113,35 +113,26 @@ class LXMessage:
     def __init__(self, destination, source, content = "", title = "", fields = None, desired_method = None, destination_hash = None, source_hash = None, stamp_cost=None, include_ticket=False):
 
         if isinstance(destination, RNS.Destination) or destination == None:
-            self.__destination    = destination
-            if destination != None:
-                self.destination_hash = destination.hash
-            else:
-                self.destination_hash = destination_hash
-        else:
-            raise ValueError("LXMessage initialised with invalid destination")
+            self.__destination = destination
+            if destination != None: self.destination_hash = destination.hash
+            else:                   self.destination_hash = destination_hash
+        
+        else: raise ValueError("LXMessage initialised with invalid destination")
 
         if isinstance(source, RNS.Destination) or source == None:
-            self.__source    = source
-            if source != None:
-                self.source_hash = source.hash
-            else:
-                self.source_hash = source_hash
-        else:
-            raise ValueError("LXMessage initialised with invalid source")
+            self.__source = source
+            if source != None: self.source_hash = source.hash
+            else:              self.source_hash = source_hash
+        
+        else: raise ValueError("LXMessage initialised with invalid source")
 
-        if title == None:
-            title = ""
+        if title == None: title = ""
 
-        if type(title) == bytes:
-            self.set_title_from_bytes(title)
-        else:
-            self.set_title_from_string(title)
+        if type(title) == bytes:   self.set_title_from_bytes(title)
+        else:                      self.set_title_from_string(title)
 
-        if type(content) == bytes:
-            self.set_content_from_bytes(content)
-        else:
-            self.set_content_from_string(content)
+        if type(content) == bytes: self.set_content_from_bytes(content)
+        else:                      self.set_content_from_string(content)
 
         self.set_fields(fields)
 
@@ -151,6 +142,7 @@ class LXMessage:
         self.hash                    = None
         self.transient_id            = None
         self.packed                  = None
+        self.auto_compress           = True
         self.state                   = LXMessage.GENERATING
         self.method                  = LXMessage.UNKNOWN
         self.progress                = 0.0
@@ -467,6 +459,7 @@ class LXMessage:
 
     def send(self):
         self.determine_transport_encryption()
+        self.determine_compression_support()
 
         if self.method == LXMessage.OPPORTUNISTIC:
             lxm_packet = self.__as_packet()
@@ -511,6 +504,15 @@ class LXMessage:
                 self.resource_representation = self.__as_resource()
                 self.progress = 0.10
 
+    def determine_compression_support(self):
+        app_data = RNS.Identity.recall_app_data(self.destination_hash)
+        if app_data: self.auto_compress = compression_support_from_app_data(app_data)
+        else:        self.auto_compress = True
+
+        ###### TODO: Remove debug logging
+        if app_data: RNS.log(f"Set compression support from app data to: {self.auto_compress}", RNS.LOG_DEBUG)
+        else:        RNS.log(f"Defaulting compression support to {self.auto_compress}", RNS.LOG_DEBUG)
+        ###### 
 
     def determine_transport_encryption(self):
         # TODO: These descriptions are old and outdated.
@@ -646,7 +648,7 @@ class LXMessage:
             raise ConnectionError("Tried to synthesize resource for LXMF message on a link that was not active")
 
         if self.method == LXMessage.DIRECT:
-            return RNS.Resource(self.packed, self.__delivery_destination, callback = self.__resource_concluded, progress_callback = self.__update_transfer_progress)
+            return RNS.Resource(self.packed, self.__delivery_destination, callback = self.__resource_concluded, progress_callback = self.__update_transfer_progress, auto_compress=self.auto_compress)
         elif self.method == LXMessage.PROPAGATED:
             return RNS.Resource(self.propagation_packed, self.__delivery_destination, callback = self.__propagation_resource_concluded, progress_callback = self.__update_transfer_progress)
         else:

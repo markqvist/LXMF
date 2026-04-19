@@ -103,6 +103,10 @@ PN_META_AUTH_BAND      = 0x04
 PN_META_UTIL_PRESSURE  = 0x05
 PN_META_CUSTOM         = 0xFF
 
+# Supported functionality codes for signalling
+# feature and capability support.
+SF_COMPRESSION         = 0x00
+
 ##########################################################
 # The following helper functions makes it easier to      #
 # handle and operate on LXMF data in client programs     #
@@ -146,6 +150,21 @@ def stamp_cost_from_app_data(app_data=None):
 
         # Original announce format
         else: return None
+
+def compression_support_from_app_data(app_data=None):
+    if app_data == None or app_data == b"": return None
+    else:
+        # Version 0.5.0+ announce format
+        if (app_data[0] >= 0x90 and app_data[0] <= 0x9f) or app_data[0] == 0xdc:
+            peer_data = msgpack.unpackb(app_data)
+            if type(peer_data) == list:
+                if len(peer_data) < 3: return True
+                else:
+                    if not type(peer_data[2]) == list: return True
+                    else: return SF_COMPRESSION in peer_data[2]
+
+        # Original announce format
+        else: return True
 
 def pn_name_from_app_data(app_data=None):
     if app_data == None: return None
