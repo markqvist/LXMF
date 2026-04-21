@@ -756,13 +756,13 @@ class LXMessage:
         content_bytes        = unpacked_payload[2]
         fields               = unpacked_payload[3]
 
-        destination_identity = RNS.Identity.recall(destination_hash)
+        destination_identity = RNS.Identity.recall(destination_hash, _no_use=True)
         if destination_identity != None:
             destination = RNS.Destination(destination_identity, RNS.Destination.OUT, RNS.Destination.SINGLE, APP_NAME, "delivery")
         else:
             destination = None
         
-        source_identity = RNS.Identity.recall(source_hash)
+        source_identity = RNS.Identity.recall(source_hash, _no_use=True)
         if source_identity != None:
             source = RNS.Destination(source_identity, RNS.Destination.OUT, RNS.Destination.SINGLE, APP_NAME, "delivery")
         else:
