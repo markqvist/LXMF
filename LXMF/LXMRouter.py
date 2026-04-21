@@ -1839,7 +1839,8 @@ class LXMRouter:
 
             phy_stats = {"rssi": packet.rssi, "snr": packet.snr, "q": packet.q}
 
-            self.lxmf_delivery(lxmf_data, packet.destination_type, phy_stats=phy_stats, ratchet_id=packet.ratchet_id, method=method)
+            def job(): self.lxmf_delivery(lxmf_data, packet.destination_type, phy_stats=phy_stats, ratchet_id=packet.ratchet_id, method=method)
+            threading.Thread(target=job, daemon=True).start()
 
         except Exception as e:
             RNS.log("Exception occurred while parsing incoming LXMF data.", RNS.LOG_ERROR)
@@ -2519,6 +2520,8 @@ class LXMRouter:
                 if lxmessage.state == LXMessage.DELIVERED:
                     RNS.log("Delivery has occurred for "+str(lxmessage)+", removing from outbound queue", RNS.LOG_DEBUG)
                     self.pending_outbound.remove(lxmessage)
+                    try: RNS.Reticulum.get_instance()._retain_destination_data(lxmessage.destination_hash)
+                    except Exception as e: RNS.log(f"An error occurred while marking {RNS.prettyhexrep(lxmessage.destination_hash)} for announce data retainment: {e}", RNS.LOG_ERROR)
 
                     # Udate ticket delivery stats
                     if lxmessage.include_ticket and FIELD_TICKET in lxmessage.fields:
