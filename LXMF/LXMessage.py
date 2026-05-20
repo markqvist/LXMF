@@ -672,7 +672,7 @@ class LXMessage:
     def write_to_directory(self, directory_path):
         file_name = RNS.hexrep(self.hash, delimit=False)
         file_path = directory_path+"/"+file_name
-        tmp_path  = file_path+".tmp."+str(os.getpid())
+        tmp_path  = file_path+".tmp."+str(os.getpid() or time.time())
 
         try:
             with open(tmp_path, "wb") as file:
