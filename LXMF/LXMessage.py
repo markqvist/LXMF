@@ -672,15 +672,26 @@ class LXMessage:
     def write_to_directory(self, directory_path):
         file_name = RNS.hexrep(self.hash, delimit=False)
         file_path = directory_path+"/"+file_name
+        tmp_path  = file_path+".tmp."+str(os.getpid())
 
         try:
-            file = open(file_path, "wb")
-            file.write(self.packed_container())
-            file.close()
+            with open(tmp_path, "wb") as file:
+                file.write(self.packed_container())
+                file.flush()
+                try:
+                    os.fsync(file.fileno())
+                except OSError:
+                    pass
+            os.replace(tmp_path, file_path)
 
             return file_path
 
         except Exception as e:
+            try:
+                if os.path.exists(tmp_path):
+                    os.unlink(tmp_path)
+            except Exception:
+                pass
             RNS.log("Error while writing LXMF message to file \""+str(file_path)+"\". The contained exception was: "+str(e), RNS.LOG_ERROR)
             return None
 
