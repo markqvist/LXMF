@@ -27,4 +27,4 @@ release: remove_symlinks build_wheel build_spkg create_symlinks
 
 upload:
 	@echo Uploading to PyPi...
-	twine upload dist/*
+	twine upload dist/*.whl dist/*.tar.gz
