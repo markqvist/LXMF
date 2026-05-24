@@ -20,6 +20,16 @@ FIELD_TICKET           = 0x0C
 FIELD_EVENT            = 0x0D
 FIELD_RNR_REFS         = 0x0E
 FIELD_RENDERER         = 0x0F
+FIELD_REPLY_TO         = 0x30 # Bytes, full LXMessage.hash
+FIELD_REPLY_QUOTE      = 0x31 # Bytes, quoted content in UTF-8 encoding
+FIELD_REACTION         = 0x40 # Dict, see "Reaction dict indices" below
+FIELD_COMMENT          = 0x41 # Dict, see "Comment dict indices" below
+FIELD_CONTINUATION     = 0x42 # Dict, see "Continuation dict indices" below
+
+# Unallocated fields between 0x00 and 0x80, both included,
+# should be considered reserved for future extensibility
+# For experimental and unstable features, it is recommended
+# to use fields above 0xFF.
 
 # For usecases such as including custom data structures,
 # embedding or encapsulating other data types or protocols
@@ -90,6 +100,49 @@ RENDERER_PLAIN         = 0x00
 RENDERER_MICRON        = 0x01
 RENDERER_MARKDOWN      = 0x02
 RENDERER_BBCODE        = 0x03
+
+############################################################
+# To be finalized in 1.0.0. A workdoc with open interaction
+# through rngit is available for comments and nuancing on:
+#
+# a8d24177d946de4f1f0a0fe1af9a1338:/page/work.mu`g=reticulum|r=lxmf
+#
+# Clients that have implemented different reply, reaction
+# or comment mechanisms can choose to transitionally parse
+# their own specific formats, but are recommended to attempt
+# parsing the structure and format defined herein first,
+# and fall back to their client-specific structure second.
+
+# Reaction dict indicies are integers to preserve bandwidth.
+#
+# Clients choose how to handle reaction content, if at all.
+# While reactions are typically a single unicode emoji or
+# similar, the exact implementation and sanitization is
+# left up to the client. When using the FIELD_REACTION
+# field, the contents is a dict with the following keys:
+REACTION_TO            = 0x00 # Bytes, full LXMessage.hash
+REACTION_CONTENT       = 0x01 # Bytes, the reaction content in UTF-8 encoding
+
+# Comment dict indicies are integers to preserve bandwidth.
+#
+# Clients choose how to handle messages intended as comments
+# for other message, if at all. The actual comment content
+# is carried as the normal LXM content, meaning clients that
+# do not support comments will display them as normal messages.
+# When using the FIELD_COMMENT field, the contents is a dict
+# with the following keys:
+COMMENT_FOR            = 0x00 # Bytes, full LXMessage.hash
+
+# Continuation dict indicies are integers to preserve bandwidth.
+#
+# Clients choose how to handle messages that continue earlier
+# messages, if at all. The actual continuation content is
+# carried as the normal LXM content, meaning clients that
+# do not support continuations will display them as normal.
+# When using the FIELD_CONTINUATION field, the contents is a
+# dict with the following keys:
+CONTINUATION_OF        = 0x00 # Bytes, full LXMessage.hash
+############################################################
 
 # Optional propagation node metadata fields. These
 # fields may be highly unstable in allocation and
