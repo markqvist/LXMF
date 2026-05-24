@@ -307,7 +307,7 @@ def program_setup(configdir = None, rnsconfigdir = None, run_pn = False, on_inbo
     if configdir == None:
         if os.path.isdir("/etc/lxmd") and os.path.isfile("/etc/lxmd/config"):
             configdir = "/etc/lxmd"
-        elif os.path.isdir(RNS.Reticulum.userdir+"/.config/lxmd") and os.path.isfile(Reticulum.userdir+"/.config/lxmd/config"):
+        elif os.path.isdir(RNS.Reticulum.userdir+"/.config/lxmd") and os.path.isfile(RNS.Reticulum.userdir+"/.config/lxmd/config"):
             configdir = RNS.Reticulum.userdir+"/.config/lxmd"
         else:
             configdir = RNS.Reticulum.userdir+"/.lxmd"
@@ -822,7 +822,7 @@ def _remote_init(configdir=None, rnsconfigdir=None, verbosity=0, quietness=0, id
     if identity_path == None:
         if configdir == None:
             if os.path.isdir("/etc/lxmd") and os.path.isfile("/etc/lxmd/config"): configdir = "/etc/lxmd"
-            elif os.path.isdir(RNS.Reticulum.userdir+"/.config/lxmd") and os.path.isfile(Reticulum.userdir+"/.config/lxmd/config"): configdir = RNS.Reticulum.userdir+"/.config/lxmd"
+            elif os.path.isdir(RNS.Reticulum.userdir+"/.config/lxmd") and os.path.isfile(RNS.Reticulum.userdir+"/.config/lxmd/config"): configdir = RNS.Reticulum.userdir+"/.config/lxmd"
             else: configdir = RNS.Reticulum.userdir+"/.lxmd"
 
         configpath   = configdir+"/config"
