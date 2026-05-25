@@ -996,7 +996,7 @@ class LXMRouter:
                     stamp_cost = delivery_destination.stamp_cost
 
             supported_functionality = [SF_COMPRESSION]
-            peer_data = [display_name, stamp_cost]
+            peer_data = [display_name, stamp_cost, supported_functionality]
 
             return msgpack.packb(peer_data)
 
