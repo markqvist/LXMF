@@ -1735,11 +1735,13 @@ class LXMRouter:
     def lxmf_delivery(self, lxmf_data, destination_type = None, phy_stats = None, ratchet_id = None, method = None, no_stamp_enforcement=False, allow_duplicate=False):
         try:
             message = LXMessage.unpack_from_bytes(lxmf_data)
-            if ratchet_id and not message.ratchet_id:
-                message.ratchet_id = ratchet_id
 
-            if method:
-                message.method = method
+            if message.source_blackholed:
+                RNS.log(f"Dropping LXM from blackholed identity {message.source.identity}", RNS.LOG_DEBUG)
+                return False
+
+            if ratchet_id and not message.ratchet_id: message.ratchet_id = ratchet_id
+            if method: message.method = method
 
             if message.signature_validated and FIELD_TICKET in message.fields:
                 ticket_entry = message.fields[FIELD_TICKET]

@@ -168,6 +168,7 @@ class LXMessage:
         self.paper_packed            = None
 
         self.incoming                = False
+        self.source_blackholed       = False
         self.signature_validated     = False
         self.unverified_reason       = None
         self.ratchet_id              = None
@@ -678,7 +679,7 @@ class LXMessage:
                 file.write(self.packed_container())
                 file.flush()
                 try: os.fsync(file.fileno())
-                except OSError: pass
+                except OSError as e: RNS.log(f"Error while waiting for persist fsync for {self}: {e}", RNS.LOG_WARNING)
 
             os.replace(tmp_path, file_path)
             return file_path
@@ -686,9 +687,9 @@ class LXMessage:
         except Exception as e:
             try:
                 if os.path.exists(tmp_path): os.unlink(tmp_path)
-            except Exception: pass
+            except Exception as e: RNS.log(f"Error while cleaning temporary file {tmp_path} for {self}: {e}", RNS.LOG_ERROR)
 
-            RNS.log("Error while writing LXMF message to file \""+str(file_path)+"\". The contained exception was: "+str(e), RNS.LOG_ERROR)
+            RNS.log(f"Error while writing LXMF message to file \"{file_path}\". The contained exception was: {e}", RNS.LOG_ERROR)
             return None
 
     def as_uri(self, finalise=True):
@@ -795,6 +796,10 @@ class LXMessage:
         message.packed_size = len(lxmf_bytes)
         message.set_title_from_bytes(title_bytes)
         message.set_content_from_bytes(content_bytes)
+
+        try:
+            if source_identity != None: message.source_blackholed = RNS.Reticulum.get_instance().is_blackholed(source_identity)
+        except Exception as e: RNS.log(f"Could not determine message source blackhole status: {e}", RNS.LOG_WARNING)
 
         try:
             if source:
