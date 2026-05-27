@@ -101,20 +101,6 @@ RENDERER_MICRON        = 0x01
 RENDERER_MARKDOWN      = 0x02
 RENDERER_BBCODE        = 0x03
 
-############################################################
-# To be finalized in 1.0.0. A workdoc with open interaction
-# through rngit is available for comments and nuancing on:
-#
-# a8d24177d946de4f1f0a0fe1af9a1338:/page/work.mu`g=reticulum|r=lxmf
-#
-# Clients that have implemented different reply, reaction
-# or comment mechanisms can choose to transitionally parse
-# their own specific formats, but are recommended to attempt
-# parsing the structure and format defined herein first,
-# and fall back to their client-specific structure second.
-
-# Reaction dict indicies are integers to preserve bandwidth.
-#
 # Clients choose how to handle reaction content, if at all.
 # While reactions are typically a single unicode emoji or
 # similar, the exact implementation and sanitization is
@@ -123,8 +109,6 @@ RENDERER_BBCODE        = 0x03
 REACTION_TO            = 0x00 # Bytes, full LXMessage.hash
 REACTION_CONTENT       = 0x01 # Bytes, the reaction content in UTF-8 encoding
 
-# Comment dict indicies are integers to preserve bandwidth.
-#
 # Clients choose how to handle messages intended as comments
 # for other message, if at all. The actual comment content
 # is carried as the normal LXM content, meaning clients that
@@ -133,8 +117,6 @@ REACTION_CONTENT       = 0x01 # Bytes, the reaction content in UTF-8 encoding
 # with the following keys:
 COMMENT_FOR            = 0x00 # Bytes, full LXMessage.hash
 
-# Continuation dict indicies are integers to preserve bandwidth.
-#
 # Clients choose how to handle messages that continue earlier
 # messages, if at all. The actual continuation content is
 # carried as the normal LXM content, meaning clients that
@@ -142,7 +124,6 @@ COMMENT_FOR            = 0x00 # Bytes, full LXMessage.hash
 # When using the FIELD_CONTINUATION field, the contents is a
 # dict with the following keys:
 CONTINUATION_OF        = 0x00 # Bytes, full LXMessage.hash
-############################################################
 
 # Optional propagation node metadata fields. These
 # fields may be highly unstable in allocation and
@@ -188,8 +169,7 @@ def display_name_from_app_data(app_data=None):
                             return None
 
         # Original announce format
-        else:
-            return app_data.decode("utf-8")
+        else: return app_data.decode("utf-8")
 
 def stamp_cost_from_app_data(app_data=None):
     if app_data == None or app_data == b"": return None
@@ -238,8 +218,8 @@ def pn_stamp_cost_from_app_data(app_data=None):
         if pn_announce_data_is_valid(app_data):
             data = msgpack.unpackb(app_data)
             return data[5][0]
-        else:
-            return None
+        
+        else: return None
 
 def pn_announce_data_is_valid(data):
     try:
