@@ -674,7 +674,7 @@ class LXMessage:
     def write_to_directory(self, directory_path):
         file_name = RNS.hexrep(self.hash, delimit=False)
         file_path = directory_path+"/"+file_name
-        tmp_path  = file_path+".tmp."+str(os.getpid() or time.time())
+        tmp_path  = file_path+".tmp."+str(os.getpid() or time.time())+"."+RNS.hexrep(os.urandom(8), delimit=False)
 
         with self.__persist_lock:
             try:
