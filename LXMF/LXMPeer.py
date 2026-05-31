@@ -404,7 +404,7 @@ class LXMPeer:
             if response == LXMPeer.ERROR_NO_IDENTITY:
                 if self.link != None:
                     RNS.log("Remote peer indicated that no identification was received, retrying...", RNS.LOG_VERBOSE)
-                    self.link.identify()
+                    self.link.identify(self.router.identity)
                     self.state = LXMPeer.LINK_READY
                     self.sync()
                     return
