@@ -26,5 +26,10 @@ build_spkg: remove_symlinks build_sdist create_symlinks
 release: remove_symlinks build_wheel build_spkg create_symlinks
 
 upload:
+	@echo Ready to publish release over Reticulum
+	@read VOID
+	rngit release rns://7649a50d84610232d1416b41d2896aff/reticulum/lxmf create $$(python setup.py --getversion):dist --name lxmf
+
+upload-pip:
 	@echo Uploading to PyPi...
 	twine upload dist/*.whl dist/*.tar.gz

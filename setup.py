@@ -1,9 +1,14 @@
+import sys
 import setuptools
 
 with open("README.md", "r") as fh:
     long_description = fh.read()
 
 exec(open("LXMF/_version.py", "r").read())
+
+if "--getversion" in sys.argv:
+    print(__version__, end="")
+    exit(0)
 
 setuptools.setup(
     name="lxmf",
