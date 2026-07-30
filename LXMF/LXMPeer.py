@@ -298,7 +298,10 @@ class LXMPeer:
                 time.sleep(LXMPeer.PATH_REQUEST_GRACE)
 
             if not RNS.Transport.has_path(self.destination_hash):
-                RNS.log("Path request was not answered, retrying sync with peer "+RNS.prettyhexrep(self.destination_hash)+" later", RNS.LOG_DEBUG)
+                self.sync_backoff += LXMPeer.SYNC_BACKOFF_STEP
+                self.next_sync_attempt = time.time() + self.sync_backoff
+                self.alive = False
+                RNS.log(f"Path request was not answered, retrying sync with peer {RNS.prettyhexrep(self.destination_hash)} later", RNS.LOG_DEBUG)
             
             else:
                 if self.identity == None:
