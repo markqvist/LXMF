@@ -165,7 +165,7 @@ def display_name_from_app_data(app_data=None):
                             decoded = dn.decode("utf-8").replace("\x00", "").strip()
                             return decoded
                         except Exception as e:
-                            RNS.log(f"Could not decode display name in included announce data. The contained exception was: {e}", RNS.LOG_DEBUG)
+                            RNS.log(f"Could not decode display name in included announce data. The contained exception was: {e}", RNS.LOG_EXTREME)
                             return None
 
         # Original announce format
