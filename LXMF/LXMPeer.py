@@ -294,7 +294,7 @@ class LXMPeer:
         else:
             if not RNS.Transport.has_path(self.destination_hash):
                 RNS.log("No path to peer "+RNS.prettyhexrep(self.destination_hash)+" exists, requesting...", RNS.LOG_DEBUG)
-                RNS.Transport.request_path(self.destination_hash)
+                self.router.request_path(self.destination_hash)
                 time.sleep(LXMPeer.PATH_REQUEST_GRACE)
 
             if not RNS.Transport.has_path(self.destination_hash):
