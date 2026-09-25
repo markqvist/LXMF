@@ -2814,6 +2814,7 @@ class LXMRouter:
                                     # Only rediscover if the previous attempt was actually sent from same path
                                     lxmessage.delivery_attempts += 1
                                     lxmessage.sent_on_path = False
+                                    lxmessage.awaiting_path = True
                                     if self.path_request_pending(destination_hash):
                                         RNS.log(f"Opportunistic delivery for {lxmessage} still unsuccessful after {lxmessage.delivery_attempts} attempts, path to {RNS.prettyhexrep(destination_hash)} is already being rediscovered, waiting for reply", RNS.LOG_DEBUG)
                                     else:
