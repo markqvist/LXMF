@@ -177,6 +177,11 @@ class LXMessage:
         self.representation          = LXMessage.UNKNOWN
         self.desired_method          = desired_method
         self.delivery_attempts       = 0
+
+        self.sent_on_path            = False
+        self.awaiting_path           = False
+        self.max_delivery_attempts   = None
+
         self.transport_encrypted     = False
         self.transport_encryption    = None
         self.ratchet_id              = None
@@ -466,7 +471,9 @@ class LXMessage:
 
         if self.method == LXMessage.OPPORTUNISTIC:
             lxm_packet = self.__as_packet()
-            lxm_packet.send().set_delivery_callback(self.__mark_delivered)
+            receipt = lxm_packet.send()
+            if receipt: receipt.set_delivery_callback(self.__mark_delivered)
+            else: RNS.log(f"No receipt generated on sent opportunistic {self}", RNS.LOG_WARNING)
             self.progress = 0.50
             self.ratchet_id = lxm_packet.ratchet_id
             self.state = LXMessage.SENT
