@@ -2747,7 +2747,7 @@ class LXMRouter:
     def process_outbound(self, sender = None):
         if self.outbound_processing_lock.locked(): return
         with self.outbound_processing_lock:
-            for lxmessage in self.pending_outbound:
+            for lxmessage in self.pending_outbound.copy():
                 if lxmessage.state == LXMessage.DELIVERED:
                     RNS.log("Delivery has occurred for "+str(lxmessage)+", removing from outbound queue", RNS.LOG_DEBUG)
                     self.pending_outbound.remove(lxmessage)
