@@ -22,7 +22,7 @@ class LXMFDeliveryAnnounceHandler:
 
         for lxmessage in self.lxmrouter.pending_outbound:
             if destination_hash     == lxmessage.destination_hash:
-                if lxmessage.method == LXMessage.DIRECT or lxmessage.method == LXMessage.OPPORTUNISTIC:
+                if (lxmessage.method == LXMessage.DIRECT or lxmessage.method == LXMessage.OPPORTUNISTIC) and lxmessage.awaiting_path:
                     lxmessage.next_delivery_attempt = time.time()
 
                     def outbound_trigger():
@@ -44,7 +44,7 @@ class LXMFPropagationAnnounceHandler:
                 if destination_hash == self.lxmrouter.get_outbound_propagation_node():
                     if pn_announce_data_is_valid(app_data):
                         for lxmessage in self.lxmrouter.pending_outbound:
-                            if lxmessage.method == LXMessage.PROPAGATED:
+                            if lxmessage.method == LXMessage.PROPAGATED and lxmessage.awaiting_path:
                                 lxmessage.next_delivery_attempt = time.time()
 
                                 def outbound_trigger():
