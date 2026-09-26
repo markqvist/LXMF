@@ -1,14 +1,24 @@
 # Lightweight Extensible Message Format
 
-LXMF is a simple and flexible messaging format and delivery protocol that allows a wide variety of implementations, while using as little bandwidth as possible. It is built on top of [Reticulum](a8d24177d946de4f1f0a0fe1af9a1338:/page/repo.mu`g=reticulum|r=reticulum) and offers zero-conf message routing, end-to-end encryption and Forward Secrecy, and can be transported over any kind of medium that Reticulum supports.
+> [!WARNING]
+> Several hastily launched, incorrect, and in most cases entirely LLM-generated fakes of LXMF and associated tools are currently being circulated and marketed. Most of these "projects" violate the open source license that LXMF was published under, but claim independent ownership and license grants. Such claims or grants are **not** legally valid, and **not** recognized by the LXMF authors and copyright holders.
+>
+> Any claimed assertion of copyright or grant of license that such projects are making are [void grants](https://reticulum.network/manual/brandolinis.html#void-grants-legal-foundations-of-machine-generated-code). Both the violators themselves, and **all** downstream projects using the infringing derivatives, are **directly** and **personally** liable for the legal consequences.
+>
+> For more detailed information, see the relevant sections of the [Brandolini's Reference](https://reticulum.network/manual/brandolinis.html) chapter of the Reticulum Manual. For software and projects recognized by the Reticulum community, see the [Programs Using Reticulum](https://reticulum.network/manual/software.html) chapter.
+>
+> Do **not** use these "projects", they are a hazard to the entire ecosystem we have been carefully building over the last ten years.
+
+LXMF is a simple and flexible messaging format and delivery protocol that allows a wide variety of implementations, while using as little bandwidth as possible. It is built on top of [Reticulum](https://reticulum.network) and offers zero-conf message routing, end-to-end encryption and Forward Secrecy, and can be transported over any kind of medium that Reticulum supports.
 
 LXMF is efficient enough that it can deliver messages over extremely low-bandwidth systems such as packet radio or LoRa. Encrypted LXMF messages can also be encoded as QR-codes or text-based URIs, allowing completely analog *paper message* transport.
 
 User-facing clients built on LXMF include:
 
 - [Sideband](https://unsigned.io/sideband)
-- [MeshChat](https://github.com/liamcottle/reticulum-meshchat)
+- [MeshChatX](https://meshchatx.com/)
 - [Nomad Network](https://unsigned.io/nomadnet)
+- [Columba](https://github.com/torlando-tech/columba)
 
 Community-provided tools and utilities for LXMF include:
 
