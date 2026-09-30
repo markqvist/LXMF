@@ -13,9 +13,11 @@ from collections import deque
 import RNS
 import RNS.vendor.umsgpack as msgpack
 
+from ._version import __version__
+
 from .LXMF import APP_NAME
 from .LXMF import FIELD_TICKET
-from .LXMF import PN_META_NAME
+from .LXMF import PN_META_NAME, PN_META_IMPL_NAME, PN_META_VERSION
 from .LXMF import SF_COMPRESSION
 from .LXMF import pn_announce_data_is_valid
 
@@ -322,6 +324,8 @@ class LXMRouter:
 
     def get_propagation_node_announce_metadata(self):
         metadata = {}
+        metadata[PN_META_IMPL_NAME] = "lxmd"
+        metadata[PN_META_VERSION] = str(__version__)
         if self.name: metadata[PN_META_NAME] = str(self.name).encode("utf-8")
         return metadata
 
