@@ -2626,14 +2626,20 @@ class LXMRouter:
             RNS.log("Error while decoding URI-encoded LXMF message. The contained exception was: "+str(e), RNS.LOG_ERROR)
             return False
 
+    def __execute_failed_callback(self, lxmessage):
+        if lxmessage.failed_callback != None and callable(lxmessage.failed_callback):
+            try: lxmessage.failed_callback(lxmessage)
+            except Exception as e:
+                RNS.log(f"An error occurred while handling external message failed callback: {e}", RNS.LOG_ERROR)
+                RNS.trace_exception(e)
+
     def fail_message(self, lxmessage):
         RNS.log(str(lxmessage)+" failed to send", RNS.LOG_DEBUG)
 
         lxmessage.progress = 0.0
         if lxmessage in self.pending_outbound: self.pending_outbound.remove(lxmessage)
         if lxmessage.state != LXMessage.REJECTED: lxmessage.state = LXMessage.FAILED
-        if lxmessage.failed_callback != None and callable(lxmessage.failed_callback):
-            lxmessage.failed_callback(lxmessage)
+        self.__execute_failed_callback(lxmessage)
 
     def process_deferred_stamps(self):
         if len(self.pending_deferred_stamps) > 0:
@@ -2656,8 +2662,7 @@ class LXMRouter:
                             RNS.log(f"Message cancelled during deferred stamp generation for {selected_lxm}.", RNS.LOG_DEBUG)
                             selected_lxm.stamp_generation_failed = True
                             self.pending_deferred_stamps.pop(selected_message_id)
-                            if selected_lxm.failed_callback != None and callable(selected_lxm.failed_callback):
-                                selected_lxm.failed_callback(lxmessage)
+                            self.__execute_failed_callback(lxmessage)
                             
                             return
 
@@ -2686,8 +2691,7 @@ class LXMRouter:
                                     RNS.log(f"Message cancelled during deferred stamp generation for {selected_lxm}.", RNS.LOG_DEBUG)
                                     selected_lxm.stamp_generation_failed = True
                                     self.pending_deferred_stamps.pop(selected_message_id)
-                                    if selected_lxm.failed_callback != None and callable(selected_lxm.failed_callback):
-                                        selected_lxm.failed_callback(lxmessage)
+                                    self.__execute_failed_callback(lxmessage)
                                 else:
                                     RNS.log(f"Deferred stamp generation did not succeed. Failing {selected_lxm}.", RNS.LOG_ERROR)
                                     selected_lxm.stamp_generation_failed = True
@@ -2717,8 +2721,7 @@ class LXMRouter:
                                         RNS.log(f"Message cancelled during deferred propagation stamp generation for {selected_lxm}.", RNS.LOG_DEBUG)
                                         selected_lxm.stamp_generation_failed = True
                                         self.pending_deferred_stamps.pop(selected_message_id)
-                                        if selected_lxm.failed_callback != None and callable(selected_lxm.failed_callback):
-                                            selected_lxm.failed_callback(lxmessage)
+                                        self.__execute_failed_callback(lxmessage)
                                     else:
                                         RNS.log(f"Deferred propagation stamp generation did not succeed. Failing {selected_lxm}.", RNS.LOG_ERROR)
                                         selected_lxm.stamp_generation_failed = True
@@ -2782,14 +2785,12 @@ class LXMRouter:
                 elif lxmessage.state == LXMessage.CANCELLED:
                     RNS.log("Cancellation requested for "+str(lxmessage)+", removing from outbound queue", RNS.LOG_DEBUG)
                     self.pending_outbound.remove(lxmessage)
-                    if lxmessage.failed_callback != None and callable(lxmessage.failed_callback):
-                        lxmessage.failed_callback(lxmessage)
+                    self.__execute_failed_callback(lxmessage)
 
                 elif lxmessage.state == LXMessage.REJECTED:
                     RNS.log("Receiver rejected "+str(lxmessage)+", removing from outbound queue", RNS.LOG_DEBUG)
                     if lxmessage in self.pending_outbound: self.pending_outbound.remove(lxmessage)
-                    if lxmessage.failed_callback != None and callable(lxmessage.failed_callback):
-                        lxmessage.failed_callback(lxmessage)
+                    self.__execute_failed_callback(lxmessage)
 
                 else:
                     RNS.log("Outbound processing for "+str(lxmessage)+" to "+RNS.prettyhexrep(lxmessage.get_destination().hash), RNS.LOG_DEBUG)
@@ -2832,7 +2833,10 @@ class LXMRouter:
                                     lxmessage.sent_on_path = path_known
                                     self.schedule_attempt(lxmessage, destination_hash)
                                     RNS.log("Opportunistic delivery attempt "+str(lxmessage.delivery_attempts) +" for "+str(lxmessage)+" to "+RNS.prettyhexrep(destination_hash), RNS.LOG_DEBUG)
-                                    lxmessage.send()
+                                    try: lxmessage.send()
+                                    except Exception as e:
+                                        RNS.log(f"Error while sending {lxmessage}: {e}", RNS.LOG_ERROR)
+                                        self.fail_message(lxmessage)
                         elif self.attempt_due(lxmessage, lxmessage.get_destination().hash):
                             RNS.log("Max delivery attempts reached for oppertunistic "+str(lxmessage)+" to "+RNS.prettyhexrep(lxmessage.get_destination().hash), RNS.LOG_DEBUG)
                             self.fail_message(lxmessage)
@@ -2865,7 +2869,10 @@ class LXMRouter:
                                     if lxmessage.state != LXMessage.SENDING:
                                         RNS.log("Starting transfer of "+str(lxmessage)+" to "+RNS.prettyhexrep(lxmessage.get_destination().hash)+" on link "+str(direct_link), RNS.LOG_DEBUG)
                                         lxmessage.set_delivery_destination(direct_link)
-                                        lxmessage.send()
+                                        try: lxmessage.send()
+                                        except Exception as e:
+                                            RNS.log(f"Error while sending {lxmessage}: {e}", RNS.LOG_ERROR)
+                                            self.fail_message(lxmessage)
                                     else:
                                         if lxmessage.representation == LXMessage.RESOURCE:
                                             RNS.log("The transfer of "+str(lxmessage)+" is in progress ("+str(round(lxmessage.progress*100, 1))+"%)", RNS.LOG_DEBUG)
@@ -2939,7 +2946,10 @@ class LXMRouter:
                                         if lxmessage.state != LXMessage.SENDING:
                                             RNS.log("Starting propagation transfer of "+str(lxmessage)+" to "+RNS.prettyhexrep(lxmessage.get_destination().hash)+" via "+RNS.prettyhexrep(self.outbound_propagation_node), RNS.LOG_DEBUG)
                                             lxmessage.set_delivery_destination(self.outbound_propagation_link)
-                                            lxmessage.send()
+                                            try: lxmessage.send()
+                                            except Exception as e:
+                                                RNS.log(f"Error while sending {lxmessage}: {e}", RNS.LOG_ERROR)
+                                                self.fail_message(lxmessage)
                                         else:
                                             if lxmessage.representation == LXMessage.RESOURCE:
                                                 RNS.log("The transfer of "+str(lxmessage)+" is in progress ("+str(round(lxmessage.progress*100, 1))+"%)", RNS.LOG_DEBUG)
