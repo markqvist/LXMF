@@ -64,8 +64,8 @@ class LXMessage:
 
     # With an MTU of 500, the maximum amount of data
     # we can send in a single encrypted packet is
-    # 391 bytes.
-    ENCRYPTED_PACKET_MDU = RNS.Packet.ENCRYPTED_MDU + TIMESTAMP_SIZE
+    # 383 bytes.
+    ENCRYPTED_PACKET_MDU = RNS.Packet.ENCRYPTED_MDU
     
     # The max content length we can fit in LXMF message
     # inside a single RNS packet is the encrypted MDU, minus
@@ -74,7 +74,7 @@ class LXMessage:
     # field of the packet, therefore we also add the length
     # of a destination hash to the calculation. With default
     # RNS and LXMF parameters, the largest single-packet
-    # LXMF message we can send is 295 bytes. If a message
+    # LXMF message we can send is 287 bytes. If a message
     # is larger than that, a Reticulum link will be used.
     ENCRYPTED_PACKET_MAX_CONTENT = ENCRYPTED_PACKET_MDU - LXMF_OVERHEAD + DESTINATION_LENGTH
     
