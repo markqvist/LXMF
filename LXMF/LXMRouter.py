@@ -99,6 +99,7 @@ class LXMRouter:
     SYNC_REQUEST_PATH     = "/pn/peer/sync"
     UNPEER_REQUEST_PATH   = "/pn/peer/unpeer"
 
+    REQUIRED_DESTINATION_TYPES = [f"{APP_NAME}.delivery", f"{APP_NAME}.propagation"]
 
     ### Developer-facing API ##############################
     #######################################################
@@ -195,6 +196,9 @@ class LXMRouter:
         self.sequential_validation_lock = threading.Lock()
         self.incoming_delivery_resource_lock = threading.Lock()
         self.exit_handler_running = False
+
+        for destination_type in self.REQUIRED_DESTINATION_TYPES:
+            RNS.Reticulum.get_instance().wants_destination_type(destination_type)
 
         if identity == None: identity = RNS.Identity()
 
