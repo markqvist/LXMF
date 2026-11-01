@@ -2183,7 +2183,7 @@ class LXMRouter:
 
             if timestamp >= peer.peering_timebase:
                 self.peers.pop(destination_hash)
-                RNS.log("Broke peering with "+str(peer.destination))
+                RNS.log(f"Broke peering with {RNS.prettyhexrep(destination_hash)}")
 
     def rotate_peers(self):
         try:
@@ -2302,16 +2302,15 @@ class LXMRouter:
         if len(peer_pool) > 0:
             selected_index = random.randint(0,len(peer_pool)-1)
             selected_peer = peer_pool[selected_index]
-            RNS.log("Selected waiting peer "+str(selected_index)+": "+RNS.prettyhexrep(selected_peer.destination.hash), RNS.LOG_DEBUG)
+            RNS.log(f"Selected waiting peer {selected_index}: {RNS.prettyhexrep(selected_peer.destination_hash)}", RNS.LOG_DEBUG)
             selected_peer.sync()
 
         for peer_id in culled_peers:
-            RNS.log("Removing peer "+RNS.prettyhexrep(peer_id)+" due to excessive unreachability", RNS.LOG_WARNING)
+            RNS.log(f"Removing peer {RNS.prettyhexrep(peer_id)} due to excessive unreachability", RNS.LOG_WARNING)
             try:
-                if peer_id in self.peers:
-                    self.peers.pop(peer_id)
+                if peer_id in self.peers: self.peers.pop(peer_id)
             except Exception as e:
-                RNS.log("Error while removing peer "+RNS.prettyhexrep(peer_id)+". The contained exception was: "+str(e), RNS.LOG_ERROR)
+                RNS.log(f"Error while removing peer {RNS.prettyhexrep(peer_id)}. The contained exception was: {e}", RNS.LOG_ERROR)
 
     def propagation_link_established(self, link):
         link.set_packet_callback(self.propagation_packet)
