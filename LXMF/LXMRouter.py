@@ -1748,6 +1748,7 @@ class LXMRouter:
                 RNS.log(f"Cancelling deferred stamp generation for {lxm}", RNS.LOG_DEBUG)
                 lxm.state = cancel_state
                 LXStamper.cancel_work(message_id)
+                if lxm.transient_id: LXStamper.cancel_work(lxm.transient_id)
 
             lxmessage = None
             for lxm in self.pending_outbound:
