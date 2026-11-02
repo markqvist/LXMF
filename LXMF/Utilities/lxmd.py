@@ -197,6 +197,13 @@ def apply_config():
         else:
             active_configuration["propagation_stamp_cost_flexibility"] = LXMF.LXMRouter.PROPAGATION_COST_FLEX
         
+        if "propagation" in lxmd_config and "propagation_stamp_throttle" in lxmd_config["propagation"]:
+            active_configuration["propagation_stamp_throttle"] = lxmd_config["propagation"].as_float("propagation_stamp_throttle")*60
+            if active_configuration["propagation_stamp_throttle"] < LXMF.LXMRouter.PN_STAMP_THROTTLE:
+                active_configuration["propagation_stamp_throttle"] = LXMF.LXMRouter.PN_STAMP_THROTTLE
+        else:
+            active_configuration["propagation_stamp_throttle"] = LXMF.LXMRouter.PN_STAMP_THROTTLE
+        
         if "propagation" in lxmd_config and "peering_cost" in lxmd_config["propagation"]:
             active_configuration["peering_cost"] = lxmd_config["propagation"].as_float("peering_cost")
             if active_configuration["peering_cost"] < 0:
@@ -412,6 +419,7 @@ def program_setup(configdir = None, rnsconfigdir = None, run_pn = False, on_inbo
         max_peers = active_configuration["max_peers"],
         static_peers = active_configuration["static_peers"],
         from_static_only = active_configuration["from_static_only"],
+        pn_stamp_throttle = active_configuration["propagation_stamp_throttle"],
         name = active_configuration["node_name"])
     
     message_router.register_delivery_callback(lxmf_delivery)
@@ -1037,6 +1045,18 @@ autopeer_maxdepth = 6
 # network to gradually adjust stamp cost.
 
 # propagation_stamp_cost_flexibility = 3.0
+
+# If a peer delivers messages with stamp costs
+# not conforming to this node's targets, it'll
+# be throttled, by default for 5 minutes. You
+# can configure the throttle period, and for
+# constrained nodes, it may be a good idea to
+# set a much higher throttle time. Real LXMF
+# propagation nodes will never deliver messages
+# with lower stamp values than required by the
+# receiving node.
+
+# propagation_stamp_throttle = 5
 
 # The peering_cost option configures the target
 # value required for a remote node to peer with

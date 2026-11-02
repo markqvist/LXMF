@@ -69,7 +69,7 @@ class LXMRouter:
     DELIVERY_LIMIT        = 1000
 
     PR_PATH_TIMEOUT       = 10
-    PN_STAMP_THROTTLE     = 180
+    PN_STAMP_THROTTLE     = 300
 
     PR_IDLE               = 0x00
     PR_PATH_REQUESTED     = 0x01
@@ -110,7 +110,8 @@ class LXMRouter:
                  from_static_only=False, sync_strategy=LXMPeer.STRATEGY_PERSISTENT,
                  propagation_cost=PROPAGATION_COST, propagation_cost_flexibility=PROPAGATION_COST_FLEX,
                  peering_cost=PEERING_COST, max_peering_cost=MAX_PEERING_COST, max_inbound_syncs=MAX_INBOUND_SYNCS,
-                 sequential_validation=SEQUENTIAL_VALIDATION, static_sequential=STATIC_SEQUENTIAL):
+                 sequential_validation=SEQUENTIAL_VALIDATION, static_sequential=STATIC_SEQUENTIAL,
+                 pn_stamp_throttle=PN_STAMP_THROTTLE):
 
         random.seed(os.urandom(10))
 
@@ -136,7 +137,8 @@ class LXMRouter:
         self.name                  = name
 
         self.propagation_node = False
-        self.propagation_node_start_time = None        
+        self.propagation_node_start_time = None
+        self.pn_stamp_throttle = pn_stamp_throttle
 
         if storagepath == None: raise ValueError("LXMF cannot be initialised without a storage path")
         else:
@@ -2586,7 +2588,7 @@ class LXMRouter:
                         if invalid_message_count > 0:
                             resource.link.teardown()
                             if remote_identity != None:
-                                throttle_time = LXMRouter.PN_STAMP_THROTTLE
+                                throttle_time = self.pn_stamp_throttle
                                 self.throttled_peers[remote_hash] = time.time()+throttle_time
                                 ms = "" if invalid_message_count == 1 else "s"
                                 RNS.log(f"Propagation transfer from {remote_str} contained {invalid_message_count} message{ms} with invalid stamps, throttled for {RNS.prettytime(throttle_time)}", RNS.LOG_NOTICE)
