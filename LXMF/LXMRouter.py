@@ -165,6 +165,7 @@ class LXMRouter:
         self.max_peering_cost                   = max_peering_cost
         self.enforce_ratchets                   = enforce_ratchets
         self._enforce_stamps                    = enforce_stamps
+        self.__stamp_costs_dirty                = False
         self.pending_deferred_stamps            = {}
         self.throttled_peers                    = {}
 
@@ -902,6 +903,7 @@ class LXMRouter:
     JOB_RESOURCE_INTERVAL  = 2
     JOB_TRANSIENT_INTERVAL = 60
     JOB_STORE_INTERVAL     = 120
+    JOB_STAMPCOST_INTERVAL = 120
     JOB_PEERSYNC_INTERVAL  = 6
     JOB_PEERINGEST_INTERVAL= JOB_PEERSYNC_INTERVAL
     JOB_ROTATE_INTERVAL    = 56*JOB_PEERINGEST_INTERVAL
@@ -936,6 +938,9 @@ class LXMRouter:
             if self.processing_count % LXMRouter.JOB_PEERSYNC_INTERVAL == 0:
                 if self.propagation_node == True: self.sync_peers()
                 self.clean_throttled_peers()
+
+            if self.processing_count % LXMRouter.JOB_STAMPCOST_INTERVAL == 0:
+                if self.__stamp_costs_dirty: self.save_outbound_stamp_costs()
 
     def jobloop(self):
         while (True):
@@ -1055,9 +1060,7 @@ class LXMRouter:
     def update_stamp_cost(self, destination_hash, stamp_cost):
         RNS.log(f"Updating outbound stamp cost for {RNS.prettyhexrep(destination_hash)} to {stamp_cost}", RNS.LOG_PATHING) if RNS.sl(RNS.LOG_PATHING) else None
         self.outbound_stamp_costs[destination_hash] = [time.time(), stamp_cost]
-        
-        def job(): self.save_outbound_stamp_costs()
-        threading.Thread(target=self.save_outbound_stamp_costs, daemon=True).start()
+        self.__stamp_costs_dirty = True
 
     def get_announce_app_data(self, destination_hash):
         if destination_hash in self.delivery_destinations:
@@ -1326,8 +1329,8 @@ class LXMRouter:
                     outbound_stamp_costs_file.write(msgpack.packb(self.outbound_stamp_costs.copy()))
                 os.replace(temp_path, write_path)
 
-            except Exception as e:
-                RNS.log("Could not save outbound stamp costs to storage. The contained exception was: "+str(e), RNS.LOG_ERROR)
+            except Exception as e: RNS.log(f"Could not save outbound stamp costs to storage. The contained exception was: {e}", RNS.LOG_ERROR)
+            self.__stamp_costs_dirty = False
 
     def clean_available_tickets(self):
         try:
@@ -1451,6 +1454,7 @@ class LXMRouter:
 
         self.save_locally_delivered_transient_ids()
         self.save_locally_processed_transient_ids()
+        self.save_outbound_stamp_costs()
         self.save_node_stats()
 
     def sigint_handler(self, signal, frame):
@@ -2407,8 +2411,6 @@ class LXMRouter:
             bypass_sequential = not self.propagation_static_peer_sequential and remote_hash in self.static_peers
             if not bypass_sequential and self.propagation_sequential_validation and len(self.validating_pn_stamps_from) > 0:
                 RNS.log(f"Propagation offer from node {remote_str} postponed, already validating {len(self.validating_pn_stamps_from)} PN stamp batches", RNS.LOG_NOTICE)
-                # for rh in self.validating_pn_stamps_from:
-                #     RNS.log(f"Validating from {RNS.prettyhexrep(rh)} for {RNS.prettytime(time.time()-self.validating_pn_stamps_from[rh])}")
                 return LXMPeer.ERROR_THROTTLED
 
             resources_transferring = self.propagation_resources_transferring
