@@ -23,6 +23,7 @@ from .LXMF import pn_announce_data_is_valid
 
 from .LXMPeer import LXMPeer
 from .LXMessage import LXMessage
+from .Storage import LXMFStore
 from .Handlers import LXMFDeliveryAnnounceHandler
 from .Handlers import LXMFPropagationAnnounceHandler
 
@@ -115,6 +116,7 @@ class LXMRouter:
 
         random.seed(os.urandom(10))
 
+        self.store                 = None
         self.pending_inbound       = []
         self.pending_outbound      = []
         self.direct_links          = {}
@@ -144,6 +146,14 @@ class LXMRouter:
         else:
             self.storagepath = storagepath+"/lxmf"
             self.ratchetpath = self.storagepath+"/ratchets"
+
+        try:
+            if not os.path.isdir(self.storagepath): os.makedirs(self.storagepath)
+            self.store = LXMFStore(self.storagepath+"/state.db")
+        except Exception as e:
+            RNS.log("Could not initialise the LXMF store, falling back to legacy file-based caches. The contained exception was: "+str(e), RNS.LOG_ERROR)
+            RNS.trace_exception(e)
+            self.store = None
 
         self.outbound_propagation_node = None
         self.outbound_propagation_link = None
@@ -206,8 +216,7 @@ class LXMRouter:
         if identity == None: identity = RNS.Identity()
 
         self.identity = identity
-        self.propagation_destination = RNS.Destination(self.identity, RNS.Destination.IN, RNS.Destination.SINGLE, APP_NAME, "propagation")
-        self.propagation_destination.set_default_app_data(self.get_propagation_node_app_data)
+        self.propagation_destination = None
         self.control_destination = None
         self.validating_pn_stamps_from = {}
         self.incoming_delivery_resources = {}
@@ -247,6 +256,44 @@ class LXMRouter:
 
         self.__delivery_callback = None
 
+        # TODO: Remove legacy import/load after transition window ###
+        if self.store != None: self.__import_legacy_storage()       #
+        else:                  self.__load_legacy_storage()         #
+        #############################################################
+
+        atexit.register(self.exit_handler)
+        signal.signal(signal.SIGINT, self.sigint_handler)
+        signal.signal(signal.SIGTERM, self.sigterm_handler)
+
+        job_thread = threading.Thread(target=self.jobloop)
+        job_thread.setDaemon(True)
+        job_thread.start()
+
+    def __import_legacy_storage(self):
+        try:
+            if os.path.isfile(self.storagepath+"/local_deliveries"): self.store.import_legacy_delivered(self.storagepath+"/local_deliveries")
+        except Exception as e: RNS.log("Could not import legacy local deliveries cache into the LXMF store. The contained exception was: "+str(e), RNS.LOG_ERROR)
+
+        try:
+            if os.path.isfile(self.storagepath+"/locally_processed"): self.store.import_legacy_processed(self.storagepath+"/locally_processed")
+        except Exception as e: RNS.log("Could not import legacy locally processed cache into the LXMF store. The contained exception was: "+str(e), RNS.LOG_ERROR)
+
+        try:
+            if os.path.isfile(self.storagepath+"/outbound_stamp_costs"): self.store.import_legacy_stamp_costs(self.storagepath+"/outbound_stamp_costs")
+        except Exception as e: RNS.log("Could not import legacy outbound stamp costs cache into the LXMF store. The contained exception was: "+str(e), RNS.LOG_ERROR)
+
+        try:
+            if os.path.isfile(self.storagepath+"/available_tickets"): self.store.import_legacy_tickets(self.storagepath+"/available_tickets")
+        except Exception as e: RNS.log("Could not import legacy available tickets cache into the LXMF store. The contained exception was: "+str(e), RNS.LOG_ERROR)
+
+        try:
+            self.clean_transient_id_caches()
+            self.clean_outbound_stamp_costs()
+            self.clean_available_tickets()
+            self.store.incremental_vacuum()
+        except Exception as e: RNS.log("Could not perform initial cleaning of the LXMF store. The contained exception was: "+str(e), RNS.LOG_ERROR)
+
+    def __load_legacy_storage(self):
         try:
             if os.path.isfile(self.storagepath+"/local_deliveries"):
                 locally_delivered_file = open(self.storagepath+"/local_deliveries", "rb")
@@ -322,14 +369,6 @@ class LXMRouter:
 
         except Exception as e:
             RNS.log("Could not load outbound stamp costs from storage. The contained exception was: "+str(e), RNS.LOG_ERROR)
-
-        atexit.register(self.exit_handler)
-        signal.signal(signal.SIGINT, self.sigint_handler)
-        signal.signal(signal.SIGTERM, self.sigterm_handler)
-
-        job_thread = threading.Thread(target=self.jobloop)
-        job_thread.setDaemon(True)
-        job_thread.start()
 
     def announce(self, destination_hash, attached_interface=None):
         if destination_hash in self.delivery_destinations:
@@ -419,6 +458,11 @@ class LXMRouter:
         return False
 
     def get_outbound_stamp_cost(self, destination_hash):
+        if self.store != None: return self.store.get_outbound_stamp_cost(destination_hash)
+        else:                  return self.get_outbound_stamp_cost_legacy(destination_hash)
+
+    # TODO: Remove legacy handling after transition
+    def get_outbound_stamp_cost_legacy(self, destination_hash):
         if destination_hash in self.outbound_stamp_costs:
             stamp_cost = self.outbound_stamp_costs[destination_hash][1]
             return stamp_cost
@@ -581,6 +625,10 @@ class LXMRouter:
 
     def enable_propagation(self):
         try:
+            if not self.propagation_destination:
+                self.propagation_destination = RNS.Destination(self.identity, RNS.Destination.IN, RNS.Destination.SINGLE, APP_NAME, "propagation")
+                self.propagation_destination.set_default_app_data(self.get_propagation_node_app_data)
+
             self.messagepath = self.storagepath+"/messagestore"
 
             if not os.path.isdir(self.storagepath):
@@ -645,13 +693,26 @@ class LXMRouter:
                         serialised_peer = serialised_peers.pop()
                         peer = LXMPeer.from_bytes(serialised_peer, self)
                         del serialised_peer
+
                         if peer.destination_hash in self.static_peers and peer.last_heard == 0:
-                            self.request_path(peer.destination_hash)
+                            RNS.log(f"Attempting to resolve initial peering data for static peer {RNS.prettyhexrep(peer.destination_hash)}", RNS.LOG_NOTICE)
+                            RNS.Transport.await_path(peer.destination_hash, timeout=5.0)
+                            peer.resolve_identity()
+
+                        if peer.identity == None:
+                            if peer in self.static_peers:
+                                RNS.log(f"Attempting to resolve unknown identity for static peer {RNS.prettyhexrep(peer.destination_hash)}", RNS.LOG_NOTICE)
+                                RNS.Transport.await_path(peer.destination_hash, timeout=7.5)
+                                peer.resolve_identity()
+                            else:
+                                RNS.log(f"Attempting to resolve unknown identity for peer {RNS.prettyhexrep(peer.destination_hash)}", RNS.LOG_NOTICE)
+                                RNS.Transport.await_path(peer.destination_hash, timeout=2.5)
+                                peer.resolve_identity()
+
                         if peer.identity != None:
                             self.peers[peer.destination_hash] = peer
                             lim_str = ", no transfer limit"
-                            if peer.propagation_transfer_limit != None:
-                                lim_str = ", "+RNS.prettysize(peer.propagation_transfer_limit*1000)+" transfer limit"
+                            if peer.propagation_transfer_limit != None: lim_str = ", "+RNS.prettysize(peer.propagation_transfer_limit*1000)+" transfer limit"
                             RNS.log("Rebuilt peer "+RNS.prettyhexrep(peer.destination_hash)+" with "+str(peer.unhandled_message_count)+" unhandled messages"+lim_str, RNS.LOG_DEBUG)
                         else:
                             RNS.log("Peer "+RNS.prettyhexrep(peer.destination_hash)+" could not be loaded, because its identity could not be recalled. Dropping peer.", RNS.LOG_DEBUG)
@@ -907,6 +968,8 @@ class LXMRouter:
     JOB_PEERSYNC_INTERVAL  = 6
     JOB_PEERINGEST_INTERVAL= JOB_PEERSYNC_INTERVAL
     JOB_ROTATE_INTERVAL    = 56*JOB_PEERINGEST_INTERVAL
+    STORE_CULL_CHUNKS      = 16
+
     def jobs(self):
         if not self.exit_handler_running:
             self.processing_count += 1
@@ -940,7 +1003,11 @@ class LXMRouter:
                 self.clean_throttled_peers()
 
             if self.processing_count % LXMRouter.JOB_STAMPCOST_INTERVAL == 0:
-                if self.__stamp_costs_dirty: self.save_outbound_stamp_costs()
+                if self.store != None:
+                    self.clean_outbound_stamp_costs()
+                    self.clean_available_tickets()
+                    self.store.incremental_vacuum()
+                elif self.__stamp_costs_dirty: self.save_outbound_stamp_costs()
 
     def jobloop(self):
         while (True):
@@ -1035,7 +1102,29 @@ class LXMRouter:
 
             RNS.log("Cleaned outbound propagation link", RNS.LOG_DEBUG)
 
+    def __cull_store(self, cull_method, cutoff):
+        # Bounded drain of an expired-entry cull method on the LXMF
+        # store. Capped per call, so maintenance stays short; any
+        # remainder is culled on subsequent ticks.
+        removed = 0
+        for i in range(LXMRouter.STORE_CULL_CHUNKS):
+            batch = cull_method(cutoff)
+            if batch == 0: break
+            removed += batch
+
+        return removed
+
     def clean_transient_id_caches(self):
+        # TODO: Remove legacy handling after transition
+        if self.store == None: self.clean_transient_id_caches_legacy()
+        else:
+            now = time.time()
+            cutoff = now-LXMRouter.MESSAGE_EXPIRY*6.0
+            removed_delivered  = self.__cull_store(self.store.cull_delivered, cutoff)
+            removed_processed  = self.__cull_store(self.store.cull_processed, cutoff)
+            if removed_delivered+removed_processed > 0: RNS.log(f"Cleaned {removed_delivered} delivered and {removed_processed} processed transient IDs from the LXMF store", RNS.LOG_DEBUG) if RNS.sl(RNS.LOG_DEBUG) else None
+
+    def clean_transient_id_caches_legacy(self):
         now = time.time()
         removed_entries = []
         for transient_id in self.locally_delivered_transient_ids.copy():
@@ -1059,6 +1148,10 @@ class LXMRouter:
 
     def update_stamp_cost(self, destination_hash, stamp_cost):
         RNS.log(f"Updating outbound stamp cost for {RNS.prettyhexrep(destination_hash)} to {stamp_cost}", RNS.LOG_PATHING) if RNS.sl(RNS.LOG_PATHING) else None
+        if self.store == None: self.update_stamp_cost_legacy(destination_hash, stamp_cost)
+        else:                  self.store.update_stamp_cost(destination_hash, stamp_cost)
+
+    def update_stamp_cost_legacy(self, destination_hash, stamp_cost):
         self.outbound_stamp_costs[destination_hash] = [time.time(), stamp_cost]
         self.__stamp_costs_dirty = True
 
@@ -1105,6 +1198,31 @@ class LXMRouter:
         else:                                            return self.propagation_entries[transient_id][6]
 
     def generate_ticket(self, destination_hash, expiry=LXMessage.TICKET_EXPIRY):
+        # TODO: Remove legacy handling after transition
+        if self.store == None: return self.generate_ticket_legacy(destination_hash, expiry=expiry)
+        else:
+            now = time.time()
+
+            last_delivery = self.store.get_last_ticket_delivery(destination_hash)
+            if last_delivery != None:
+                elapsed = now - last_delivery
+                if elapsed < LXMessage.TICKET_INTERVAL:
+                    RNS.log(f"A ticket for {RNS.prettyhexrep(destination_hash)} was already delivered {RNS.prettytime(elapsed)} ago, not including another ticket yet", RNS.LOG_DEBUG)
+                    return None
+
+            reusable = self.store.get_reusable_inbound_ticket(destination_hash, LXMessage.TICKET_RENEW)
+            if reusable != None:
+                RNS.log(f"Found generated ticket for {RNS.prettyhexrep(destination_hash)} with {RNS.prettytime(reusable[0]-now)} of validity left, re-using this one", RNS.LOG_DEBUG)
+                return reusable
+
+            RNS.log(f"No generated tickets for {RNS.prettyhexrep(destination_hash)} with enough validity found, generating a new one", RNS.LOG_DEBUG)
+            expires = now+expiry
+            ticket  = os.urandom(LXMessage.TICKET_LENGTH)
+            self.store.store_inbound_ticket(destination_hash, ticket, expires)
+
+            return [expires, ticket]
+
+    def generate_ticket_legacy(self, destination_hash, expiry=LXMessage.TICKET_EXPIRY):
         now = time.time()
         ticket = None
         if destination_hash in self.available_tickets["last_deliveries"]:
@@ -1136,9 +1254,19 @@ class LXMRouter:
     def remember_ticket(self, destination_hash, ticket_entry):
         expires = ticket_entry[0]-time.time()
         RNS.log(f"Remembering ticket for {RNS.prettyhexrep(destination_hash)}, expires in {RNS.prettytime(expires)}", RNS.LOG_DEBUG)
+        # TODO: Remove legacy handling after transition
+        if self.store == None: self.remember_ticket_legacy(destination_hash, ticket_entry)
+        else: self.store.remember_ticket(destination_hash, ticket_entry)
+
+    def remember_ticket_legacy(self, destination_hash, ticket_entry):
         self.available_tickets["outbound"][destination_hash] = [ticket_entry[0], ticket_entry[1]]
 
     def get_outbound_ticket(self, destination_hash):
+        # TODO: Remove legacy handling after transition
+        if self.store == None: return self.get_outbound_ticket_legacy(destination_hash)
+        else:                  return self.store.get_outbound_ticket(destination_hash)
+
+    def get_outbound_ticket_legacy(self, destination_hash):
         if destination_hash in self.available_tickets["outbound"]:
             entry = self.available_tickets["outbound"][destination_hash]
             if entry[0] > time.time():
@@ -1147,6 +1275,11 @@ class LXMRouter:
         return None
 
     def get_outbound_ticket_expiry(self, destination_hash):
+        # TODO: Remove legacy handling after transition
+        if self.store == None: return self.get_outbound_ticket_expiry_legacy(destination_hash)
+        else: return self.store.get_outbound_ticket_expiry(destination_hash)
+
+    def get_outbound_ticket_expiry_legacy(self, destination_hash):
         if destination_hash in self.available_tickets["outbound"]:
             entry = self.available_tickets["outbound"][destination_hash]
             if entry[0] > time.time():
@@ -1155,6 +1288,11 @@ class LXMRouter:
         return None
 
     def get_inbound_tickets(self, destination_hash):
+        # TODO: Remove legacy handling after transition
+        if self.store == None: return self.get_inbound_tickets_legacy(destination_hash)
+        else: return self.store.get_inbound_tickets(destination_hash)
+
+    def get_inbound_tickets_legacy(self, destination_hash):
         now = time.time()
         available_tickets = []
         if destination_hash in self.available_tickets["inbound"]:
@@ -1258,6 +1396,8 @@ class LXMRouter:
             RNS.log("Could not clean the LXMF message store. The contained exception was: "+str(e), RNS.LOG_ERROR)
 
     def save_locally_delivered_transient_ids(self):
+        if self.store != None: return
+        # TODO: Remove legacy handling after transition
         try:
             if len(self.locally_delivered_transient_ids) > 0:
                 if not os.path.isdir(self.storagepath): os.makedirs(self.storagepath)
@@ -1271,6 +1411,8 @@ class LXMRouter:
             RNS.log("Could not save locally delivered message ID cache to storage. The contained exception was: "+str(e), RNS.LOG_ERROR)
 
     def save_locally_processed_transient_ids(self):
+        if self.store != None: return
+        # TODO: Remove legacy handling after transition
         try:
             if len(self.locally_processed_transient_ids) > 0:
                 if not os.path.isdir(self.storagepath):
@@ -1304,6 +1446,20 @@ class LXMRouter:
             RNS.log("Could not save local node stats to storage. The contained exception was: "+str(e), RNS.LOG_ERROR)
 
     def clean_outbound_stamp_costs(self):
+        # TODO: Remove legacy handling after transition
+        if self.store == None: self.clean_outbound_stamp_costs_legacy()
+        else:
+            try:
+                removed = self.__cull_store(self.store.cull_stamp_costs, time.time()-LXMRouter.STAMP_COST_EXPIRY)
+                if removed > 0:
+                    RNS.log(f"Cleaned {removed} outbound stamp cost entries from the LXMF store", RNS.LOG_DEBUG) if RNS.sl(RNS.LOG_DEBUG) else None
+
+            except Exception as e:
+                RNS.log(f"Error while cleaning outbound stamp costs in the LXMF store. The contained exception was: {e}", RNS.LOG_ERROR)
+                RNS.trace_exception(e)
+            return
+
+    def clean_outbound_stamp_costs_legacy(self):
         try:
             expired = []
             for destination_hash in self.outbound_stamp_costs:
@@ -1319,6 +1475,8 @@ class LXMRouter:
             RNS.trace_exception(e)
 
     def save_outbound_stamp_costs(self):
+        # TODO: Remove legacy handling after transition
+        if self.store != None: return
         with self.cost_file_lock:
             try:
                 if not os.path.isdir(self.storagepath): os.makedirs(self.storagepath)
@@ -1333,6 +1491,22 @@ class LXMRouter:
             self.__stamp_costs_dirty = False
 
     def clean_available_tickets(self):
+        # TODO: Remove legacy handling after transition
+        if self.store == None: self.clean_available_tickets_legacy()
+        else:
+            try:
+                now = time.time()
+                removed_outbound = self.__cull_store(self.store.cull_tickets_outbound, now)
+                removed_inbound  = self.__cull_store(self.store.cull_tickets_inbound, now-LXMessage.TICKET_GRACE)
+                if removed_outbound+removed_inbound > 0:
+                    RNS.log(f"Cleaned {removed_outbound} outbound and {removed_inbound} inbound tickets from the LXMF store", RNS.LOG_DEBUG) if RNS.sl(RNS.LOG_DEBUG) else None
+
+            except Exception as e:
+                RNS.log(f"Error while cleaning available tickets in the LXMF store. The contained exception was: {e}", RNS.LOG_ERROR)
+                RNS.trace_exception(e)
+            return
+
+    def clean_available_tickets_legacy(self):
         try:
             # Clean outbound tickets
             expired_outbound = []
@@ -1361,6 +1535,8 @@ class LXMRouter:
             RNS.trace_exception(e)
 
     def save_available_tickets(self):
+        if self.store != None: return
+        # TODO: Remove legacy handling after transition
         with self.ticket_file_lock:
             try:
                 if not os.path.isdir(self.storagepath):
@@ -1376,6 +1552,8 @@ class LXMRouter:
                 RNS.log("Could not save available tickets to storage. The contained exception was: "+str(e), RNS.LOG_ERROR)
 
     def reload_available_tickets(self):
+        if self.store != None: return
+        # TODO: Remove legacy handling after transition
         RNS.log("Reloading available tickets from storage", RNS.LOG_DEBUG)
         try:
             with self.ticket_file_lock:
@@ -1456,6 +1634,10 @@ class LXMRouter:
         self.save_locally_processed_transient_ids()
         self.save_outbound_stamp_costs()
         self.save_node_stats()
+
+        if self.store != None:
+            RNS.log("Closing store...", RNS.LOG_DEBUG)
+            self.store.close()
 
     def sigint_handler(self, signal, frame):
         if threading.current_thread() != threading.main_thread():
@@ -1696,8 +1878,10 @@ class LXMRouter:
         self.wants_download_on_path_available_to = None
 
     def has_message(self, transient_id):
-        if transient_id in self.locally_delivered_transient_ids: return True
-        else:                                                    return False
+        if self.store != None: return self.store.has_delivered(transient_id)
+        else:
+            if transient_id in self.locally_delivered_transient_ids: return True
+            else:                                                    return False
     
     def inbound_count(self):
         try:
@@ -1889,8 +2073,8 @@ class LXMRouter:
             raise IOError("Attempt to send propagated message with no outbound propagation node configured")
 
         if lxmessage.stamp_cost == None:
-            if destination_hash in self.outbound_stamp_costs:
-                stamp_cost = self.outbound_stamp_costs[destination_hash][1]
+            stamp_cost = self.get_outbound_stamp_cost(destination_hash)
+            if stamp_cost != None:
                 lxmessage.stamp_cost = stamp_cost
                 RNS.log(f"No stamp cost set on LXM to {RNS.prettyhexrep(destination_hash)}, autoconfigured to {stamp_cost}, as required by latest announce", RNS.LOG_DEBUG)
 
@@ -1993,9 +2177,10 @@ class LXMRouter:
                     if time.time() < expires:
                         if type(ticket) == bytes and len(ticket) == LXMessage.TICKET_LENGTH:
                             self.remember_ticket(message.source_hash, ticket_entry)
-                            def save_job():
-                                self.save_available_tickets()
-                            threading.Thread(target=save_job, daemon=True).start()
+                            # TODO: Remove legacy handling after transition
+                            if self.store == None:
+                                def save_job(): self.save_available_tickets()
+                                threading.Thread(target=save_job, daemon=True).start()
 
             required_stamp_cost = self.delivery_destinations[message.destination_hash].stamp_cost
             if required_stamp_cost != None:
@@ -2042,12 +2227,19 @@ class LXMRouter:
                 RNS.log(str(self)+" ignored message from "+RNS.prettyhexrep(message.source_hash), RNS.LOG_DEBUG)
                 return False
 
-            if not allow_duplicate and self.has_message(message.hash):
-                RNS.log(str(self)+" ignored already received message from "+RNS.prettyhexrep(message.source_hash), RNS.LOG_DEBUG)
-                return False
+            if self.store != None:
+                if allow_duplicate: self.store.mark_locally_delivered(message.hash, time.time())
+                elif not self.store.conditionally_claim_delivered(message.hash, time.time()):
+                    RNS.log(str(self)+" ignored already received message from "+RNS.prettyhexrep(message.source_hash), RNS.LOG_DEBUG)
+                    return False
             else:
-                with self.delivered_transient_ids_lock:
-                    self.locally_delivered_transient_ids[message.hash] = time.time()
+                # TODO: Remove legacy handling after transition
+                if not allow_duplicate and self.has_message(message.hash):
+                    RNS.log(str(self)+" ignored already received message from "+RNS.prettyhexrep(message.source_hash), RNS.LOG_DEBUG)
+                    return False
+                else:
+                    with self.delivered_transient_ids_lock:
+                        self.locally_delivered_transient_ids[message.hash] = time.time()
 
             if self.__delivery_callback != None and callable(self.__delivery_callback):
                 try: self.__delivery_callback(message)
@@ -2634,11 +2826,26 @@ class LXMRouter:
         try:
             if len(lxmf_data) >= LXMessage.LXMF_OVERHEAD:
                 transient_id = RNS.Identity.full_hash(lxmf_data)
+                received = time.time()
 
-                if (not transient_id in self.propagation_entries and not transient_id in self.locally_processed_transient_ids) or allow_duplicate == True:
-                    received = time.time()
+                duplicate_filtered = True
+                if allow_duplicate == True:
+                    duplicate_filtered = False
+                    # TODO: Remove legacy handling after transition
+                    if self.store != None: self.store.unconditionally_mark_processed(transient_id, received)
+                    else:
+                        with self.processed_transient_ids_lock: self.locally_processed_transient_ids[transient_id] = received
+
+                elif not transient_id in self.propagation_entries:
+                    # TODO: Remove legacy handling after transition
+                    if self.store != None: duplicate_filtered = not self.store.conditionally_claim_processed(transient_id, received)
+                    else:
+                        if not transient_id in self.locally_processed_transient_ids:
+                            with self.processed_transient_ids_lock: self.locally_processed_transient_ids[transient_id] = received
+                            duplicate_filtered = False
+
+                if not duplicate_filtered:
                     destination_hash  = lxmf_data[:LXMessage.DESTINATION_LENGTH]
-                    with self.processed_transient_ids_lock: self.locally_processed_transient_ids[transient_id] = received
 
                     if destination_hash in self.delivery_destinations:
                         delivery_destination = self.delivery_destinations[destination_hash]
@@ -2647,7 +2854,10 @@ class LXMRouter:
                         if decrypted_lxmf_data != None:
                             delivery_data = lxmf_data[:LXMessage.DESTINATION_LENGTH]+decrypted_lxmf_data
                             self.lxmf_delivery(delivery_data, delivery_destination.type, ratchet_id=delivery_destination.latest_ratchet_id, method=LXMessage.PROPAGATED, no_stamp_enforcement=no_stamp_enforcement, allow_duplicate=allow_duplicate)
-                            with self.delivered_transient_ids_lock: self.locally_delivered_transient_ids[transient_id] = time.time()
+                            # TODO: Remove legacy handling after transition
+                            if self.store != None: self.store.mark_locally_delivered(transient_id, time.time())
+                            else:
+                                with self.delivered_transient_ids_lock: self.locally_delivered_transient_ids[transient_id] = time.time()
                             if signal_local_delivery != None: return signal_local_delivery
                     else:
                         if self.propagation_node:
@@ -2845,8 +3055,11 @@ class LXMRouter:
                     # Udate ticket delivery stats
                     if lxmessage.include_ticket and FIELD_TICKET in lxmessage.fields:
                         RNS.log(f"Updating latest ticket delivery for {RNS.prettyhexrep(lxmessage.destination_hash)}", RNS.LOG_DEBUG)
-                        self.available_tickets["last_deliveries"][lxmessage.destination_hash] = time.time()
-                        self.save_available_tickets()
+                        # TODO: Remove legacy handling after transition
+                        if self.store != None: self.store.mark_last_ticket_delivery(lxmessage.destination_hash, time.time())
+                        else:
+                            self.available_tickets["last_deliveries"][lxmessage.destination_hash] = time.time()
+                            self.save_available_tickets()
 
                     # Prepare link for backchannel communications
                     delivery_destination_hash = lxmessage.get_destination().hash

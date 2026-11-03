@@ -217,9 +217,11 @@ class LXMPeer:
         
         self.router = router
         self.destination_hash = destination_hash
-        self.identity = RNS.Identity.recall(destination_hash)
-        if self.identity != None:
-            self.destination = RNS.Destination(self.identity, RNS.Destination.OUT, RNS.Destination.SINGLE, APP_NAME, "propagation")
+        self.resolve_identity()
+
+    def resolve_identity(self):
+        self.identity = RNS.Identity.recall(self.destination_hash)
+        if self.identity != None: self.destination = RNS.Destination(self.identity, RNS.Destination.OUT, RNS.Destination.SINGLE, APP_NAME, "propagation")
         else:
             self.destination = None
             RNS.log(f"Could not recall identity for LXMF propagation peer {RNS.prettyhexrep(self.destination_hash)}, will retry identity resolution on next sync", RNS.LOG_WARNING)
@@ -250,7 +252,7 @@ class LXMPeer:
                     return False
 
                 if self.identity == None:
-                    self.identity = RNS.Identity.recall(destination_hash)
+                    self.identity = RNS.Identity.recall(self.destination_hash)
                     if self.identity == None:
                         RNS.log(f"Could not update peering key for {self} since its identity could not be recalled", RNS.LOG_ERROR)
                         return False
@@ -305,7 +307,7 @@ class LXMPeer:
             
             else:
                 if self.identity == None:
-                    self.identity = RNS.Identity.recall(destination_hash)
+                    self.identity = RNS.Identity.recall(self.destination_hash)
                     if self.identity != None:
                         self.destination = RNS.Destination(self.identity, RNS.Destination.OUT, RNS.Destination.SINGLE, APP_NAME, "propagation")
 
