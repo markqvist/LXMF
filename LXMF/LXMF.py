@@ -155,7 +155,11 @@ def display_name_from_app_data(app_data=None):
     else:
         # Version 0.5.0+ announce format
         if (app_data[0] >= 0x90 and app_data[0] <= 0x9f) or app_data[0] == 0xdc:
-            peer_data = msgpack.unpackb(app_data)
+            try: peer_data = msgpack.unpackb(app_data)
+            except Exception as e:
+                RNS.log(f"Could not decode display name in included announce data. The contained exception was: {e}", RNS.LOG_EXTREME) if RNS.sl(RNS.LOG_EXTREME) else None
+                return None
+
             if type(peer_data) == list:
                 if len(peer_data) < 1: return None
                 else:
@@ -166,11 +170,15 @@ def display_name_from_app_data(app_data=None):
                             decoded = dn.decode("utf-8").replace("\x00", "").strip()
                             return decoded
                         except Exception as e:
-                            RNS.log(f"Could not decode display name in included announce data. The contained exception was: {e}", RNS.LOG_EXTREME)
+                            RNS.log(f"Could not decode display name in included announce data. The contained exception was: {e}", RNS.LOG_EXTREME) if RNS.sl(RNS.LOG_EXTREME) else None
                             return None
 
-        # Original announce format
-        else: return app_data.decode("utf-8")
+        # Legacy announce format
+        else:
+            try: return app_data.decode("utf-8")
+            except Exception as e:
+                RNS.log(f"Could not decode display name in legacy announce data. The contained exception was: {e}", RNS.LOG_EXTREME) if RNS.sl(RNS.LOG_EXTREME) else None
+                return None
 
 def stamp_cost_from_app_data(app_data=None):
     if app_data == None or app_data == b"": return None
