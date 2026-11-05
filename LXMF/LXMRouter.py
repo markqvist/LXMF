@@ -3078,6 +3078,8 @@ class LXMRouter:
 
                 elif lxmessage.method == LXMessage.PROPAGATED and lxmessage.state == LXMessage.SENT:
                     RNS.log("Propagation has occurred for "+str(lxmessage)+", removing from outbound queue", RNS.LOG_DEBUG)
+                    try: RNS.Reticulum.get_instance()._retain_destination_data(lxmessage.destination_hash)
+                    except Exception as e: RNS.log(f"An error occurred while marking {RNS.prettyhexrep(lxmessage.destination_hash)} for announce data retainment: {e}", RNS.LOG_ERROR)
                     self.pending_outbound.remove(lxmessage)
 
                 elif lxmessage.state == LXMessage.CANCELLED:
