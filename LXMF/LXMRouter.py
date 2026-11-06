@@ -50,6 +50,9 @@ class LXMRouter:
 
     NODE_ANNOUNCE_DELAY   = 20
 
+    DELIVERY_LINK_COST    = 3.25
+    PROPAGATION_LINK_COST = 3.25
+
     MAX_PEERS             = 20
     AUTOPEER              = True
     AUTOPEER_MAXDEPTH     = 4
@@ -416,6 +419,7 @@ class LXMRouter:
             os.makedirs(self.ratchetpath)
 
         delivery_destination = RNS.Destination(identity, RNS.Destination.IN, RNS.Destination.SINGLE, APP_NAME, "delivery")
+        delivery_destination.set_link_cost(self.DELIVERY_LINK_COST)
         delivery_destination.enable_ratchets(f"{self.ratchetpath}/{RNS.hexrep(delivery_destination.hash, delimit=False)}.ratchets")
         delivery_destination.set_packet_callback(self.delivery_packet)
         delivery_destination.set_link_established_callback(self.delivery_link_established)
@@ -627,6 +631,7 @@ class LXMRouter:
         try:
             if not self.propagation_destination:
                 self.propagation_destination = RNS.Destination(self.identity, RNS.Destination.IN, RNS.Destination.SINGLE, APP_NAME, "propagation")
+                self.propagation_destination.set_link_cost(self.PROPAGATION_LINK_COST)
                 self.propagation_destination.set_default_app_data(self.get_propagation_node_app_data)
 
             self.messagepath = self.storagepath+"/messagestore"
