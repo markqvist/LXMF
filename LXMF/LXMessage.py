@@ -292,6 +292,14 @@ class LXMessage:
         if self.stamp == None:
             return False
         else:
+            # Transitory mechanism, check non-expanded workblock validity first. ######
+            workblock_ne = LXStamper.stamp_workblock(self.message_id, no_expand=True) #
+            if LXStamper.stamp_valid(self.stamp, target_cost, workblock_ne):          #
+                RNS.log(f"Stamp (NE) on {self} validated", RNS.LOG_DEBUG)             #
+                self.stamp_value = LXStamper.stamp_value(workblock_ne, self.stamp)    #
+                return True                                                           #
+            ###########################################################################
+
             workblock = LXStamper.stamp_workblock(self.message_id)
             if LXStamper.stamp_valid(self.stamp, target_cost, workblock):
                 RNS.log(f"Stamp on {self} validated", RNS.LOG_DEBUG) # TODO: Remove at some point

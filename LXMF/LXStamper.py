@@ -24,6 +24,11 @@ def generate_stamp(message_id, stamp_cost, expand_rounds=WORKBLOCK_EXPAND_ROUNDS
     return RNS.Stamps.generate_stamp(message_id, stamp_cost, expand_rounds=expand_rounds, no_expand=no_expand, size=STAMP_SIZE)
 
 def validate_peering_key(peering_id, peering_key, target_cost):
+    # Transitory mechanism, check non-expanded workblock validity first. ##
+    workblock_ne = stamp_workblock(peering_id, no_expand=True)            #
+    if stamp_valid(peering_key, target_cost, workblock_ne): return True   #
+    #######################################################################
+
     workblock = stamp_workblock(peering_id, expand_rounds=WORKBLOCK_EXPAND_ROUNDS_PEERING)
     if not stamp_valid(peering_key, target_cost, workblock): return False
     else: return True
@@ -35,8 +40,15 @@ def validate_pn_stamp(transient_data, target_cost):
         lxm_data     = transient_data[:-STAMP_SIZE]
         stamp        = transient_data[-STAMP_SIZE:]
         transient_id = RNS.Identity.full_hash(lxm_data)
-        workblock    = stamp_workblock(transient_id, expand_rounds=WORKBLOCK_EXPAND_ROUNDS_PN)
+
+        # Transitory mechanism, check non-expanded workblock validity first. ##
+        workblock_ne = stamp_workblock(transient_id, no_expand=True)          #
+        if stamp_valid(stamp, target_cost, workblock_ne):                     #
+            value = stamp_value(workblock_ne, stamp)                          #
+            return transient_id, lxm_data, value, stamp                       #
+        #######################################################################
         
+        workblock = stamp_workblock(transient_id, expand_rounds=WORKBLOCK_EXPAND_ROUNDS_PN)
         if not stamp_valid(stamp, target_cost, workblock): return None, None, None, None
         else:
             value = stamp_value(workblock, stamp)
