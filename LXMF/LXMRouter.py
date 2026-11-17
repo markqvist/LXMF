@@ -410,7 +410,7 @@ class LXMRouter:
         da_thread.setDaemon(True)
         da_thread.start()
 
-    def register_delivery_identity(self, identity, display_name = None, stamp_cost = None):
+    def register_delivery_identity(self, identity, display_name=None, stamp_cost=None, stamp_value=None):
         if len(self.delivery_destinations) != 0:
             RNS.log("Currently only one delivery identity is supported per LXMF router instance", RNS.LOG_ERROR)
             return None
@@ -419,6 +419,7 @@ class LXMRouter:
             os.makedirs(self.ratchetpath)
 
         delivery_destination = RNS.Destination(identity, RNS.Destination.IN, RNS.Destination.SINGLE, APP_NAME, "delivery")
+        if stamp_value: delivery_destination.set_value(stamp_value)
         delivery_destination.set_link_cost(self.DELIVERY_LINK_COST)
         delivery_destination.enable_ratchets(f"{self.ratchetpath}/{RNS.hexrep(delivery_destination.hash, delimit=False)}.ratchets")
         delivery_destination.set_packet_callback(self.delivery_packet)
