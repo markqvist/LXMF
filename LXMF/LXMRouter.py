@@ -498,6 +498,7 @@ class LXMRouter:
         pn_app_data = RNS.Identity.recall_app_data(pn_destination_hash)
         if pn_announce_data_is_valid(pn_app_data):
             pn_config = msgpack.unpackb(pn_app_data)
+            # TODO: Transitional mechanism, remove after 1.6.2
             if len(pn_config) > 7: target_propagation_cost = pn_config[7][0]
             else:                  target_propagation_cost = pn_config[5][0]
 
